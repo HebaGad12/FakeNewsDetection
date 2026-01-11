@@ -1,4 +1,7 @@
 
+using Microsoft.EntityFrameworkCore;
+using Persistence;
+
 namespace FakeNewsDetection.web
 {
     public class Program
@@ -6,7 +9,7 @@ namespace FakeNewsDetection.web
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-
+            builder.Services.AddDbContext<AppDbContext>(opts => opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
             // Add services to the container.
 
             builder.Services.AddControllers();
