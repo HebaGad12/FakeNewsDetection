@@ -21,15 +21,18 @@ namespace Persistence
 
         protected override void OnModelCreating(ModelBuilder b)
         {
-            
+            base.OnModelCreating(b);
+
+         
             b.Entity<User>().HasIndex(u => u.Email).IsUnique();
             b.Entity<User>().Property(u => u.Name).HasMaxLength(200);
             b.Entity<User>().Property(u => u.Email).HasMaxLength(200);
 
-           
+          
             b.Entity<Organization>().Property(o => o.Name).HasMaxLength(200);
             b.Entity<Organization>().Property(o => o.Email).HasMaxLength(200);
 
+      
             b.Entity<Post>().HasIndex(p => p.CreatedAt);
             b.Entity<Post>().Property(p => p.Title).HasMaxLength(300);
             b.Entity<Post>().Property(p => p.Tags)
@@ -49,16 +52,26 @@ namespace Persistence
                 .HasForeignKey(p => p.OrganizationId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-       
             b.Entity<Interaction>().HasIndex(i => new { i.PostId, i.UserId, i.Type });
             b.Entity<Interaction>().Property(i => i.Content).HasMaxLength(2000);
 
-     
             b.Entity<Follow>().HasKey(f => new { f.FollowerId, f.FolloweeId });
             b.Entity<Follow>().HasIndex(f => f.CreatedAt);
 
-       
+            b.Entity<Follow>()
+                .HasOne(f => f.Follower)
+                .WithMany(u => u.Followees) 
+                .HasForeignKey(f => f.FollowerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Entity<Follow>()
+                .HasOne(f => f.Followee)
+                .WithMany(u => u.Followers)
+                .HasForeignKey(f => f.FolloweeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.Entity<ModerationAction>().HasIndex(m => new { m.PostId, m.CreatedAt });
         }
+
     }
 }

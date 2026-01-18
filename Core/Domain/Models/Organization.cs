@@ -8,10 +8,13 @@ namespace Domain.Models
 {
     public class Organization
     {
-        public Guid Id { get; set; } 
+        public Guid Id { get; set; }
         public string Name { get; set; } = "";
         public string Email { get; set; } = "";
         public string? Profile { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow; 
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public ICollection<Post> Posts { get; set; } = new List<Post>();
+        public ICollection<User> Users { get; set; } = new List<User>();
     }
+
 }
