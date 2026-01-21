@@ -7,15 +7,9 @@ using Persistence.Repositories;
 using Services;
 using ServicesAbstraction;
 using System.Text;
-
+using Microsoft.OpenApi.Models;
 namespace FakeNewsDetection.web
 {
-    using Microsoft.AspNetCore.Authentication.JwtBearer;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.IdentityModel.Tokens;
-    using Microsoft.OpenApi.Models;
-    using System.Text;
-
     public class Program
     {
         public static async Task Main(string[] args)
@@ -57,7 +51,11 @@ namespace FakeNewsDetection.web
 
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
-
+            builder.Services.AddScoped<IFollowRepository, FollowRepository>();
+            builder.Services.AddScoped<IPostRepository, PostRepository>();
+            builder.Services.AddScoped<IInteractionRepository, InteractionRepository>();
+            builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
+            builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {

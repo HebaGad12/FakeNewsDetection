@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -71,6 +72,8 @@ namespace Persistence
                 .OnDelete(DeleteBehavior.Restrict);
 
             b.Entity<ModerationAction>().HasIndex(m => new { m.PostId, m.CreatedAt });
+            b.Entity<Post>().HasOne(p => p.Author).WithMany(u => u.Posts).HasForeignKey(p => p.AuthorId);
+            b.Entity<Post>().HasOne(p => p.Organization).WithMany(o => o.Posts).HasForeignKey(p => p.OrganizationId);
         }
 
     }

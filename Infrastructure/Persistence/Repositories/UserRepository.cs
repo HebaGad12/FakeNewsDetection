@@ -14,8 +14,9 @@ namespace Persistence.Repositories
         private readonly AppDbContext _context;
         public UserRepository(AppDbContext context) => _context = context;
 
-        public async Task<User?> GetByIdAsync(Guid id) =>
-            await _context.Users.FindAsync(id);
+        public async Task<User?> GetByIdAsync(Guid id)
+        { 
+            return await _context.Users.Include(u => u.Organization).Include(u => u.Posts).Include(u => u.Followers).FirstOrDefaultAsync(u => u.Id == id); }
 
         public async Task<IEnumerable<User>> GetAllAsync() =>
             await _context.Users.ToListAsync();

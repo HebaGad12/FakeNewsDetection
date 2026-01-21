@@ -13,11 +13,19 @@ namespace Persistence.Repositories
     {
         private readonly AppDbContext _context;
         public InteractionRepository(AppDbContext context) => _context = context;
+
         public async Task<IEnumerable<Interaction>> GetByPostAsync(Guid postId) =>
-            await _context.Interactions.Where(i => i.PostId == postId).ToListAsync();
+            await _context.Interactions
+                .Where(i => i.PostId == postId)
+                .Include(i => i.User)
+                .Include(i => i.Post)
+                .ToListAsync();
 
         public async Task<IEnumerable<Interaction>> GetByUserAsync(Guid userId) =>
-            await _context.Interactions.Where(i => i.UserId == userId).ToListAsync();
+            await _context.Interactions
+                .Where(i => i.UserId == userId)
+                .Include(i => i.Post)
+                .ToListAsync();
 
         public async Task AddAsync(Interaction interaction)
         {
@@ -25,6 +33,7 @@ namespace Persistence.Repositories
             await _context.SaveChangesAsync();
         }
 
+    
         public async Task DeleteAsync(Guid id)
         {
             var interaction = await _context.Interactions.FindAsync(id);
@@ -35,5 +44,6 @@ namespace Persistence.Repositories
             }
         }
     }
+
 
 }
