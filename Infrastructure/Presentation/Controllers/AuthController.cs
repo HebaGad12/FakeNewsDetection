@@ -108,7 +108,7 @@ namespace Presentation.Controllers
                 user.Email,
                 Role = user.Role.ToString(),
             });
-    }
+        }
 
     }
 }

@@ -1,11 +1,8 @@
 ﻿using Domain.Enums;
 using Domain.Models;
-using Microsoft.AspNetCore.Identity;
 using Services.Utilities;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Persistence
@@ -15,7 +12,7 @@ namespace Persistence
         public static async Task SeedAsync(AppDbContext ctx)
         {
             if (!ctx.Users.Any(u => u.Role == Role.Admin))
-            {
+            {           
                 var admin = new User
                 {
                     Id = Guid.NewGuid(),
@@ -24,12 +21,14 @@ namespace Persistence
                     PasswordHash = PasswordHasher.Hash("Admin#12345"),
                     Role = Role.Admin,
                     IsActive = true,
+                    OrganizationId = null, 
+                    JournalistExternalId = null,  
                     CreatedAt = DateTime.UtcNow
                 };
-                ctx.Users.Add(admin);
-                await ctx.SaveChangesAsync();
+            ctx.Users.Add(admin);
+            await ctx.SaveChangesAsync();
             }
         }
     }
-
 }
+

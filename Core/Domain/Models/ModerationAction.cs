@@ -9,6 +9,7 @@ namespace Domain.Models
 {
     public class ModerationAction
     {
+        public ModerationActionType ActionType;
         public Guid Id { get; set; }
         public Guid PostId { get; set; }
         public Post Post { get; set; }     

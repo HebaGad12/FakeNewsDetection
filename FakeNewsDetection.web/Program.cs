@@ -17,7 +17,7 @@ namespace FakeNewsDetection.web
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
-                opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+                opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
 
             builder.Services.AddAuthentication(options =>
             {
@@ -40,54 +40,53 @@ namespace FakeNewsDetection.web
                 };
             });
 
-            builder.Services.AddControllers();
-
+            builder.Services.AddControllers()
+                .AddApplicationPart(typeof(Presentation.Controllers.AdminController).Assembly);
             builder.Services.AddAuthorization(options =>
             {
                 options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
                 options.AddPolicy("JournalistOnly", p => p.RequireRole("Journalist"));
                 options.AddPolicy("OrgOnly", p => p.RequireRole("Organization"));
             });
-
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IFollowRepository, FollowRepository>();
             builder.Services.AddScoped<IPostRepository, PostRepository>();
             builder.Services.AddScoped<IInteractionRepository, InteractionRepository>();
             builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
-            builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+            builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();     
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "FakeNews API", Version = "v1" });
-
-       
-                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-                {
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.ApiKey,
-                    Scheme = "Bearer",
-                    BearerFormat = "JWT",
-                    In = ParameterLocation.Header,
-                    Description = "Enter 'Bearer' [space] and then your valid token.\nExample: Bearer eyJhbGciOiJIUzI1NiIs..."
-                });
-
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
-                {
+                c.AddSecurityDefinition(
+                    "Bearer",
                     new OpenApiSecurityScheme
                     {
-                        Reference = new OpenApiReference
+                        In = ParameterLocation.Header,
+                        Description = "Please enter JWT with Bearer into field",
+                        Name = "Authorization",
+                        Type = SecuritySchemeType.Http,
+                        BearerFormat = "JWT",
+                        Scheme = "Bearer",
+                    }
+                );
+                c.AddSecurityRequirement(
+                    new OpenApiSecurityRequirement
+                    {
                         {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    Array.Empty<string>()
-                }
+                            new OpenApiSecurityScheme
+                            {
+                                Reference = new OpenApiReference
+                                {
+                                    Type = ReferenceType.SecurityScheme,
+                                    Id = "Bearer",
+                                },
+                            },
+                            new string[] { }
+                        },
+                    }
+                );
             });
-            });
-
             var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
@@ -103,7 +102,6 @@ namespace FakeNewsDetection.web
             }
 
             app.UseHttpsRedirection();
-
             app.UseAuthentication();
             app.UseAuthorization();
 
