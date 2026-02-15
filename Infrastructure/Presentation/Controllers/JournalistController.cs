@@ -1,11 +1,12 @@
 ﻿using Domain.Contracts;
-using Domain.Enums;
-using Domain.Models;
 using Domain.Contracts;
 using Domain.Enums;
+using Domain.Enums;
+using Domain.Models;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -293,5 +294,6 @@ namespace Presentation.Controllers
             return Ok(dto);
         }
         public record JournalistResponse(Guid Id, string Name, string Email, string Role, string? Organization, int Followers, int Posts, DateTime CreatedAt); public record JournalistEditProfileRequest(string? Name, Guid? OrganizationId); public record JournalistCreatePostRequest(string Title, string Content, List<string> Tags); public record JournalistPostResponse(Guid Id, string Title, string Content, DateTime CreatedAt, int Likes, int Comments, int Reports, string Organization, string ModerationStatus); public record JournalistActivityResponse(string Title, int Likes, int Comments, int Reports, string Organization, string ModerationStatus); public record JournalistCommentRequest(string Content); public record JournalistReportRequest(string Reason); public record JournalistFollowingResponse(Guid Id, string Name, string Role, int Followers); public record JournalistFollowerResponse(Guid Id, string Name, string Role, int Followers);
+
     }
 }

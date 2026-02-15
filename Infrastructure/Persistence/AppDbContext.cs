@@ -1,5 +1,6 @@
 ﻿using Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace Persistence
         public DbSet<Interaction> Interactions => Set<Interaction>();
         public DbSet<Follow> Follows => Set<Follow>();
         public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
+        public DbSet<LiveSession> LiveSessions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -37,15 +39,40 @@ namespace Persistence
             b.Entity<Post>().HasIndex(p => p.CreatedAt);
             b.Entity<Post>().Property(p => p.Title).HasMaxLength(300);
             b.Entity<Post>().Property(p => p.Tags)
-                .HasConversion(
-                    v => string.Join(",", v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries));
+      .HasConversion(
+          v => string.Join(",", v), 
+          v => v.Split(',', StringSplitOptions.RemoveEmptyEntries) 
+      );
+
+
+            b.Entity<Interaction>().HasOne<Post>().WithMany(p => p.Interactions).HasForeignKey(i => i.PostId).OnDelete(DeleteBehavior.Restrict);
 
             b.Entity<Post>()
                 .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(p => p.AuthorId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+
+            b.Entity<Post>()
+           .HasOne<Organization>()
+           .WithMany()
+           .HasForeignKey(p => p.OrganizationId)
+           .OnDelete(DeleteBehavior.SetNull);
+
+            b.Entity<Interaction>()
+           .HasOne(i => i.Post)              
+           .WithMany(p => p.Interactions)     
+           .HasForeignKey(i => i.PostId)      
+           .OnDelete(DeleteBehavior.Restrict);
+
+
+            b.Entity<User>()
+           .HasOne(u => u.Organization)
+           .WithMany(o => o.Users)
+           .HasForeignKey(u => u.OrganizationId)
+           .OnDelete(DeleteBehavior.SetNull);
+
 
             b.Entity<Post>()
                 .HasOne<Organization>()

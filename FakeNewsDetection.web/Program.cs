@@ -2,12 +2,13 @@ using Domain.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Persistence;
 using Persistence.Repositories;
+using Presentation.SignalR_Hubs;
 using Services;
 using ServicesAbstraction;
 using System.Text;
-using Microsoft.OpenApi.Models;
 namespace FakeNewsDetection.web
 {
     public class Program
@@ -18,6 +19,8 @@ namespace FakeNewsDetection.web
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
                 opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
+            builder.Services.AddDbContext<AppDbContext>(opts =>
+              opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
             builder.Services.AddAuthentication(options =>
             {
@@ -87,6 +90,7 @@ namespace FakeNewsDetection.web
                     }
                 );
             });
+            builder.Services.AddSignalR();
             var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
@@ -106,7 +110,7 @@ namespace FakeNewsDetection.web
             app.UseAuthorization();
 
             app.MapControllers();
-
+            app.MapHub<LiveHub>("/livehub");
             app.Run();
         }
     }
