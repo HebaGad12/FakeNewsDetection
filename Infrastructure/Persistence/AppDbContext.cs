@@ -21,27 +21,30 @@ namespace Persistence
         public DbSet<Follow> Follows => Set<Follow>();
         public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
         public DbSet<LiveSession> LiveSessions { get; set; }
+        public DbSet<Wallet> Wallets => Set<Wallet>();
+        public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+        public DbSet<Donation> Donations => Set<Donation>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
 
-         
+
             b.Entity<User>().HasIndex(u => u.Email).IsUnique();
             b.Entity<User>().Property(u => u.Name).HasMaxLength(200);
             b.Entity<User>().Property(u => u.Email).HasMaxLength(200);
 
-          
+
             b.Entity<Organization>().Property(o => o.Name).HasMaxLength(200);
             b.Entity<Organization>().Property(o => o.Email).HasMaxLength(200);
 
-      
+
             b.Entity<Post>().HasIndex(p => p.CreatedAt);
             b.Entity<Post>().Property(p => p.Title).HasMaxLength(300);
             b.Entity<Post>().Property(p => p.Tags)
       .HasConversion(
-          v => string.Join(",", v), 
-          v => v.Split(',', StringSplitOptions.RemoveEmptyEntries) 
+          v => string.Join(",", v),
+          v => v.Split(',', StringSplitOptions.RemoveEmptyEntries)
       );
 
 
@@ -61,9 +64,9 @@ namespace Persistence
            .OnDelete(DeleteBehavior.SetNull);
 
             b.Entity<Interaction>()
-           .HasOne(i => i.Post)              
-           .WithMany(p => p.Interactions)     
-           .HasForeignKey(i => i.PostId)      
+           .HasOne(i => i.Post)
+           .WithMany(p => p.Interactions)
+           .HasForeignKey(i => i.PostId)
            .OnDelete(DeleteBehavior.Restrict);
 
 
@@ -88,7 +91,7 @@ namespace Persistence
 
             b.Entity<Follow>()
                 .HasOne(f => f.Follower)
-                .WithMany(u => u.Followees) 
+                .WithMany(u => u.Followees)
                 .HasForeignKey(f => f.FollowerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -101,6 +104,25 @@ namespace Persistence
             b.Entity<ModerationAction>().HasIndex(m => new { m.PostId, m.CreatedAt });
             b.Entity<Post>().HasOne(p => p.Author).WithMany(u => u.Posts).HasForeignKey(p => p.AuthorId);
             b.Entity<Post>().HasOne(p => p.Organization).WithMany(o => o.Posts).HasForeignKey(p => p.OrganizationId);
+
+            // Wallet
+            b.Entity<Wallet>().HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.Entity<Wallet>().HasIndex(w => w.UserId).IsUnique();
+            b.Entity<Wallet>().Property(w => w.Balance).HasColumnType("decimal(18,2)");
+
+            // WalletTransaction
+            b.Entity<WalletTransaction>().HasOne(t => t.Wallet).WithMany(w => w.Transactions).HasForeignKey(t => t.WalletId).OnDelete(DeleteBehavior.NoAction);
+            b.Entity<WalletTransaction>().HasOne(t => t.Actor).WithMany().HasForeignKey(t => t.ActorId).OnDelete(DeleteBehavior.SetNull);
+            b.Entity<WalletTransaction>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
+            b.Entity<WalletTransaction>().Property(t => t.Description).HasMaxLength(500);
+
+            // Donation
+            b.Entity<Donation>().HasOne(d => d.Sender).WithMany().HasForeignKey(d => d.SenderId).OnDelete(DeleteBehavior.Restrict);
+            b.Entity<Donation>().HasOne(d => d.Recipient).WithMany().HasForeignKey(d => d.RecipientId).OnDelete(DeleteBehavior.Restrict);
+            b.Entity<Donation>().Property(d => d.Amount).HasColumnType("decimal(18,2)");
+            b.Entity<Donation>().Property(d => d.Message).HasMaxLength(500);
+            b.Entity<Donation>().HasIndex(d => d.SenderId);
+            b.Entity<Donation>().HasIndex(d => d.RecipientId);
         }
 
     }
