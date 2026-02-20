@@ -15,9 +15,11 @@ namespace Domain.Models
         public string PasswordHash { get; set; } = "";
         public Role Role { get; set; }
         public bool IsActive { get; set; } = true;
+        public RegistrationStatus RegistrationStatus { get; set; } = RegistrationStatus.Approved;
+        public string? RejectionReason { get; set; }
         public string? JournalistExternalId { get; set; }
         public Guid? OrganizationId { get; set; }
-        public Organization? Organization { get; set; } 
+        public Organization? Organization { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public ICollection<Post> Posts { get; set; } = new List<Post>();
         public ICollection<Interaction> Interactions { get; set; } = new List<Interaction>();

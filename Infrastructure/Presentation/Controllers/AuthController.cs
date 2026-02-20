@@ -41,6 +41,9 @@ namespace Presentation.Controllers
             if (req.Role == Role.Journalist && string.IsNullOrWhiteSpace(req.JournalistId))
                 return BadRequest("Journalist ID is required.");
 
+            // Determine if this is an independent journalist (no organization)
+            bool isIndependentJournalist = req.Role == Role.Journalist && !req.OrganizationId.HasValue;
+
             var user = new User
             {
                 Id = Guid.NewGuid(),
@@ -51,10 +54,23 @@ namespace Presentation.Controllers
                 OrganizationId = req.OrganizationId,
                 JournalistExternalId = req.JournalistId,
                 IsActive = true,
+                RegistrationStatus = isIndependentJournalist
+                    ? Domain.Enums.RegistrationStatus.Pending
+                    : Domain.Enums.RegistrationStatus.Approved,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _users.AddAsync(user);
+
+            // Independent journalists must wait for admin approval — return 202 Accepted without a token
+            if (isIndependentJournalist)
+            {
+                return Accepted(new
+                {
+                    message = "Registration submitted successfully. Your account is pending admin review. You will be notified once approved.",
+                    userId = user.Id
+                });
+            }
 
             var token = _tokens.CreateToken(user);
 
@@ -75,6 +91,13 @@ namespace Presentation.Controllers
             var user = (await _users.GetAllAsync()).FirstOrDefault(u => u.Email == req.Email);
             if (user is null || !user.IsActive)
                 return Unauthorized("Invalid credentials.");
+
+            // Block independent journalists who haven't been approved yet
+            if (user.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending)
+                return Unauthorized("Your account is pending admin approval. Please wait for verification.");
+
+            if (user.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected)
+                return Unauthorized($"Your registration was rejected. Reason: {user.RejectionReason ?? "No reason provided."}");
 
             var ok = PasswordHasher.Verify(req.Password, user.PasswordHash);
             if (!ok)

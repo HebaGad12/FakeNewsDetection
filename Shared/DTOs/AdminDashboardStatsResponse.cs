@@ -22,7 +22,8 @@ namespace Shared.DTOs
         int TotalJournalists,
         int TotalOrganizations,
         int TotalRegularUsers,
-        int TotalAdmins
+        int TotalAdmins,
+        int PendingJournalistRequests,
+        int RejectedJournalistRequests
     );
 }
-

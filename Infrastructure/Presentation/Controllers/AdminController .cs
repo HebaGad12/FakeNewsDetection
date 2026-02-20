@@ -66,7 +66,9 @@ namespace Presentation.Controllers
                 TotalJournalists: allUsers.Count(u => u.Role == Role.Journalist),
                 TotalOrganizations: allUsers.Count(u => u.Role == Role.Organization),
                 TotalRegularUsers: allUsers.Count(u => u.Role == Role.Regular),
-                TotalAdmins: allUsers.Count(u => u.Role == Role.Admin)
+                TotalAdmins: allUsers.Count(u => u.Role == Role.Admin),
+                PendingJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending),
+                RejectedJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected)
             );
 
             return Ok(stats);
@@ -413,6 +415,121 @@ namespace Presentation.Controllers
             await _posts.DeleteAsync(id);
 
             return Ok(new { message = "Post deleted successfully" });
+        }
+
+        #endregion
+
+        #region Independent Journalist Verification
+
+        /// <summary>
+        /// Returns all independent journalists whose registration is still pending admin review.
+        /// </summary>
+        [HttpGet("journalists/pending")]
+        public async Task<ActionResult<IEnumerable<PendingJournalistResponse>>> GetPendingJournalists()
+        {
+            var allUsers = await _users.GetAllAsync();
+
+            var pending = allUsers
+                .Where(u => u.Role == Role.Journalist
+                         && u.OrganizationId == null
+                         && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending)
+                .OrderBy(u => u.CreatedAt)
+                .Select(u => new PendingJournalistResponse(
+                    u.Id,
+                    u.Name,
+                    u.Email,
+                    u.JournalistExternalId ?? "",
+                    u.CreatedAt
+                ));
+
+            return Ok(pending);
+        }
+
+        /// <summary>
+        /// Approve or reject a pending independent journalist.
+        /// PATCH /api/admin/journalists/{id}/review
+        /// Body: { "approve": true }   OR   { "approve": false, "rejectionReason": "..." }
+        /// </summary>
+        [HttpPatch("journalists/{id}/review")]
+        public async Task<ActionResult> ReviewJournalist(Guid id, ReviewJournalistRequest request)
+        {
+            var user = await _users.GetByIdAsync(id);
+            if (user is null)
+                return NotFound("User not found.");
+
+            if (user.Role != Role.Journalist || user.OrganizationId != null)
+                return BadRequest("This endpoint is only for independent journalists.");
+
+            if (user.RegistrationStatus != Domain.Enums.RegistrationStatus.Pending)
+                return BadRequest($"Journalist registration is already '{user.RegistrationStatus}'. Only pending requests can be reviewed.");
+
+            if (request.Approve)
+            {
+                user.RegistrationStatus = Domain.Enums.RegistrationStatus.Approved;
+                user.RejectionReason = null;
+                await _users.UpdateAsync(user);
+                return Ok(new { message = $"Journalist '{user.Name}' has been approved and can now log in." });
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(request.RejectionReason))
+                    return BadRequest("A rejection reason is required when rejecting a journalist.");
+
+                user.RegistrationStatus = Domain.Enums.RegistrationStatus.Rejected;
+                user.RejectionReason = request.RejectionReason;
+                await _users.UpdateAsync(user);
+                return Ok(new { message = $"Journalist '{user.Name}' has been rejected." });
+            }
+        }
+
+        /// <summary>
+        /// Returns all rejected independent journalists (for audit / appeal purposes).
+        /// </summary>
+        [HttpGet("journalists/rejected")]
+        public async Task<ActionResult<IEnumerable<object>>> GetRejectedJournalists()
+        {
+            var allUsers = await _users.GetAllAsync();
+
+            var rejected = allUsers
+                .Where(u => u.Role == Role.Journalist
+                         && u.OrganizationId == null
+                         && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected)
+                .OrderByDescending(u => u.CreatedAt)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Name,
+                    u.Email,
+                    JournalistId = u.JournalistExternalId,
+                    u.RejectionReason,
+                    RegisteredAt = u.CreatedAt
+                });
+
+            return Ok(rejected);
+        }
+
+        /// <summary>
+        /// Re-opens a rejected journalist's application back to Pending,
+        /// allowing the admin to re-evaluate after an appeal.
+        /// </summary>
+        [HttpPatch("journalists/{id}/reopen")]
+        public async Task<ActionResult> ReopenJournalistApplication(Guid id)
+        {
+            var user = await _users.GetByIdAsync(id);
+            if (user is null)
+                return NotFound("User not found.");
+
+            if (user.Role != Role.Journalist || user.OrganizationId != null)
+                return BadRequest("This endpoint is only for independent journalists.");
+
+            if (user.RegistrationStatus != Domain.Enums.RegistrationStatus.Rejected)
+                return BadRequest("Only rejected applications can be re-opened.");
+
+            user.RegistrationStatus = Domain.Enums.RegistrationStatus.Pending;
+            user.RejectionReason = null;
+            await _users.UpdateAsync(user);
+
+            return Ok(new { message = $"Journalist '{user.Name}' application re-opened for review." });
         }
 
         #endregion
