@@ -12,10 +12,6 @@ using System.Threading.Tasks;
 
 namespace Presentation.Controllers
 {
-    /// <summary>
-    /// Donation endpoints shared by Regular Users and Journalists.
-    /// Route: api/donations
-    /// </summary>
     [ApiController]
     [Route("api/donations")]
     [Authorize]
@@ -35,11 +31,6 @@ namespace Presentation.Controllers
             _users = users;
         }
 
-        // ──────────────────────────────────────────────────
-        // GET MY WALLET
-        // ──────────────────────────────────────────────────
-
-        /// <summary>Get the caller's own wallet info</summary>
         [HttpGet("my-wallet")]
         public async Task<ActionResult<WalletResponse>> MyWallet()
         {
@@ -51,7 +42,6 @@ namespace Presentation.Controllers
             return Ok(new WalletResponse(wallet.Id, user.Id, user.Name, wallet.Balance, wallet.UpdatedAt));
         }
 
-        /// <summary>Get the caller's wallet transaction history</summary>
         [HttpGet("my-wallet/transactions")]
         public async Task<ActionResult<IEnumerable<WalletTransactionResponse>>> MyTransactions()
         {
@@ -70,15 +60,7 @@ namespace Presentation.Controllers
             return Ok(dto);
         }
 
-        // ──────────────────────────────────────────────────
-        // SEND DONATION
-        // ──────────────────────────────────────────────────
 
-        /// <summary>
-        /// Send a donation to any user or journalist.
-        /// Caller must be Regular or Journalist role.
-        /// Recipient must be Regular or Journalist role.
-        /// </summary>
         [HttpPost("send")]
         [Authorize(Roles = "Regular,Journalist")]
         public async Task<ActionResult> SendDonation([FromBody] SendDonationRequest request)
@@ -106,14 +88,12 @@ namespace Presentation.Controllers
 
             var recipientWallet = await _wallets.GetOrCreateAsync(request.RecipientId);
 
-            // Move funds
             senderWallet.Balance -= request.Amount;
             recipientWallet.Balance += request.Amount;
 
             await _wallets.UpdateAsync(senderWallet);
             await _wallets.UpdateAsync(recipientWallet);
 
-            // Record donation
             var donation = new Donation
             {
                 Id = Guid.NewGuid(),
@@ -125,7 +105,6 @@ namespace Presentation.Controllers
             };
             await _donations.AddAsync(donation);
 
-            // Sender transaction
             await _wallets.AddTransactionAsync(new WalletTransaction
             {
                 Id = Guid.NewGuid(),
@@ -137,7 +116,6 @@ namespace Presentation.Controllers
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Recipient transaction
             await _wallets.AddTransactionAsync(new WalletTransaction
             {
                 Id = Guid.NewGuid(),
@@ -159,11 +137,7 @@ namespace Presentation.Controllers
             });
         }
 
-        // ──────────────────────────────────────────────────
-        // DONATION HISTORY
-        // ──────────────────────────────────────────────────
 
-        /// <summary>Get donations I have sent</summary>
         [HttpGet("sent")]
         public async Task<ActionResult<IEnumerable<DonationResponse>>> SentDonations()
         {
@@ -172,7 +146,6 @@ namespace Presentation.Controllers
             return Ok(donations.Select(MapDonation));
         }
 
-        /// <summary>Get donations I have received</summary>
         [HttpGet("received")]
         public async Task<ActionResult<IEnumerable<DonationResponse>>> ReceivedDonations()
         {
@@ -181,11 +154,6 @@ namespace Presentation.Controllers
             return Ok(donations.Select(MapDonation));
         }
 
-        // ──────────────────────────────────────────────────
-        // ADMIN VIEW ALL DONATIONS
-        // ──────────────────────────────────────────────────
-
-        /// <summary>Admin: view all donations in the system</summary>
         [HttpGet("all")]
         [Authorize(Policy = "AdminOnly")]
         public async Task<ActionResult<IEnumerable<DonationResponse>>> AllDonations()
@@ -193,10 +161,6 @@ namespace Presentation.Controllers
             var donations = await _donations.GetAllAsync();
             return Ok(donations.Select(MapDonation));
         }
-
-        // ──────────────────────────────────────────────────
-        // HELPERS
-        // ──────────────────────────────────────────────────
 
         private Guid GetUserId() =>
             Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

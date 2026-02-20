@@ -26,7 +26,6 @@ namespace Presentation.Controllers
             _users = users;
         }
 
-        /// <summary>GET all wallets (admin overview)</summary>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<WalletResponse>>> GetAllWallets()
         {
@@ -42,7 +41,6 @@ namespace Presentation.Controllers
             return Ok(result.OrderByDescending(w => w.Balance));
         }
 
-        /// <summary>GET wallet of a specific user</summary>
         [HttpGet("{userId}")]
         public async Task<ActionResult<WalletResponse>> GetUserWallet(Guid userId)
         {
@@ -53,7 +51,6 @@ namespace Presentation.Controllers
             return Ok(new WalletResponse(wallet.Id, user.Id, user.Name, wallet.Balance, wallet.UpdatedAt));
         }
 
-        /// <summary>GET transaction history of a user's wallet</summary>
         [HttpGet("{userId}/transactions")]
         public async Task<ActionResult<IEnumerable<WalletTransactionResponse>>> GetTransactions(Guid userId)
         {
@@ -73,12 +70,6 @@ namespace Presentation.Controllers
             return Ok(dto);
         }
 
-        /// <summary>
-        /// Adjust a user's balance directly.
-        /// Positive Amount = top-up (admin adds balance to user).
-        /// Negative Amount = deduction (admin removes balance from user).
-        /// Admin does NOT need a wallet — balance is created or removed directly.
-        /// </summary>
         [HttpPost("adjust")]
         public async Task<ActionResult> AdjustBalance([FromBody] AdminAdjustBalanceRequest request)
         {
@@ -96,7 +87,6 @@ namespace Presentation.Controllers
 
             if (isTopUp)
             {
-                // Admin creates balance directly into user's wallet
                 targetWallet.Balance += request.Amount;
                 await _wallets.UpdateAsync(targetWallet);
 
@@ -113,7 +103,6 @@ namespace Presentation.Controllers
             }
             else
             {
-                // Admin removes balance from user's wallet
                 decimal deduction = Math.Abs(request.Amount);
 
                 if (targetWallet.Balance < deduction)

@@ -41,7 +41,9 @@ namespace Presentation.Controllers
             if (req.Role == Role.Journalist && string.IsNullOrWhiteSpace(req.JournalistId))
                 return BadRequest("Journalist ID is required.");
 
-            // Determine if this is an independent journalist (no organization)
+            if (req.Role == Role.Organization && !req.OrganizationId.HasValue)
+                return BadRequest("Organization ID is required when registering as an Organization manager.");
+
             bool isIndependentJournalist = req.Role == Role.Journalist && !req.OrganizationId.HasValue;
 
             var user = new User
@@ -62,7 +64,6 @@ namespace Presentation.Controllers
 
             await _users.AddAsync(user);
 
-            // Independent journalists must wait for admin approval — return 202 Accepted without a token
             if (isIndependentJournalist)
             {
                 return Accepted(new
@@ -92,7 +93,6 @@ namespace Presentation.Controllers
             if (user is null || !user.IsActive)
                 return Unauthorized("Invalid credentials.");
 
-            // Block independent journalists who haven't been approved yet
             if (user.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending)
                 return Unauthorized("Your account is pending admin approval. Please wait for verification.");
 

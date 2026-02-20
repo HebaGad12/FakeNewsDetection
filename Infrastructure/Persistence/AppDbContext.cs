@@ -24,6 +24,9 @@ namespace Persistence
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<Donation> Donations => Set<Donation>();
+        public DbSet<OrganizationFollow> OrganizationFollows => Set<OrganizationFollow>();
+        public DbSet<OrganizationWallet> OrganizationWallets => Set<OrganizationWallet>();
+        public DbSet<OrganizationWalletTransaction> OrganizationWalletTransactions => Set<OrganizationWalletTransaction>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -123,6 +126,45 @@ namespace Persistence
             b.Entity<Donation>().Property(d => d.Message).HasMaxLength(500);
             b.Entity<Donation>().HasIndex(d => d.SenderId);
             b.Entity<Donation>().HasIndex(d => d.RecipientId);
+
+            // Organization IsActive
+            b.Entity<Organization>().Property(o => o.IsActive).HasDefaultValue(true);
+
+            // OrganizationFollow
+            b.Entity<OrganizationFollow>().HasKey(f => new { f.FollowerId, f.OrganizationId });
+            b.Entity<OrganizationFollow>()
+                .HasOne(f => f.Follower)
+                .WithMany()
+                .HasForeignKey(f => f.FollowerId)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.Entity<OrganizationFollow>()
+                .HasOne(f => f.Organization)
+                .WithMany(o => o.Followers)
+                .HasForeignKey(f => f.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // OrganizationWallet
+            b.Entity<OrganizationWallet>()
+                .HasOne(w => w.Organization)
+                .WithOne(o => o.Wallet)
+                .HasForeignKey<OrganizationWallet>(w => w.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.Entity<OrganizationWallet>().HasIndex(w => w.OrganizationId).IsUnique();
+            b.Entity<OrganizationWallet>().Property(w => w.Balance).HasColumnType("decimal(18,2)");
+
+            // OrganizationWalletTransaction
+            b.Entity<OrganizationWalletTransaction>()
+                .HasOne(t => t.Wallet)
+                .WithMany(w => w.Transactions)
+                .HasForeignKey(t => t.WalletId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.Entity<OrganizationWalletTransaction>()
+                .HasOne(t => t.Actor)
+                .WithMany()
+                .HasForeignKey(t => t.ActorId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.Entity<OrganizationWalletTransaction>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
+            b.Entity<OrganizationWalletTransaction>().Property(t => t.Description).HasMaxLength(500);
         }
 
     }
