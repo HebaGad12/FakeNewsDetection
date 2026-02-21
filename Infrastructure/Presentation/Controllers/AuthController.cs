@@ -45,8 +45,8 @@ namespace Presentation.Controllers
             if (req.Role == Role.Journalist && string.IsNullOrWhiteSpace(req.JournalistId))
                 return BadRequest("Journalist ID is required.");
 
-            if (req.Role == Role.Organization && string.IsNullOrWhiteSpace(req.OrganizationName))
-                return BadRequest("Organization name is required when registering as an Organization manager.");
+            if (req.Role == Role.Organization && string.IsNullOrWhiteSpace(req.OrganizationLicense))
+                return BadRequest("Organization license is required when registering as an Organization manager.");
 
             // Auto-create the organization if registering as org manager
             Guid? organizationId = null;
@@ -55,16 +55,19 @@ namespace Presentation.Controllers
                 var org = new Organization
                 {
                     Id = Guid.NewGuid(),
-                    Name = req.OrganizationName!,
+                    Name = req.Name,
+                    License = req.OrganizationLicense!,
                     Email = req.Email,
-                    IsActive = true,
+                    IsActive = false,          // inactive until admin approves
                     CreatedAt = DateTime.UtcNow
                 };
                 await _organizations.AddAsync(org);
                 organizationId = org.Id;
             }
 
-            bool isIndependentJournalist = req.Role == Role.Journalist && organizationId is null;
+            // ✅ Both independent journalists AND org managers start as Pending
+            bool isPending = req.Role == Role.Journalist && organizationId is null
+                          || req.Role == Role.Organization;
 
             var user = new User
             {
@@ -76,18 +79,16 @@ namespace Presentation.Controllers
                 OrganizationId = organizationId,
                 JournalistExternalId = req.JournalistId,
                 IsActive = true,
-                RegistrationStatus = isIndependentJournalist
-                    ? RegistrationStatus.Pending
-                    : RegistrationStatus.Approved,
+                RegistrationStatus = isPending ? RegistrationStatus.Pending : RegistrationStatus.Approved,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _users.AddAsync(user);
 
-            if (isIndependentJournalist)
+            if (isPending)
                 return Accepted(new
                 {
-                    message = "Registration submitted. Pending admin review.",
+                    message = "Registration submitted successfully. Your account is pending admin review.",
                     userId = user.Id
                 });
 

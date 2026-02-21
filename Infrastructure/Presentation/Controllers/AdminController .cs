@@ -68,8 +68,9 @@ namespace Presentation.Controllers
                 TotalRegularUsers: allUsers.Count(u => u.Role == Role.Regular),
                 TotalAdmins: allUsers.Count(u => u.Role == Role.Admin),
                 PendingJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending),
-                RejectedJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected)
-            );
+                RejectedJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected),
+                PendingOrganizationRequests: allUsers.Count(u => u.Role == Role.Organization && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending),
+                RejectedOrganizationRequests: allUsers.Count(u => u.Role == Role.Organization && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected));
 
             return Ok(stats);
         }
@@ -530,6 +531,97 @@ namespace Presentation.Controllers
             await _users.UpdateAsync(user);
 
             return Ok(new { message = $"Journalist '{user.Name}' application re-opened for review." });
+        }
+
+        #endregion
+        #region Organization Verification
+
+        [HttpGet("organizations/pending")]
+        public async Task<ActionResult<IEnumerable<object>>> GetPendingOrganizations()
+        {
+            var allUsers = await _users.GetAllAsync();
+            var allOrgs = await _organizations.GetAllAsync();
+
+            var pending = allUsers
+                .Where(u => u.Role == Role.Organization
+                         && u.RegistrationStatus == RegistrationStatus.Pending)
+                .Select(u => new
+                {
+                    UserId = u.Id,
+                    u.Name,
+                    u.Email,
+                    OrganizationId = u.OrganizationId,
+                    OrganizationName = allOrgs.FirstOrDefault(o => o.Id == u.OrganizationId)?.Name,
+                    RegisteredAt = u.CreatedAt
+                });
+
+            return Ok(pending);
+        }
+
+        [HttpPatch("organizations/{userId}/review")]
+        public async Task<ActionResult> ReviewOrganization(Guid userId, [FromBody] ReviewJournalistRequest request)
+        {
+            var user = await _users.GetByIdAsync(userId);
+            if (user is null) return NotFound("User not found.");
+
+            if (user.Role != Role.Organization)
+                return BadRequest("This endpoint is only for organization managers.");
+
+            if (user.RegistrationStatus != RegistrationStatus.Pending)
+                return BadRequest($"Registration is already '{user.RegistrationStatus}'. Only pending requests can be reviewed.");
+
+            if (request.Approve)
+            {
+                user.RegistrationStatus = RegistrationStatus.Approved;
+                user.RejectionReason = null;
+
+                // Activate the organization itself
+                if (user.OrganizationId.HasValue)
+                {
+                    var org = await _organizations.GetByIdAsync(user.OrganizationId.Value);
+                    if (org is not null)
+                    {
+                        org.IsActive = true;
+                        await _organizations.UpdateAsync(org);
+                    }
+                }
+
+                await _users.UpdateAsync(user);
+                return Ok(new { message = $"Organization '{user.Name}' has been approved and can now log in." });
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(request.RejectionReason))
+                    return BadRequest("A rejection reason is required when rejecting.");
+
+                user.RegistrationStatus = RegistrationStatus.Rejected;
+                user.RejectionReason = request.RejectionReason;
+
+                await _users.UpdateAsync(user);
+                return Ok(new { message = $"Organization '{user.Name}' has been rejected." });
+            }
+        }
+
+        [HttpGet("organizations/rejected")]
+        public async Task<ActionResult<IEnumerable<object>>> GetRejectedOrganizations()
+        {
+            var allUsers = await _users.GetAllAsync();
+            var allOrgs = await _organizations.GetAllAsync();
+
+            var rejected = allUsers
+                .Where(u => u.Role == Role.Organization
+                         && u.RegistrationStatus == RegistrationStatus.Rejected)
+                .Select(u => new
+                {
+                    UserId = u.Id,
+                    u.Name,
+                    u.Email,
+                    OrganizationName = allOrgs.FirstOrDefault(o => o.Id == u.OrganizationId)?.Name,
+                    u.RejectionReason,
+                    RegisteredAt = u.CreatedAt
+                });
+
+            return Ok(rejected);
         }
 
         #endregion

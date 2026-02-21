@@ -24,6 +24,8 @@ namespace Shared.DTOs
         int TotalRegularUsers,
         int TotalAdmins,
         int PendingJournalistRequests,
-        int RejectedJournalistRequests
+        int RejectedJournalistRequests,
+        int PendingOrganizationRequests,    
+        int RejectedOrganizationRequests
     );
 }
