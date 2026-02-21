@@ -7,5 +7,5 @@ using System.Threading.Tasks;
 
 namespace Shared.DTOs
 {
-    public record RegisterRequest(string Name, string Email, string Password, Role Role, Guid? OrganizationId, string? JournalistId);
+    public record RegisterRequest(string Name, string Email, string Password, Role Role, string? OrganizationName, string? JournalistId);
 }

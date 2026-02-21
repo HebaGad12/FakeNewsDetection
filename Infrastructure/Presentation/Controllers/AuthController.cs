@@ -24,15 +24,19 @@ namespace Presentation.Controllers
         private readonly IUserRepository _users;
         private readonly ITokenService _tokens;
 
-        public AuthController(IUserRepository users, ITokenService tokens)
+        // Add to constructor field
+        private readonly IOrganizationRepository _organizations;
+
+        // Update constructor
+        public AuthController(IUserRepository users, ITokenService tokens, IOrganizationRepository organizations)
         {
             _users = users;
             _tokens = tokens;
+            _organizations = organizations;
         }
-
         [HttpPost("register")]
         [AllowAnonymous]
-        public async Task<ActionResult<AuthResponse>> Register(RegisterRequest req)
+        public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest req)
         {
             var existing = (await _users.GetAllAsync()).FirstOrDefault(u => u.Email == req.Email);
             if (existing is not null)
@@ -41,10 +45,26 @@ namespace Presentation.Controllers
             if (req.Role == Role.Journalist && string.IsNullOrWhiteSpace(req.JournalistId))
                 return BadRequest("Journalist ID is required.");
 
-            if (req.Role == Role.Organization && !req.OrganizationId.HasValue)
-                return BadRequest("Organization ID is required when registering as an Organization manager.");
+            if (req.Role == Role.Organization && string.IsNullOrWhiteSpace(req.OrganizationName))
+                return BadRequest("Organization name is required when registering as an Organization manager.");
 
-            bool isIndependentJournalist = req.Role == Role.Journalist && !req.OrganizationId.HasValue;
+            // Auto-create the organization if registering as org manager
+            Guid? organizationId = null;
+            if (req.Role == Role.Organization)
+            {
+                var org = new Organization
+                {
+                    Id = Guid.NewGuid(),
+                    Name = req.OrganizationName!,
+                    Email = req.Email,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _organizations.AddAsync(org);
+                organizationId = org.Id;
+            }
+
+            bool isIndependentJournalist = req.Role == Role.Journalist && organizationId is null;
 
             var user = new User
             {
@@ -53,37 +73,27 @@ namespace Presentation.Controllers
                 Email = req.Email,
                 PasswordHash = PasswordHasher.Hash(req.Password),
                 Role = req.Role,
-                OrganizationId = req.OrganizationId,
+                OrganizationId = organizationId,
                 JournalistExternalId = req.JournalistId,
                 IsActive = true,
                 RegistrationStatus = isIndependentJournalist
-                    ? Domain.Enums.RegistrationStatus.Pending
-                    : Domain.Enums.RegistrationStatus.Approved,
+                    ? RegistrationStatus.Pending
+                    : RegistrationStatus.Approved,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _users.AddAsync(user);
 
             if (isIndependentJournalist)
-            {
                 return Accepted(new
                 {
-                    message = "Registration submitted successfully. Your account is pending admin review. You will be notified once approved.",
+                    message = "Registration submitted. Pending admin review.",
                     userId = user.Id
                 });
-            }
 
             var token = _tokens.CreateToken(user);
-
-            return Ok(new AuthResponse(
-                token,
-                user.Id,
-                user.Name,
-                user.Email,
-                user.Role.ToString()
-            ));
+            return Ok(new AuthResponse(token, user.Id, user.Name, user.Email, user.Role.ToString()));
         }
-
 
         [HttpPost("login")]
         [AllowAnonymous]
