@@ -26,6 +26,10 @@ namespace Persistence.Repositories
                 .Where(f => f.FollowerId == userId)
                 .ToListAsync();
 
+        public async Task<Follow?> GetAsync(Guid followerId, Guid followeeId) =>
+            await _context.Follows
+                .FirstOrDefaultAsync(f => f.FollowerId == followerId && f.FolloweeId == followeeId);
+
         public async Task AddAsync(Follow follow)
         {
             await _context.Follows.AddAsync(follow);

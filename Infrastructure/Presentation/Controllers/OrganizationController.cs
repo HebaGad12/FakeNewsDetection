@@ -1,4 +1,4 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -21,9 +21,6 @@ namespace Presentation.Controllers
         private readonly IPostRepository _posts;
         private readonly IInteractionRepository _interactions;
         private readonly IFollowRepository _follows;
-        private readonly IOrganizationRepository _organizations;
-        private readonly IOrganizationFollowRepository _orgFollows;
-        private readonly IOrganizationWalletRepository _orgWallets;
         private readonly IWalletRepository _wallets;
 
         public OrganizationController(
@@ -31,71 +28,61 @@ namespace Presentation.Controllers
             IPostRepository posts,
             IInteractionRepository interactions,
             IFollowRepository follows,
-            IOrganizationRepository organizations,
-            IOrganizationFollowRepository orgFollows,
-            IOrganizationWalletRepository orgWallets,
             IWalletRepository wallets)
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
             _follows = follows;
-            _organizations = organizations;
-            _orgFollows = orgFollows;
-            _orgWallets = orgWallets;
             _wallets = wallets;
         }
 
         private Guid GetCallerId() =>
             Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        private async Task<(User? caller, Organization? org, ActionResult? error)>
-            ResolveCallerAndOrg(Guid orgId)
+        private async Task<(User? orgUser, ActionResult? error)>
+            ResolveOrgUser(Guid orgUserId)
         {
             var caller = await _users.GetByIdAsync(GetCallerId());
-            if (caller is null) return (null, null, Unauthorized());
+            if (caller is null) return (null, Unauthorized());
 
-            var org = await _organizations.GetByIdAsync(orgId);
-            if (org is null) return (null, null, NotFound("Organization not found."));
+            if (caller.Id != orgUserId)
+                return (null, Forbid());
 
-            if (caller.OrganizationId != orgId)
-                return (null, null, Forbid());   
+            if (caller.Role != Role.Organization)
+                return (null, Forbid());
 
-            return (caller, org, null);
+            return (caller, null);
         }
-
 
         [HttpGet("me")]
         public async Task<ActionResult<OrgProfileResponse>> MyOrganization()
         {
-            var caller = await _users.GetByIdAsync(GetCallerId());
+            var callerId = GetCallerId();
+            var caller = await _users.GetByIdAsync(callerId);
             if (caller is null) return Unauthorized();
-            if (caller.OrganizationId is null) return BadRequest("You are not linked to any organization.");
 
-            var org = await _organizations.GetByIdAsync(caller.OrganizationId.Value);
-            if (org is null) return NotFound("Organization not found.");
-
-            var followers = await _orgFollows.GetFollowersAsync(org.Id);
+            var followers = await _follows.GetFollowersAsync(callerId);
             var posts = await _posts.GetAllAsync();
-            var wallet = await _orgWallets.GetOrCreateAsync(org.Id);
+            var wallet = await _wallets.GetOrCreateAsync(callerId);
 
             return Ok(new OrgProfileResponse(
-                org.Id,
-                org.Name,
-                org.Email,
-                org.Profile,
-                org.IsActive,
-                org.CreatedAt,
+                caller.Id,
+                caller.Name,
+                caller.Email,
+                caller.Profile,
+                caller.IsActive,
+                caller.CreatedAt,
                 followers.Count(),
-                posts.Count(p => p.OrganizationId == org.Id),
+                posts.Count(p => p.OrganizationId == callerId),
                 wallet.Balance
             ));
         }
 
-        [HttpPost("{orgId}/journalists")]
-        public async Task<ActionResult> AddJournalist(Guid orgId, [FromBody] AddOrgJournalistRequest req)
+        [HttpPost("{orgUserId}/journalists")]
+        public async Task<ActionResult> AddJournalist(Guid orgUserId, [FromBody] AddOrgJournalistRequest req)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             if (string.IsNullOrWhiteSpace(req.LicenceNumber))
@@ -112,7 +99,7 @@ namespace Presentation.Controllers
                 Email = req.Email,
                 PasswordHash = Services.Utilities.PasswordHasher.Hash(req.Password),
                 Role = Role.Journalist,
-                OrganizationId = orgId,
+                OrganizationId = orgUserId,
                 JournalistExternalId = req.LicenceNumber,
                 IsActive = true,
                 RegistrationStatus = RegistrationStatus.Approved,
@@ -129,15 +116,15 @@ namespace Presentation.Controllers
             });
         }
 
-        [HttpGet("{orgId}/journalists")]
-        public async Task<ActionResult<IEnumerable<OrgJournalistResponse>>> GetJournalists(Guid orgId)
+        [HttpGet("{orgUserId}/journalists")]
+        public async Task<ActionResult<IEnumerable<OrgJournalistResponse>>> GetJournalists(Guid orgUserId)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             var all = await _users.GetAllAsync();
             var journalists = all
-                .Where(u => u.OrganizationId == orgId && u.Role == Role.Journalist)
+                .Where(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist)
                 .OrderBy(u => u.Name)
                 .Select(u => new OrgJournalistResponse(
                     u.Id,
@@ -152,15 +139,15 @@ namespace Presentation.Controllers
             return Ok(journalists);
         }
 
-        [HttpPatch("{orgId}/journalists/{journalistId}/status")]
+        [HttpPatch("{orgUserId}/journalists/{journalistId}/status")]
         public async Task<ActionResult> SetJournalistStatus(
-            Guid orgId, Guid journalistId, [FromBody] OrgSetStatusRequest req)
+            Guid orgUserId, Guid journalistId, [FromBody] OrgSetStatusRequest req)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             var journalist = await _users.GetByIdAsync(journalistId);
-            if (journalist is null || journalist.OrganizationId != orgId)
+            if (journalist is null || journalist.OrganizationId != orgUserId)
                 return NotFound("Journalist not found in this organization.");
 
             journalist.IsActive = req.IsActive;
@@ -172,15 +159,15 @@ namespace Presentation.Controllers
             });
         }
 
-        [HttpGet("{orgId}/posts")]
+        [HttpGet("{orgUserId}/posts")]
         public async Task<ActionResult<IEnumerable<OrgPostResponse>>> GetPosts(
-            Guid orgId, [FromQuery] string? status = null)
+            Guid orgUserId, [FromQuery] string? status = null)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             var allPosts = await _posts.GetAllAsync();
-            var orgPosts = allPosts.Where(p => p.OrganizationId == orgId);
+            var orgPosts = allPosts.Where(p => p.OrganizationId == orgUserId);
 
             if (!string.IsNullOrWhiteSpace(status) &&
                 Enum.TryParse<ModerationStatus>(status, true, out var statusEnum))
@@ -218,16 +205,15 @@ namespace Presentation.Controllers
             return Ok(response);
         }
 
- 
-        [HttpPatch("{orgId}/posts/{postId}/review")]
+        [HttpPatch("{orgUserId}/posts/{postId}/review")]
         public async Task<ActionResult> ReviewPost(
-            Guid orgId, Guid postId, [FromBody] OrgReviewPostRequest req)
+            Guid orgUserId, Guid postId, [FromBody] OrgReviewPostRequest req)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             var post = await _posts.GetByIdAsync(postId);
-            if (post is null || post.OrganizationId != orgId)
+            if (post is null || post.OrganizationId != orgUserId)
                 return NotFound("Post not found in this organization.");
 
             if (post.ModerationStatus != ModerationStatus.Pending)
@@ -249,16 +235,15 @@ namespace Presentation.Controllers
             });
         }
 
-
-        [HttpPatch("{orgId}/posts/{postId}/status")]
+        [HttpPatch("{orgUserId}/posts/{postId}/status")]
         public async Task<ActionResult> SetPostStatus(
-            Guid orgId, Guid postId, [FromBody] OrgSetStatusRequest req)
+            Guid orgUserId, Guid postId, [FromBody] OrgSetStatusRequest req)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             var post = await _posts.GetByIdAsync(postId);
-            if (post is null || post.OrganizationId != orgId)
+            if (post is null || post.OrganizationId != orgUserId)
                 return NotFound("Post not found in this organization.");
 
             post.ModerationStatus = req.IsActive ? ModerationStatus.Approved : ModerationStatus.Removed;
@@ -271,41 +256,46 @@ namespace Presentation.Controllers
             });
         }
 
-
-        [HttpGet("{orgId}/followers")]
-        public async Task<ActionResult<IEnumerable<OrgFollowerResponse>>> GetFollowers(Guid orgId)
+        [HttpGet("{orgUserId}/followers")]
+        public async Task<ActionResult<IEnumerable<OrgFollowerResponse>>> GetFollowers(Guid orgUserId)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
-            var followers = await _orgFollows.GetFollowersAsync(orgId);
+            var followers = await _follows.GetFollowersAsync(orgUserId);
+            var allUsers = await _users.GetAllAsync();
+            var userDict = allUsers.ToDictionary(u => u.Id);
 
-            var dto = followers.Select(f => new OrgFollowerResponse(
-                f.FollowerId,
-                f.Follower?.Name ?? "Unknown",
-                f.Follower?.Email ?? "Unknown",
-                f.Follower?.Role.ToString() ?? "Unknown",
-                f.CreatedAt
-            ));
+            var dto = followers.Select(f =>
+            {
+                userDict.TryGetValue(f.FollowerId, out var follower);
+                return new OrgFollowerResponse(
+                    f.FollowerId,
+                    follower?.Name ?? "Unknown",
+                    follower?.Email ?? "Unknown",
+                    follower?.Role.ToString() ?? "Unknown",
+                    f.CreatedAt
+                );
+            });
 
             return Ok(dto);
         }
 
-        [HttpGet("{orgId}/analytics")]
-        public async Task<ActionResult<OrgAnalyticsResponse>> GetAnalytics(Guid orgId)
+        [HttpGet("{orgUserId}/analytics")]
+        public async Task<ActionResult<OrgAnalyticsResponse>> GetAnalytics(Guid orgUserId)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
             var allPosts = await _posts.GetAllAsync();
-            var orgPosts = allPosts.Where(p => p.OrganizationId == orgId).ToList();
+            var orgPosts = allPosts.Where(p => p.OrganizationId == orgUserId).ToList();
 
-            var followers = await _orgFollows.GetFollowersAsync(orgId);
-            var wallet = await _orgWallets.GetOrCreateAsync(orgId);
+            var followers = await _follows.GetFollowersAsync(orgUserId);
+            var wallet = await _wallets.GetOrCreateAsync(orgUserId);
 
             var allUsers = await _users.GetAllAsync();
-            var journalistCount = allUsers.Count(u => u.OrganizationId == orgId && u.Role == Role.Journalist);
-            var activeJournalistCount = allUsers.Count(u => u.OrganizationId == orgId && u.Role == Role.Journalist && u.IsActive);
+            var journalistCount = allUsers.Count(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist);
+            var activeJournalistCount = allUsers.Count(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist && u.IsActive);
 
             int totalLikes = 0, totalComments = 0, totalReports = 0;
 
@@ -318,8 +308,8 @@ namespace Presentation.Controllers
             }
 
             return Ok(new OrgAnalyticsResponse(
-                orgId,
-                org!.Name,
+                orgUserId,
+                orgUser!.Name,
                 TotalPosts: orgPosts.Count,
                 PendingPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Pending),
                 ApprovedPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Approved),
@@ -334,24 +324,23 @@ namespace Presentation.Controllers
             ));
         }
 
-
-        [HttpGet("{orgId}/wallet")]
-        public async Task<ActionResult<OrgWalletResponse>> GetWallet(Guid orgId)
+        [HttpGet("{orgUserId}/wallet")]
+        public async Task<ActionResult<OrgWalletResponse>> GetWallet(Guid orgUserId)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
-            var wallet = await _orgWallets.GetOrCreateAsync(orgId);
-            return Ok(new OrgWalletResponse(wallet.Id, orgId, org!.Name, wallet.Balance, wallet.UpdatedAt));
+            var wallet = await _wallets.GetOrCreateAsync(orgUserId);
+            return Ok(new OrgWalletResponse(wallet.Id, orgUserId, orgUser!.Name, wallet.Balance, wallet.UpdatedAt));
         }
 
-        [HttpGet("{orgId}/wallet/transactions")]
-        public async Task<ActionResult<IEnumerable<OrgWalletTransactionResponse>>> GetWalletTransactions(Guid orgId)
+        [HttpGet("{orgUserId}/wallet/transactions")]
+        public async Task<ActionResult<IEnumerable<OrgWalletTransactionResponse>>> GetWalletTransactions(Guid orgUserId)
         {
-            var (caller, org, err) = await ResolveCallerAndOrg(orgId);
+            var (orgUser, err) = await ResolveOrgUser(orgUserId);
             if (err is not null) return err;
 
-            var transactions = await _orgWallets.GetTransactionsByOrgIdAsync(orgId);
+            var transactions = await _wallets.GetTransactionsByUserIdAsync(orgUserId);
 
             var dto = transactions.Select(t => new OrgWalletTransactionResponse(
                 t.Id,
@@ -372,60 +361,53 @@ namespace Presentation.Controllers
     public class OrganizationPublicController : ControllerBase
     {
         private readonly IUserRepository _users;
-        private readonly IOrganizationRepository _organizations;
-        private readonly IOrganizationFollowRepository _orgFollows;
-        private readonly IOrganizationWalletRepository _orgWallets;
+        private readonly IFollowRepository _follows;
         private readonly IWalletRepository _wallets;
 
         public OrganizationPublicController(
             IUserRepository users,
-            IOrganizationRepository organizations,
-            IOrganizationFollowRepository orgFollows,
-            IOrganizationWalletRepository orgWallets,
+            IFollowRepository follows,
             IWalletRepository wallets)
         {
             _users = users;
-            _organizations = organizations;
-            _orgFollows = orgFollows;
-            _orgWallets = orgWallets;
+            _follows = follows;
             _wallets = wallets;
         }
 
         private Guid GetCallerId() =>
             Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        [HttpPost("{orgId}/follow")]
-        public async Task<ActionResult> Follow(Guid orgId)
+        [HttpPost("{orgUserId}/follow")]
+        public async Task<ActionResult> Follow(Guid orgUserId)
         {
             var callerId = GetCallerId();
-            var org = await _organizations.GetByIdAsync(orgId);
-            if (org is null) return NotFound("Organization not found.");
+            var orgUser = await _users.GetByIdAsync(orgUserId);
+            if (orgUser is null || orgUser.Role != Role.Organization) return NotFound("Organization not found.");
 
-            var existing = await _orgFollows.GetAsync(callerId, orgId);
+            var existing = await _follows.GetAsync(callerId, orgUserId);
             if (existing is not null) return Conflict("Already following this organization.");
 
-            await _orgFollows.AddAsync(new OrganizationFollow
+            await _follows.AddAsync(new Follow
             {
                 FollowerId = callerId,
-                OrganizationId = orgId,
+                FolloweeId = orgUserId,
                 CreatedAt = DateTime.UtcNow
             });
 
-            return Ok(new { Message = $"Now following {org.Name}." });
+            return Ok(new { Message = $"Now following {orgUser.Name}." });
         }
 
-        [HttpDelete("{orgId}/follow")]
-        public async Task<ActionResult> Unfollow(Guid orgId)
+        [HttpDelete("{orgUserId}/follow")]
+        public async Task<ActionResult> Unfollow(Guid orgUserId)
         {
             var callerId = GetCallerId();
-            await _orgFollows.RemoveAsync(callerId, orgId);
+            await _follows.RemoveAsync(callerId, orgUserId);
             return Ok(new { Message = "Unfollowed successfully." });
         }
 
-
-        [HttpPost("{orgId}/donate")]
+        [HttpPost("{orgUserId}/donate")]
         [Authorize(Roles = "Regular,Journalist")]
-        public async Task<ActionResult> DonateToOrg(Guid orgId, [FromBody] OrgDonationRequest req)
+        public async Task<ActionResult> DonateToOrg(Guid orgUserId, [FromBody] OrgDonationRequest req)
         {
             if (req.Amount <= 0)
                 return BadRequest("Donation amount must be greater than zero.");
@@ -434,15 +416,15 @@ namespace Presentation.Controllers
             var sender = await _users.GetByIdAsync(callerId);
             if (sender is null) return Unauthorized();
 
-            var org = await _organizations.GetByIdAsync(orgId);
-            if (org is null) return NotFound("Organization not found.");
-            if (!org.IsActive) return BadRequest("Cannot donate to an inactive organization.");
+            var orgUser = await _users.GetByIdAsync(orgUserId);
+            if (orgUser is null || orgUser.Role != Role.Organization) return NotFound("Organization not found.");
+            if (!orgUser.IsActive) return BadRequest("Cannot donate to an inactive organization.");
 
             var senderWallet = await _wallets.GetOrCreateAsync(callerId);
             if (senderWallet.Balance < req.Amount)
                 return BadRequest($"Insufficient balance. Your balance: {senderWallet.Balance:F2}");
 
-            var orgWallet = await _orgWallets.GetOrCreateAsync(orgId);
+            var orgWallet = await _wallets.GetOrCreateAsync(orgUserId);
 
             senderWallet.Balance -= req.Amount;
             await _wallets.UpdateAsync(senderWallet);
@@ -453,15 +435,15 @@ namespace Presentation.Controllers
                 WalletId = senderWallet.Id,
                 Amount = -req.Amount,
                 Type = WalletTransactionType.DonationSent,
-                Description = req.Message ?? $"Donation to organization {org.Name}",
+                Description = req.Message ?? $"Donation to organization {orgUser.Name}",
                 ActorId = null,
                 CreatedAt = DateTime.UtcNow
             });
 
             orgWallet.Balance += req.Amount;
-            await _orgWallets.UpdateAsync(orgWallet);
+            await _wallets.UpdateAsync(orgWallet);
 
-            await _orgWallets.AddTransactionAsync(new OrganizationWalletTransaction
+            await _wallets.AddTransactionAsync(new WalletTransaction
             {
                 Id = Guid.NewGuid(),
                 WalletId = orgWallet.Id,
@@ -474,7 +456,7 @@ namespace Presentation.Controllers
 
             return Ok(new
             {
-                Message = $"Donation of {req.Amount:F2} sent to {org.Name} successfully.",
+                Message = $"Donation of {req.Amount:F2} sent to {orgUser.Name} successfully.",
                 NewBalance = senderWallet.Balance
             });
         }
@@ -483,16 +465,14 @@ namespace Presentation.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<OrgPublicListResponse>>> ListOrganizations()
         {
-            var orgs = await _organizations.GetAllAsync();
+            var all = await _users.GetAllAsync();
 
-            var dto = orgs
-                .Where(o => o.IsActive)
-                .OrderBy(o => o.Name)
-                .Select(o => new OrgPublicListResponse(o.Id, o.Name, o.Profile, o.CreatedAt));
+            var dto = all
+                .Where(u => u.Role == Role.Organization && u.IsActive && u.RegistrationStatus == RegistrationStatus.Approved)
+                .OrderBy(u => u.Name)
+                .Select(u => new OrgPublicListResponse(u.Id, u.Name, u.Profile, u.CreatedAt));
 
             return Ok(dto);
         }
     }
-
-
 }

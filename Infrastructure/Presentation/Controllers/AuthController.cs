@@ -1,18 +1,14 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Services.Utilities;
 using ServicesAbstraction;
 using Shared.DTOs;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Presentation.Controllers
@@ -24,16 +20,12 @@ namespace Presentation.Controllers
         private readonly IUserRepository _users;
         private readonly ITokenService _tokens;
 
-        // Add to constructor field
-        private readonly IOrganizationRepository _organizations;
-
-        // Update constructor
-        public AuthController(IUserRepository users, ITokenService tokens, IOrganizationRepository organizations)
+        public AuthController(IUserRepository users, ITokenService tokens)
         {
             _users = users;
             _tokens = tokens;
-            _organizations = organizations;
         }
+
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest req)
@@ -48,26 +40,8 @@ namespace Presentation.Controllers
             if (req.Role == Role.Organization && string.IsNullOrWhiteSpace(req.OrganizationLicense))
                 return BadRequest("Organization license is required when registering as an Organization manager.");
 
-            // Auto-create the organization if registering as org manager
-            Guid? organizationId = null;
-            if (req.Role == Role.Organization)
-            {
-                var org = new Organization
-                {
-                    Id = Guid.NewGuid(),
-                    Name = req.Name,
-                    License = req.OrganizationLicense!,
-                    Email = req.Email,
-                    IsActive = false,          // inactive until admin approves
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _organizations.AddAsync(org);
-                organizationId = org.Id;
-            }
-
-            // ✅ Both independent journalists AND org managers start as Pending
-            bool isPending = req.Role == Role.Journalist && organizationId is null
-                          || req.Role == Role.Organization;
+            // Both independent journalists AND org managers start as Pending
+            bool isPending = (req.Role == Role.Journalist) || (req.Role == Role.Organization);
 
             var user = new User
             {
@@ -76,8 +50,9 @@ namespace Presentation.Controllers
                 Email = req.Email,
                 PasswordHash = PasswordHasher.Hash(req.Password),
                 Role = req.Role,
-                OrganizationId = organizationId,
+                OrganizationId = null,
                 JournalistExternalId = req.JournalistId,
+                License = req.OrganizationLicense,
                 IsActive = true,
                 RegistrationStatus = isPending ? RegistrationStatus.Pending : RegistrationStatus.Approved,
                 CreatedAt = DateTime.UtcNow
@@ -104,10 +79,10 @@ namespace Presentation.Controllers
             if (user is null || !user.IsActive)
                 return Unauthorized("Invalid credentials.");
 
-            if (user.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending)
+            if (user.RegistrationStatus == RegistrationStatus.Pending)
                 return Unauthorized("Your account is pending admin approval. Please wait for verification.");
 
-            if (user.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected)
+            if (user.RegistrationStatus == RegistrationStatus.Rejected)
                 return Unauthorized($"Your registration was rejected. Reason: {user.RejectionReason ?? "No reason provided."}");
 
             var ok = PasswordHasher.Verify(req.Password, user.PasswordHash);
@@ -115,16 +90,8 @@ namespace Presentation.Controllers
                 return Unauthorized("Invalid credentials.");
 
             var token = _tokens.CreateToken(user);
-
-            return Ok(new AuthResponse(
-                token,
-                user.Id,
-                user.Name,
-                user.Email,
-                user.Role.ToString()
-            ));
+            return Ok(new AuthResponse(token, user.Id, user.Name, user.Email, user.Role.ToString()));
         }
-
 
         [HttpGet("me")]
         [Authorize]
@@ -143,6 +110,5 @@ namespace Presentation.Controllers
                 Role = user.Role.ToString(),
             });
         }
-
     }
 }

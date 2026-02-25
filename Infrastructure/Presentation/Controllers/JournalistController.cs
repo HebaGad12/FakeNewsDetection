@@ -1,4 +1,4 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -19,7 +19,6 @@ namespace Presentation.Controllers
         private readonly IUserRepository _users;
         private readonly IPostRepository _posts;
         private readonly IInteractionRepository _interactions;
-        private readonly IOrganizationRepository _organizations;
         private readonly IFollowRepository _follows;
         private readonly IModerationRepository _moderations;
 
@@ -27,14 +26,12 @@ namespace Presentation.Controllers
             IUserRepository users,
             IPostRepository posts,
             IInteractionRepository interactions,
-            IOrganizationRepository organizations,
             IFollowRepository follows,
             IModerationRepository moderations)
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
-            _organizations = organizations;
             _follows = follows;
             _moderations = moderations;
         }
@@ -49,12 +46,20 @@ namespace Presentation.Controllers
             var journalist = await _users.GetByIdAsync(Guid.Parse(userId));
             if (journalist is null) return NotFound("Journalist not found");
 
+            // Organization is now a User with Role=Organization
+            string orgName = "Independent";
+            if (journalist.OrganizationId.HasValue)
+            {
+                var orgUser = await _users.GetByIdAsync(journalist.OrganizationId.Value);
+                orgName = orgUser?.Name ?? "Unknown";
+            }
+
             var dto = new JournalistResponse(
                 journalist.Id,
                 journalist.Name,
                 journalist.Email,
                 journalist.Role.ToString(),
-                journalist.Organization?.Name ?? "Independent",
+                orgName,
                 journalist.Followers?.Count ?? 0,
                 journalist.Posts?.Count ?? 0,
                 journalist.CreatedAt
@@ -122,18 +127,28 @@ namespace Presentation.Controllers
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var posts = await _posts.GetByAuthorAsync(userId);
+            var allUsers = await _users.GetAllAsync();
 
-            var dto = posts.Select(p => new JournalistPostResponse(
-                p.Id,
-                p.Title,
-                p.Content,
-                p.CreatedAt,
-                p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
-                p.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
-                p.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0,
-                p.Organization?.Name ?? "Independent",
-                p.ModerationStatus.ToString()
-            ));
+            var dto = posts.Select(p =>
+            {
+                string orgName = "Independent";
+                if (p.OrganizationId.HasValue)
+                {
+                    var orgUser = allUsers.FirstOrDefault(u => u.Id == p.OrganizationId.Value);
+                    orgName = orgUser?.Name ?? "Unknown";
+                }
+                return new JournalistPostResponse(
+                    p.Id,
+                    p.Title,
+                    p.Content,
+                    p.CreatedAt,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0,
+                    orgName,
+                    p.ModerationStatus.ToString()
+                );
+            });
 
             return Ok(dto);
         }
@@ -228,12 +243,12 @@ namespace Presentation.Controllers
             await _interactions.AddAsync(interaction);
             return Ok(new { Message = "Reported" });
         }
+
         [HttpPost("follow/{targetId}")]
         [Authorize(Roles = "Journalist")]
         public async Task<ActionResult> Follow(Guid targetId)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
             var follow = new Follow
             {
                 FollowerId = userId,
@@ -250,7 +265,6 @@ namespace Presentation.Controllers
         public async Task<ActionResult> Unfollow(Guid targetId)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
             await _follows.RemoveAsync(userId, targetId);
             return Ok(new { Message = "Unfollowed successfully" });
         }
@@ -260,7 +274,6 @@ namespace Presentation.Controllers
         public async Task<ActionResult<IEnumerable<JournalistFollowingResponse>>> Following()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
             var followees = await _follows.GetFolloweesAsync(userId);
 
             var dto = followees.Select(f => new JournalistFollowingResponse(
@@ -278,7 +291,6 @@ namespace Presentation.Controllers
         public async Task<ActionResult<IEnumerable<JournalistFollowerResponse>>> Followers()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
             var followers = await _follows.GetFollowersAsync(userId);
 
             var dto = followers.Select(f => new JournalistFollowerResponse(

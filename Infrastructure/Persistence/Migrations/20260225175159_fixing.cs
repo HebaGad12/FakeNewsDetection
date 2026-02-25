@@ -5,24 +5,18 @@
 namespace Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddOrganizationLicense : Migration
+    public partial class fixing : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "License",
-                table: "Organizations",
-                type: "nvarchar(max)",
-                nullable: true);
+
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "License",
-                table: "Organizations");
+
         }
     }
 }

@@ -1,9 +1,6 @@
-﻿using Domain.Enums;
+using Domain.Enums;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Domain.Models
 {
@@ -12,9 +9,12 @@ namespace Domain.Models
         public Guid Id { get; set; }
 
         public Guid AuthorId { get; set; }
-        public User Author { get; set; }     
+        public User Author { get; set; } = null!;
+
+        // FK to User with Role=Organization (nullable - only set when journalist is org member)
         public Guid? OrganizationId { get; set; }
-        public Organization? Organization { get; set; }
+        public User? OrganizationUser { get; set; }
+
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public string[] Tags { get; set; } = Array.Empty<string>();
@@ -29,5 +29,4 @@ namespace Domain.Models
         public ICollection<Interaction> Interactions { get; set; } = new List<Interaction>();
         public ICollection<ModerationAction> ModerationActions { get; set; } = new List<ModerationAction>();
     }
-
 }

@@ -130,8 +130,8 @@ namespace Presentation.Controllers
 
             var targetUser = await _users.GetByIdAsync(targetId);
             if (targetUser == null) return NotFound("User not found");
-            if (targetUser.Role != Role.Journalist)
-                return BadRequest("You can only follow journalists.");
+            if (targetUser.Role != Role.Journalist && targetUser.Role != Role.Organization)
+                return BadRequest("You can only follow journalists or organizations.");
 
             await _follows.AddAsync(new Follow
             {
@@ -285,12 +285,11 @@ namespace Presentation.Controllers
 
             var dto = interactions.Select(a => new UserActivityResponse(
                 a.Type.ToString(),
-                a.Post?.Title ?? "Unknown Post",   
+                a.Post?.Title ?? "Unknown Post",
                 a.CreatedAt
             ));
 
             return Ok(dto);
         }
     }
-    }
-
+}

@@ -1,8 +1,7 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
 using System;
@@ -23,26 +22,22 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IModerationRepository _moderations;
         private readonly IFollowRepository _follows;
-        private readonly IOrganizationRepository _organizations;
 
         public AdminController(
             IUserRepository users,
             IPostRepository posts,
             IInteractionRepository interactions,
             IModerationRepository moderations,
-            IFollowRepository follows,
-            IOrganizationRepository organizations)
+            IFollowRepository follows)
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
             _moderations = moderations;
             _follows = follows;
-            _organizations = organizations;
         }
 
         #region Dashboard & Statistics
-
 
         [HttpGet("dashboard/stats")]
         public async Task<ActionResult<AdminDashboardStatsResponse>> GetDashboardStats()
@@ -67,10 +62,10 @@ namespace Presentation.Controllers
                 TotalOrganizations: allUsers.Count(u => u.Role == Role.Organization),
                 TotalRegularUsers: allUsers.Count(u => u.Role == Role.Regular),
                 TotalAdmins: allUsers.Count(u => u.Role == Role.Admin),
-                PendingJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending),
-                RejectedJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected),
-                PendingOrganizationRequests: allUsers.Count(u => u.Role == Role.Organization && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending),
-                RejectedOrganizationRequests: allUsers.Count(u => u.Role == Role.Organization && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected));
+                PendingJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == RegistrationStatus.Pending),
+                RejectedJournalistRequests: allUsers.Count(u => u.Role == Role.Journalist && u.OrganizationId == null && u.RegistrationStatus == RegistrationStatus.Rejected),
+                PendingOrganizationRequests: allUsers.Count(u => u.Role == Role.Organization && u.RegistrationStatus == RegistrationStatus.Pending),
+                RejectedOrganizationRequests: allUsers.Count(u => u.Role == Role.Organization && u.RegistrationStatus == RegistrationStatus.Rejected));
 
             return Ok(stats);
         }
@@ -78,7 +73,6 @@ namespace Presentation.Controllers
         #endregion
 
         #region User Management
-
 
         [HttpGet("users")]
         public async Task<ActionResult<IEnumerable<AdminUserListResponse>>> GetAllUsers(
@@ -89,26 +83,19 @@ namespace Presentation.Controllers
         {
             var allUsers = await _users.GetAllAsync();
             var allPosts = await _posts.GetAllAsync();
-            var allOrganizations = await _organizations.GetAllAsync();
 
             var query = allUsers.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<Role>(role, true, out var roleEnum))
-            {
                 query = query.Where(u => u.Role == roleEnum);
-            }
 
             if (isActive.HasValue)
-            {
                 query = query.Where(u => u.IsActive == isActive.Value);
-            }
 
             query = query.OrderByDescending(u => u.CreatedAt);
 
             var totalCount = query.Count();
-            var users = query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize);
+            var users = query.Skip((page - 1) * pageSize).Take(pageSize);
 
             var response = new List<AdminUserListResponse>();
 
@@ -116,6 +103,14 @@ namespace Presentation.Controllers
             {
                 var followers = await _follows.GetFollowersAsync(u.Id);
                 var followees = await _follows.GetFolloweesAsync(u.Id);
+
+                // For org members: look up the org user's name
+                string? orgName = null;
+                if (u.OrganizationId.HasValue)
+                {
+                    var orgUser = await _users.GetByIdAsync(u.OrganizationId.Value);
+                    orgName = orgUser?.Name;
+                }
 
                 response.Add(new AdminUserListResponse(
                     Id: u.Id,
@@ -125,34 +120,29 @@ namespace Presentation.Controllers
                     IsActive: u.IsActive,
                     CreatedAt: u.CreatedAt,
                     OrganizationId: u.OrganizationId,
-                    OrganizationName: u.OrganizationId.HasValue
-                        ? allOrganizations.FirstOrDefault(o => o.Id == u.OrganizationId.Value)?.Name
-                        : null,
+                    OrganizationName: orgName,
                     PostCount: allPosts.Count(p => p.AuthorId == u.Id),
                     FollowerCount: followers.Count(),
                     FollowingCount: followees.Count()
                 ));
             }
 
-            Response.Headers.Append("X-Total-Count", totalCount.ToString());
-            Response.Headers.Append("X-Page", page.ToString());
-            Response.Headers.Append("X-Page-Size", pageSize.ToString());
+            Response.Headers["X-Total-Count"] = totalCount.ToString();
+            Response.Headers["X-Page"] = page.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
 
             return Ok(response);
         }
-
 
         [HttpGet("users/{id}")]
         public async Task<ActionResult<AdminUserDetailResponse>> GetUserById(Guid id)
         {
             var user = await _users.GetByIdAsync(id);
-            if (user is null)
-                return NotFound("User not found");
+            if (user is null) return NotFound("User not found");
 
             var followers = await _follows.GetFollowersAsync(id);
             var followees = await _follows.GetFolloweesAsync(id);
             var allPosts = await _posts.GetAllAsync();
-            var allOrganizations = await _organizations.GetAllAsync();
 
             var userPosts = allPosts.Where(p => p.AuthorId == id).ToList();
 
@@ -170,6 +160,13 @@ namespace Presentation.Controllers
 
             var moderations = await _moderations.GetByActorAsync(id);
 
+            string? orgName = null;
+            if (user.OrganizationId.HasValue)
+            {
+                var orgUser = await _users.GetByIdAsync(user.OrganizationId.Value);
+                orgName = orgUser?.Name;
+            }
+
             var response = new AdminUserDetailResponse(
                 Id: user.Id,
                 Name: user.Name,
@@ -178,9 +175,7 @@ namespace Presentation.Controllers
                 IsActive: user.IsActive,
                 CreatedAt: user.CreatedAt,
                 OrganizationId: user.OrganizationId,
-                OrganizationName: user.OrganizationId.HasValue
-                    ? allOrganizations.FirstOrDefault(o => o.Id == user.OrganizationId.Value)?.Name
-                    : null,
+                OrganizationName: orgName,
                 JournalistExternalId: user.JournalistExternalId,
                 PostCount: userPosts.Count,
                 FollowerCount: followers.Count(),
@@ -194,13 +189,11 @@ namespace Presentation.Controllers
             return Ok(response);
         }
 
-
         [HttpPatch("users/{id}/status")]
         public async Task<ActionResult> UpdateUserStatus(Guid id, UpdateUserStatusRequest request)
         {
             var user = await _users.GetByIdAsync(id);
-            if (user is null)
-                return NotFound("User not found");
+            if (user is null) return NotFound("User not found");
 
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (id.ToString() == currentUserId && !request.IsActive)
@@ -212,20 +205,17 @@ namespace Presentation.Controllers
             return Ok(new { message = $"User {(request.IsActive ? "activated" : "deactivated")} successfully" });
         }
 
-
         [HttpDelete("users/{id}")]
         public async Task<ActionResult> DeleteUser(Guid id)
         {
             var user = await _users.GetByIdAsync(id);
-            if (user is null)
-                return NotFound("User not found");
+            if (user is null) return NotFound("User not found");
 
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (id.ToString() == currentUserId)
                 return BadRequest("You cannot delete your own account");
 
             await _users.DeleteAsync(id);
-
             return Ok(new { message = "User deleted successfully" });
         }
 
@@ -243,42 +233,36 @@ namespace Presentation.Controllers
         {
             var allPosts = await _posts.GetAllAsync();
             var allUsers = await _users.GetAllAsync();
-            var allOrganizations = await _organizations.GetAllAsync();
 
             var query = allPosts.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(moderationStatus) &&
                 Enum.TryParse<ModerationStatus>(moderationStatus, true, out var modStatusEnum))
-            {
                 query = query.Where(p => p.ModerationStatus == modStatusEnum);
-            }
 
             if (!string.IsNullOrWhiteSpace(verificationStatus) &&
                 Enum.TryParse<VerificationStatus>(verificationStatus, true, out var verStatusEnum))
-            {
                 query = query.Where(p => p.VerificationStatus == verStatusEnum);
-            }
 
             if (authorId.HasValue)
-            {
                 query = query.Where(p => p.AuthorId == authorId.Value);
-            }
 
             query = query.OrderByDescending(p => p.CreatedAt);
 
             var totalCount = query.Count();
-            var posts = query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize);
+            var posts = query.Skip((page - 1) * pageSize).Take(pageSize);
 
             var response = new List<AdminPostListResponse>();
 
             foreach (var p in posts)
             {
                 var author = allUsers.FirstOrDefault(u => u.Id == p.AuthorId);
-                var org = p.OrganizationId.HasValue
-                    ? allOrganizations.FirstOrDefault(o => o.Id == p.OrganizationId.Value)
-                    : null;
+                string? orgName = null;
+                if (p.OrganizationId.HasValue)
+                {
+                    var orgUser = allUsers.FirstOrDefault(u => u.Id == p.OrganizationId.Value);
+                    orgName = orgUser?.Name;
+                }
 
                 var interactions = await _interactions.GetByPostAsync(p.Id);
 
@@ -294,31 +278,32 @@ namespace Presentation.Controllers
                     CreatedAt: p.CreatedAt,
                     UpdatedAt: p.UpdatedAt,
                     InteractionCount: interactions.Count(),
-                    OrganizationName: org?.Name
+                    OrganizationName: orgName
                 ));
             }
 
-            Response.Headers.Append("X-Total-Count", totalCount.ToString());
-            Response.Headers.Append("X-Page", page.ToString());
-            Response.Headers.Append("X-Page-Size", pageSize.ToString());
+            Response.Headers["X-Total-Count"] = totalCount.ToString();
+            Response.Headers["X-Page"] = page.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
 
             return Ok(response);
         }
-
 
         [HttpGet("posts/{id}")]
         public async Task<ActionResult<AdminPostDetailResponse>> GetPostById(Guid id)
         {
             var post = await _posts.GetByIdAsync(id);
-            if (post is null)
-                return NotFound("Post not found");
+            if (post is null) return NotFound("Post not found");
 
             var author = await _users.GetByIdAsync(post.AuthorId);
             var postInteractions = await _interactions.GetByPostAsync(id);
-            var allOrganizations = await _organizations.GetAllAsync();
-            var org = post.OrganizationId.HasValue
-                ? allOrganizations.FirstOrDefault(o => o.Id == post.OrganizationId.Value)
-                : null;
+
+            string? orgName = null;
+            if (post.OrganizationId.HasValue)
+            {
+                var orgUser = await _users.GetByIdAsync(post.OrganizationId.Value);
+                orgName = orgUser?.Name;
+            }
 
             var response = new AdminPostDetailResponse(
                 Id: post.Id,
@@ -330,7 +315,7 @@ namespace Presentation.Controllers
                 AuthorEmail: author?.Email ?? "Unknown",
                 AuthorRole: author?.Role.ToString() ?? "Unknown",
                 OrganizationId: post.OrganizationId,
-                OrganizationName: org?.Name,
+                OrganizationName: orgName,
                 VerificationStatus: post.VerificationStatus.ToString(),
                 ConfidenceScore: post.ConfidenceScore,
                 CommunityCredibilityPercent: post.CommunityCredibilityPercent,
@@ -348,13 +333,11 @@ namespace Presentation.Controllers
             return Ok(response);
         }
 
-
         [HttpPatch("posts/{id}/moderation")]
         public async Task<ActionResult> UpdatePostModeration(Guid id, UpdatePostModerationRequest request)
         {
             var post = await _posts.GetByIdAsync(id);
-            if (post is null)
-                return NotFound("Post not found");
+            if (post is null) return NotFound("Post not found");
 
             if (!Enum.TryParse<ModerationStatus>(request.ModerationStatus, true, out var moderationStatus))
                 return BadRequest("Invalid moderation status");
@@ -381,17 +364,14 @@ namespace Presentation.Controllers
             };
 
             await _moderations.AddAsync(moderationAction);
-
             return Ok(new { message = "Post moderation updated successfully" });
         }
-
 
         [HttpPatch("posts/{id}/verification")]
         public async Task<ActionResult> UpdatePostVerification(Guid id, UpdatePostVerificationRequest request)
         {
             var post = await _posts.GetByIdAsync(id);
-            if (post is null)
-                return NotFound("Post not found");
+            if (post is null) return NotFound("Post not found");
 
             if (!Enum.TryParse<VerificationStatus>(request.VerificationStatus, true, out var verificationStatus))
                 return BadRequest("Invalid verification status");
@@ -401,20 +381,16 @@ namespace Presentation.Controllers
             post.UpdatedAt = DateTime.UtcNow;
 
             await _posts.UpdateAsync(post);
-
             return Ok(new { message = "Post verification updated successfully" });
         }
-
 
         [HttpDelete("posts/{id}")]
         public async Task<ActionResult> DeletePost(Guid id)
         {
             var post = await _posts.GetByIdAsync(id);
-            if (post is null)
-                return NotFound("Post not found");
+            if (post is null) return NotFound("Post not found");
 
             await _posts.DeleteAsync(id);
-
             return Ok(new { message = "Post deleted successfully" });
         }
 
@@ -422,9 +398,6 @@ namespace Presentation.Controllers
 
         #region Independent Journalist Verification
 
-        /// <summary>
-        /// Returns all independent journalists whose registration is still pending admin review.
-        /// </summary>
         [HttpGet("journalists/pending")]
         public async Task<ActionResult<IEnumerable<PendingJournalistResponse>>> GetPendingJournalists()
         {
@@ -433,40 +406,28 @@ namespace Presentation.Controllers
             var pending = allUsers
                 .Where(u => u.Role == Role.Journalist
                          && u.OrganizationId == null
-                         && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Pending)
+                         && u.RegistrationStatus == RegistrationStatus.Pending)
                 .OrderBy(u => u.CreatedAt)
-                .Select(u => new PendingJournalistResponse(
-                    u.Id,
-                    u.Name,
-                    u.Email,
-                    u.JournalistExternalId ?? "",
-                    u.CreatedAt
-                ));
+                .Select(u => new PendingJournalistResponse(u.Id, u.Name, u.Email, u.JournalistExternalId ?? "", u.CreatedAt));
 
             return Ok(pending);
         }
 
-        /// <summary>
-        /// Approve or reject a pending independent journalist.
-        /// PATCH /api/admin/journalists/{id}/review
-        /// Body: { "approve": true }   OR   { "approve": false, "rejectionReason": "..." }
-        /// </summary>
         [HttpPatch("journalists/{id}/review")]
         public async Task<ActionResult> ReviewJournalist(Guid id, ReviewJournalistRequest request)
         {
             var user = await _users.GetByIdAsync(id);
-            if (user is null)
-                return NotFound("User not found.");
+            if (user is null) return NotFound("User not found.");
 
             if (user.Role != Role.Journalist || user.OrganizationId != null)
                 return BadRequest("This endpoint is only for independent journalists.");
 
-            if (user.RegistrationStatus != Domain.Enums.RegistrationStatus.Pending)
+            if (user.RegistrationStatus != RegistrationStatus.Pending)
                 return BadRequest($"Journalist registration is already '{user.RegistrationStatus}'. Only pending requests can be reviewed.");
 
             if (request.Approve)
             {
-                user.RegistrationStatus = Domain.Enums.RegistrationStatus.Approved;
+                user.RegistrationStatus = RegistrationStatus.Approved;
                 user.RejectionReason = null;
                 await _users.UpdateAsync(user);
                 return Ok(new { message = $"Journalist '{user.Name}' has been approved and can now log in." });
@@ -476,16 +437,13 @@ namespace Presentation.Controllers
                 if (string.IsNullOrWhiteSpace(request.RejectionReason))
                     return BadRequest("A rejection reason is required when rejecting a journalist.");
 
-                user.RegistrationStatus = Domain.Enums.RegistrationStatus.Rejected;
+                user.RegistrationStatus = RegistrationStatus.Rejected;
                 user.RejectionReason = request.RejectionReason;
                 await _users.UpdateAsync(user);
                 return Ok(new { message = $"Journalist '{user.Name}' has been rejected." });
             }
         }
 
-        /// <summary>
-        /// Returns all rejected independent journalists (for audit / appeal purposes).
-        /// </summary>
         [HttpGet("journalists/rejected")]
         public async Task<ActionResult<IEnumerable<object>>> GetRejectedJournalists()
         {
@@ -494,7 +452,7 @@ namespace Presentation.Controllers
             var rejected = allUsers
                 .Where(u => u.Role == Role.Journalist
                          && u.OrganizationId == null
-                         && u.RegistrationStatus == Domain.Enums.RegistrationStatus.Rejected)
+                         && u.RegistrationStatus == RegistrationStatus.Rejected)
                 .OrderByDescending(u => u.CreatedAt)
                 .Select(u => new
                 {
@@ -509,24 +467,19 @@ namespace Presentation.Controllers
             return Ok(rejected);
         }
 
-        /// <summary>
-        /// Re-opens a rejected journalist's application back to Pending,
-        /// allowing the admin to re-evaluate after an appeal.
-        /// </summary>
         [HttpPatch("journalists/{id}/reopen")]
         public async Task<ActionResult> ReopenJournalistApplication(Guid id)
         {
             var user = await _users.GetByIdAsync(id);
-            if (user is null)
-                return NotFound("User not found.");
+            if (user is null) return NotFound("User not found.");
 
             if (user.Role != Role.Journalist || user.OrganizationId != null)
                 return BadRequest("This endpoint is only for independent journalists.");
 
-            if (user.RegistrationStatus != Domain.Enums.RegistrationStatus.Rejected)
+            if (user.RegistrationStatus != RegistrationStatus.Rejected)
                 return BadRequest("Only rejected applications can be re-opened.");
 
-            user.RegistrationStatus = Domain.Enums.RegistrationStatus.Pending;
+            user.RegistrationStatus = RegistrationStatus.Pending;
             user.RejectionReason = null;
             await _users.UpdateAsync(user);
 
@@ -534,24 +487,22 @@ namespace Presentation.Controllers
         }
 
         #endregion
+
         #region Organization Verification
 
         [HttpGet("organizations/pending")]
         public async Task<ActionResult<IEnumerable<object>>> GetPendingOrganizations()
         {
             var allUsers = await _users.GetAllAsync();
-            var allOrgs = await _organizations.GetAllAsync();
 
             var pending = allUsers
-                .Where(u => u.Role == Role.Organization
-                         && u.RegistrationStatus == RegistrationStatus.Pending)
+                .Where(u => u.Role == Role.Organization && u.RegistrationStatus == RegistrationStatus.Pending)
                 .Select(u => new
                 {
                     UserId = u.Id,
                     u.Name,
                     u.Email,
-                    OrganizationId = u.OrganizationId,
-                    OrganizationName = allOrgs.FirstOrDefault(o => o.Id == u.OrganizationId)?.Name,
+                    u.License,
                     RegisteredAt = u.CreatedAt
                 });
 
@@ -574,18 +525,6 @@ namespace Presentation.Controllers
             {
                 user.RegistrationStatus = RegistrationStatus.Approved;
                 user.RejectionReason = null;
-
-                // Activate the organization itself
-                if (user.OrganizationId.HasValue)
-                {
-                    var org = await _organizations.GetByIdAsync(user.OrganizationId.Value);
-                    if (org is not null)
-                    {
-                        org.IsActive = true;
-                        await _organizations.UpdateAsync(org);
-                    }
-                }
-
                 await _users.UpdateAsync(user);
                 return Ok(new { message = $"Organization '{user.Name}' has been approved and can now log in." });
             }
@@ -596,7 +535,6 @@ namespace Presentation.Controllers
 
                 user.RegistrationStatus = RegistrationStatus.Rejected;
                 user.RejectionReason = request.RejectionReason;
-
                 await _users.UpdateAsync(user);
                 return Ok(new { message = $"Organization '{user.Name}' has been rejected." });
             }
@@ -606,17 +544,15 @@ namespace Presentation.Controllers
         public async Task<ActionResult<IEnumerable<object>>> GetRejectedOrganizations()
         {
             var allUsers = await _users.GetAllAsync();
-            var allOrgs = await _organizations.GetAllAsync();
 
             var rejected = allUsers
-                .Where(u => u.Role == Role.Organization
-                         && u.RegistrationStatus == RegistrationStatus.Rejected)
+                .Where(u => u.Role == Role.Organization && u.RegistrationStatus == RegistrationStatus.Rejected)
                 .Select(u => new
                 {
                     UserId = u.Id,
                     u.Name,
                     u.Email,
-                    OrganizationName = allOrgs.FirstOrDefault(o => o.Id == u.OrganizationId)?.Name,
+                    u.License,
                     u.RejectionReason,
                     RegisteredAt = u.CreatedAt
                 });
@@ -628,48 +564,38 @@ namespace Presentation.Controllers
 
         #region Reports & Analytics
 
-
         [HttpGet("reports/posts-by-moderation")]
         public async Task<ActionResult<object>> GetPostsByModerationStatus()
         {
             var allPosts = await _posts.GetAllAsync();
-
-            var report = new
+            return Ok(new
             {
                 Pending = allPosts.Count(p => p.ModerationStatus == ModerationStatus.Pending),
                 Approved = allPosts.Count(p => p.ModerationStatus == ModerationStatus.Approved),
                 UnderReview = allPosts.Count(p => p.ModerationStatus == ModerationStatus.UnderReview),
                 Flagged = allPosts.Count(p => p.ModerationStatus == ModerationStatus.Flagged),
                 Removed = allPosts.Count(p => p.ModerationStatus == ModerationStatus.Removed)
-            };
-
-            return Ok(report);
+            });
         }
-
 
         [HttpGet("reports/posts-by-verification")]
         public async Task<ActionResult<object>> GetPostsByVerificationStatus()
         {
             var allPosts = await _posts.GetAllAsync();
-
-            var report = new
+            return Ok(new
             {
                 Unknown = allPosts.Count(p => p.VerificationStatus == VerificationStatus.Unknown),
                 Trusted = allPosts.Count(p => p.VerificationStatus == VerificationStatus.Trusted),
                 Suspicious = allPosts.Count(p => p.VerificationStatus == VerificationStatus.Suspicious),
                 Fake = allPosts.Count(p => p.VerificationStatus == VerificationStatus.Fake)
-            };
-
-            return Ok(report);
+            });
         }
-
 
         [HttpGet("reports/users-by-role")]
         public async Task<ActionResult<object>> GetUsersByRole()
         {
             var allUsers = await _users.GetAllAsync();
-
-            var report = new
+            return Ok(new
             {
                 Regular = allUsers.Count(u => u.Role == Role.Regular),
                 Journalist = allUsers.Count(u => u.Role == Role.Journalist),
@@ -677,9 +603,7 @@ namespace Presentation.Controllers
                 Admin = allUsers.Count(u => u.Role == Role.Admin),
                 Active = allUsers.Count(u => u.IsActive),
                 Inactive = allUsers.Count(u => !u.IsActive)
-            };
-
-            return Ok(report);
+            });
         }
 
         #endregion

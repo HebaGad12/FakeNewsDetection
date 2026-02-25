@@ -79,8 +79,8 @@ namespace Presentation.Controllers
             var recipient = await _users.GetByIdAsync(request.RecipientId);
             if (recipient is null) return NotFound("Recipient not found.");
 
-            if (recipient.Role != Role.Regular && recipient.Role != Role.Journalist)
-                return BadRequest("Donations can only be sent to Regular users or Journalists.");
+            if (recipient.Role != Role.Regular && recipient.Role != Role.Journalist && recipient.Role != Role.Organization)
+                return BadRequest("Donations can only be sent to Regular users, Journalists, or Organizations.");
 
             var senderWallet = await _wallets.GetOrCreateAsync(senderId);
             if (senderWallet.Balance < request.Amount)

@@ -59,11 +59,8 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<IPostRepository, PostRepository>();
             builder.Services.AddScoped<IInteractionRepository, InteractionRepository>();
             builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
-            builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
             builder.Services.AddScoped<IWalletRepository, WalletRepository>();
             builder.Services.AddScoped<IDonationRepository, DonationRepository>();
-            builder.Services.AddScoped<IOrganizationFollowRepository, OrganizationFollowRepository>();
-            builder.Services.AddScoped<IOrganizationWalletRepository, OrganizationWalletRepository>();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {

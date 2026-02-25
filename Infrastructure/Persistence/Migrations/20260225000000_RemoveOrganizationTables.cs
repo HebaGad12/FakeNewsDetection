@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,38 +6,44 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddOrganizationFeatures : Migration
+    public partial class RemoveOrganizationTables : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsActive",
-                table: "Organizations",
-                type: "bit",
-                nullable: false,
-                defaultValue: true);
+            // Drop OrganizationWalletTransactions first (has FK to OrganizationWallets)
+            migrationBuilder.DropTable(name: "OrganizationWalletTransactions");
 
+            // Drop OrganizationWallets (has FK to Users)
+            migrationBuilder.DropTable(name: "OrganizationWallets");
+
+            // Drop OrganizationFollows (has FK to Users)
+            migrationBuilder.DropTable(name: "OrganizationFollows");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder.CreateTable(
                 name: "OrganizationFollows",
                 columns: table => new
                 {
                     FollowerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    OrganizationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OrganizationUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OrganizationFollows", x => new { x.FollowerId, x.OrganizationId });
-                    table.ForeignKey(
-                        name: "FK_OrganizationFollows_Organizations_OrganizationId",
-                        column: x => x.OrganizationId,
-                        principalTable: "Organizations",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                    table.PrimaryKey("PK_OrganizationFollows", x => new { x.FollowerId, x.OrganizationUserId });
                     table.ForeignKey(
                         name: "FK_OrganizationFollows_Users_FollowerId",
                         column: x => x.FollowerId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_OrganizationFollows_Users_OrganizationUserId",
+                        column: x => x.OrganizationUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -48,7 +54,7 @@ namespace Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    OrganizationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OrganizationUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Balance = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -57,11 +63,11 @@ namespace Persistence.Migrations
                 {
                     table.PrimaryKey("PK_OrganizationWallets", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_OrganizationWallets_Organizations_OrganizationId",
-                        column: x => x.OrganizationId,
-                        principalTable: "Organizations",
+                        name: "FK_OrganizationWallets_Users_OrganizationUserId",
+                        column: x => x.OrganizationUserId,
+                        principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -70,10 +76,10 @@ namespace Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     WalletId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ActorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Type = table.Column<int>(type: "int", nullable: false),
                     Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    ActorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -84,7 +90,7 @@ namespace Persistence.Migrations
                         column: x => x.WalletId,
                         principalTable: "OrganizationWallets",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_OrganizationWalletTransactions_Users_ActorId",
                         column: x => x.ActorId,
@@ -94,14 +100,14 @@ namespace Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_OrganizationFollows_OrganizationId",
+                name: "IX_OrganizationFollows_OrganizationUserId",
                 table: "OrganizationFollows",
-                column: "OrganizationId");
+                column: "OrganizationUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_OrganizationWallets_OrganizationId",
+                name: "IX_OrganizationWallets_OrganizationUserId",
                 table: "OrganizationWallets",
-                column: "OrganizationId",
+                column: "OrganizationUserId",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -113,23 +119,6 @@ namespace Persistence.Migrations
                 name: "IX_OrganizationWalletTransactions_WalletId",
                 table: "OrganizationWalletTransactions",
                 column: "WalletId");
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "OrganizationFollows");
-
-            migrationBuilder.DropTable(
-                name: "OrganizationWalletTransactions");
-
-            migrationBuilder.DropTable(
-                name: "OrganizationWallets");
-
-            migrationBuilder.DropColumn(
-                name: "IsActive",
-                table: "Organizations");
         }
     }
 }

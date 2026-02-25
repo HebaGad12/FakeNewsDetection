@@ -19,13 +19,13 @@ namespace Persistence.Repositories
             await _context.Posts
                 .Include(p => p.Interactions)
                 .Include(p => p.Author)
-                .Include(p => p.Organization)
+                .Include(p => p.OrganizationUser)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
         public async Task<IEnumerable<Post>> GetAllAsync() =>
             await _context.Posts
                 .Include(p => p.Author)
-                .Include(p => p.Organization)
+                .Include(p => p.OrganizationUser)
                 .Include(p => p.Interactions)
                 .ToListAsync();
 
@@ -33,7 +33,7 @@ namespace Persistence.Repositories
             await _context.Posts
                 .Where(p => p.AuthorId == authorId)
                 .Include(p => p.Author)
-                .Include(p => p.Organization)
+                .Include(p => p.OrganizationUser)
                 .Include(p => p.Interactions)
                 .ToListAsync();
 

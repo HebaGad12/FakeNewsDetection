@@ -1,93 +1,108 @@
-﻿using Domain.Models;
+using Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Persistence
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+        public AppDbContext(DbContextOptions<AppDbContext> options)
+            : base(options) { }
 
         public DbSet<User> Users => Set<User>();
-        public DbSet<Organization> Organizations => Set<Organization>();
         public DbSet<Post> Posts => Set<Post>();
         public DbSet<Interaction> Interactions => Set<Interaction>();
         public DbSet<Follow> Follows => Set<Follow>();
         public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
-        public DbSet<LiveSession> LiveSessions { get; set; }
+        public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<Donation> Donations => Set<Donation>();
-        public DbSet<OrganizationFollow> OrganizationFollows => Set<OrganizationFollow>();
-        public DbSet<OrganizationWallet> OrganizationWallets => Set<OrganizationWallet>();
-        public DbSet<OrganizationWalletTransaction> OrganizationWalletTransactions => Set<OrganizationWalletTransaction>();
+
 
         protected override void OnModelCreating(ModelBuilder b)
         {
             base.OnModelCreating(b);
 
+            // ===================== USER =====================
 
             b.Entity<User>().HasIndex(u => u.Email).IsUnique();
             b.Entity<User>().Property(u => u.Name).HasMaxLength(200);
             b.Entity<User>().Property(u => u.Email).HasMaxLength(200);
+            b.Entity<User>().Property(u => u.License).HasMaxLength(500);
+
+            // Self-reference (Journalist belongs to Organization)
+            b.Entity<User>()
+                .HasOne(u => u.Organization)
+                .WithMany(o => o.OrgMembers)
+                .HasForeignKey(u => u.OrganizationId)
+                .OnDelete(DeleteBehavior.NoAction); // IMPORTANT: prevent cascade cycles
 
 
-            b.Entity<Organization>().Property(o => o.Name).HasMaxLength(200);
-            b.Entity<Organization>().Property(o => o.Email).HasMaxLength(200);
-
+            // ===================== POST =====================
 
             b.Entity<Post>().HasIndex(p => p.CreatedAt);
             b.Entity<Post>().Property(p => p.Title).HasMaxLength(300);
-            b.Entity<Post>().Property(p => p.Tags)
-      .HasConversion(
-          v => string.Join(",", v),
-          v => v.Split(',', StringSplitOptions.RemoveEmptyEntries)
-      );
 
+            // Proper string[] conversion with ValueComparer
+            var tagsConverter = new ValueConverter<string[], string>(
+                v => string.Join(",", v),
+                v => string.IsNullOrWhiteSpace(v)
+                    ? Array.Empty<string>()
+                    : v.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            );
 
-            b.Entity<Interaction>().HasOne<Post>().WithMany(p => p.Interactions).HasForeignKey(i => i.PostId).OnDelete(DeleteBehavior.Restrict);
+            var tagsComparer = new ValueComparer<string[]>(
+                (c1, c2) =>
+                    (c1 == null && c2 == null) ||
+                    (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+                c => c == null
+                    ? 0
+                    : c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                c => c == null
+                    ? Array.Empty<string>()
+                    : c.ToArray()
+            );
 
             b.Entity<Post>()
-                .HasOne<User>()
-                .WithMany()
+                .Property(p => p.Tags)
+                .HasConversion(tagsConverter)
+                .Metadata.SetValueComparer(tagsComparer);
+
+            b.Entity<Post>()
+                .HasOne(p => p.Author)
+                .WithMany(u => u.Posts)
                 .HasForeignKey(p => p.AuthorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-
             b.Entity<Post>()
-           .HasOne<Organization>()
-           .WithMany()
-           .HasForeignKey(p => p.OrganizationId)
-           .OnDelete(DeleteBehavior.SetNull);
-
-            b.Entity<Interaction>()
-           .HasOne(i => i.Post)
-           .WithMany(p => p.Interactions)
-           .HasForeignKey(i => i.PostId)
-           .OnDelete(DeleteBehavior.Restrict);
-
-
-            b.Entity<User>()
-           .HasOne(u => u.Organization)
-           .WithMany(o => o.Users)
-           .HasForeignKey(u => u.OrganizationId)
-           .OnDelete(DeleteBehavior.SetNull);
-
-
-            b.Entity<Post>()
-                .HasOne<Organization>()
+                .HasOne(p => p.OrganizationUser)
                 .WithMany()
                 .HasForeignKey(p => p.OrganizationId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
 
-            b.Entity<Interaction>().HasIndex(i => new { i.PostId, i.UserId, i.Type });
-            b.Entity<Interaction>().Property(i => i.Content).HasMaxLength(2000);
+
+            // ===================== INTERACTION =====================
+
+            b.Entity<Interaction>()
+                .HasOne(i => i.Post)
+                .WithMany(p => p.Interactions)
+                .HasForeignKey(i => i.PostId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Entity<Interaction>()
+                .HasIndex(i => new { i.PostId, i.UserId, i.Type });
+
+            b.Entity<Interaction>()
+                .Property(i => i.Content)
+                .HasMaxLength(2000);
+
+
+            // ===================== FOLLOW =====================
 
             b.Entity<Follow>().HasKey(f => new { f.FollowerId, f.FolloweeId });
             b.Entity<Follow>().HasIndex(f => f.CreatedAt);
@@ -104,68 +119,70 @@ namespace Persistence
                 .HasForeignKey(f => f.FolloweeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            b.Entity<ModerationAction>().HasIndex(m => new { m.PostId, m.CreatedAt });
-            b.Entity<Post>().HasOne(p => p.Author).WithMany(u => u.Posts).HasForeignKey(p => p.AuthorId);
-            b.Entity<Post>().HasOne(p => p.Organization).WithMany(o => o.Posts).HasForeignKey(p => p.OrganizationId);
 
-            // Wallet
-            b.Entity<Wallet>().HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
-            b.Entity<Wallet>().HasIndex(w => w.UserId).IsUnique();
-            b.Entity<Wallet>().Property(w => w.Balance).HasColumnType("decimal(18,2)");
+            // ===================== WALLET =====================
 
-            // WalletTransaction
-            b.Entity<WalletTransaction>().HasOne(t => t.Wallet).WithMany(w => w.Transactions).HasForeignKey(t => t.WalletId).OnDelete(DeleteBehavior.NoAction);
-            b.Entity<WalletTransaction>().HasOne(t => t.Actor).WithMany().HasForeignKey(t => t.ActorId).OnDelete(DeleteBehavior.SetNull);
-            b.Entity<WalletTransaction>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
-            b.Entity<WalletTransaction>().Property(t => t.Description).HasMaxLength(500);
-
-            // Donation
-            b.Entity<Donation>().HasOne(d => d.Sender).WithMany().HasForeignKey(d => d.SenderId).OnDelete(DeleteBehavior.Restrict);
-            b.Entity<Donation>().HasOne(d => d.Recipient).WithMany().HasForeignKey(d => d.RecipientId).OnDelete(DeleteBehavior.Restrict);
-            b.Entity<Donation>().Property(d => d.Amount).HasColumnType("decimal(18,2)");
-            b.Entity<Donation>().Property(d => d.Message).HasMaxLength(500);
-            b.Entity<Donation>().HasIndex(d => d.SenderId);
-            b.Entity<Donation>().HasIndex(d => d.RecipientId);
-
-            // Organization IsActive
-            b.Entity<Organization>().Property(o => o.IsActive).HasDefaultValue(true);
-
-            // OrganizationFollow
-            b.Entity<OrganizationFollow>().HasKey(f => new { f.FollowerId, f.OrganizationId });
-            b.Entity<OrganizationFollow>()
-                .HasOne(f => f.Follower)
+            b.Entity<Wallet>()
+                .HasOne(w => w.User)
                 .WithMany()
-                .HasForeignKey(f => f.FollowerId)
+                .HasForeignKey(w => w.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
-            b.Entity<OrganizationFollow>()
-                .HasOne(f => f.Organization)
-                .WithMany(o => o.Followers)
-                .HasForeignKey(f => f.OrganizationId)
-                .OnDelete(DeleteBehavior.Cascade);
 
-            // OrganizationWallet
-            b.Entity<OrganizationWallet>()
-                .HasOne(w => w.Organization)
-                .WithOne(o => o.Wallet)
-                .HasForeignKey<OrganizationWallet>(w => w.OrganizationId)
-                .OnDelete(DeleteBehavior.Cascade);
-            b.Entity<OrganizationWallet>().HasIndex(w => w.OrganizationId).IsUnique();
-            b.Entity<OrganizationWallet>().Property(w => w.Balance).HasColumnType("decimal(18,2)");
+            b.Entity<Wallet>()
+                .HasIndex(w => w.UserId)
+                .IsUnique();
 
-            // OrganizationWalletTransaction
-            b.Entity<OrganizationWalletTransaction>()
+            b.Entity<Wallet>()
+                .Property(w => w.Balance)
+                .HasColumnType("decimal(18,2)");
+
+
+            // ===================== WALLET TRANSACTION =====================
+
+            b.Entity<WalletTransaction>()
                 .HasOne(t => t.Wallet)
                 .WithMany(w => w.Transactions)
                 .HasForeignKey(t => t.WalletId)
-                .OnDelete(DeleteBehavior.Cascade);
-            b.Entity<OrganizationWalletTransaction>()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Entity<WalletTransaction>()
                 .HasOne(t => t.Actor)
                 .WithMany()
                 .HasForeignKey(t => t.ActorId)
                 .OnDelete(DeleteBehavior.SetNull);
-            b.Entity<OrganizationWalletTransaction>().Property(t => t.Amount).HasColumnType("decimal(18,2)");
-            b.Entity<OrganizationWalletTransaction>().Property(t => t.Description).HasMaxLength(500);
-        }
 
+            b.Entity<WalletTransaction>()
+                .Property(t => t.Amount)
+                .HasColumnType("decimal(18,2)");
+
+            b.Entity<WalletTransaction>()
+                .Property(t => t.Description)
+                .HasMaxLength(500);
+
+
+            // ===================== DONATION =====================
+
+            b.Entity<Donation>()
+                .HasOne(d => d.Sender)
+                .WithMany()
+                .HasForeignKey(d => d.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Entity<Donation>()
+                .HasOne(d => d.Recipient)
+                .WithMany()
+                .HasForeignKey(d => d.RecipientId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Entity<Donation>()
+                .Property(d => d.Amount)
+                .HasColumnType("decimal(18,2)");
+
+            b.Entity<Donation>()
+                .Property(d => d.Message)
+                .HasMaxLength(500);
+
+
+        }
     }
 }

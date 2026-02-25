@@ -151,122 +151,9 @@ namespace Persistence.Migrations
 
                     b.HasIndex("ActorId");
 
-                    b.HasIndex("PostId", "CreatedAt");
+                    b.HasIndex("PostId");
 
                     b.ToTable("ModerationActions");
-                });
-
-            modelBuilder.Entity("Domain.Models.Organization", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("License")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Profile")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Organizations");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationFollow", b =>
-                {
-                    b.Property<Guid>("FollowerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("FollowerId", "OrganizationId");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.ToTable("OrganizationFollows");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWallet", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Balance")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationId")
-                        .IsUnique();
-
-                    b.ToTable("OrganizationWallets");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWalletTransaction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ActorId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("WalletId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActorId");
-
-                    b.HasIndex("WalletId");
-
-                    b.ToTable("OrganizationWalletTransactions");
                 });
 
             modelBuilder.Entity("Domain.Models.Post", b =>
@@ -346,6 +233,10 @@ namespace Persistence.Migrations
                     b.Property<string>("JournalistExternalId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("License")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -356,6 +247,9 @@ namespace Persistence.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Profile")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("RegistrationStatus")
@@ -524,54 +418,6 @@ namespace Persistence.Migrations
                     b.Navigation("Post");
                 });
 
-            modelBuilder.Entity("Domain.Models.OrganizationFollow", b =>
-                {
-                    b.HasOne("Domain.Models.User", "Follower")
-                        .WithMany()
-                        .HasForeignKey("FollowerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Models.Organization", "Organization")
-                        .WithMany("Followers")
-                        .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Follower");
-
-                    b.Navigation("Organization");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWallet", b =>
-                {
-                    b.HasOne("Domain.Models.Organization", "Organization")
-                        .WithOne("Wallet")
-                        .HasForeignKey("Domain.Models.OrganizationWallet", "OrganizationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Organization");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWalletTransaction", b =>
-                {
-                    b.HasOne("Domain.Models.User", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Domain.Models.OrganizationWallet", "Wallet")
-                        .WithMany("Transactions")
-                        .HasForeignKey("WalletId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Actor");
-
-                    b.Navigation("Wallet");
-                });
-
             modelBuilder.Entity("Domain.Models.Post", b =>
                 {
                     b.HasOne("Domain.Models.User", "Author")
@@ -580,22 +426,22 @@ namespace Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Models.Organization", "Organization")
-                        .WithMany("Posts")
+                    b.HasOne("Domain.Models.User", "OrganizationUser")
+                        .WithMany()
                         .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Author");
 
-                    b.Navigation("Organization");
+                    b.Navigation("OrganizationUser");
                 });
 
             modelBuilder.Entity("Domain.Models.User", b =>
                 {
-                    b.HasOne("Domain.Models.Organization", "Organization")
-                        .WithMany("Users")
+                    b.HasOne("Domain.Models.User", "Organization")
+                        .WithMany("OrgMembers")
                         .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Organization");
                 });
@@ -605,7 +451,7 @@ namespace Persistence.Migrations
                     b.HasOne("Domain.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -621,28 +467,12 @@ namespace Persistence.Migrations
                     b.HasOne("Domain.Models.Wallet", "Wallet")
                         .WithMany("Transactions")
                         .HasForeignKey("WalletId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Actor");
 
                     b.Navigation("Wallet");
-                });
-
-            modelBuilder.Entity("Domain.Models.Organization", b =>
-                {
-                    b.Navigation("Followers");
-
-                    b.Navigation("Posts");
-
-                    b.Navigation("Users");
-
-                    b.Navigation("Wallet");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWallet", b =>
-                {
-                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("Domain.Models.Post", b =>
@@ -661,6 +491,8 @@ namespace Persistence.Migrations
                     b.Navigation("Interactions");
 
                     b.Navigation("ModerationActions");
+
+                    b.Navigation("OrgMembers");
 
                     b.Navigation("Posts");
                 });
