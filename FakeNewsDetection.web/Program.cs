@@ -17,10 +17,10 @@ namespace FakeNewsDetection.web
         {
             var builder = WebApplication.CreateBuilder(args);
 
-           // builder.Services.AddDbContext<AppDbContext>(opts =>
-               // opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
             builder.Services.AddDbContext<AppDbContext>(opts =>
-                opts.UseSqlServer(builder.Configuration.GetConnectionString("Mostafa")));
+                opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
+            //builder.Services.AddDbContext<AppDbContext>(opts =>
+            //    opts.UseSqlServer(builder.Configuration.GetConnectionString("Mostafa")));
             //builder.Services.AddDbContext<AppDbContext>(opts =>
             //  opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 

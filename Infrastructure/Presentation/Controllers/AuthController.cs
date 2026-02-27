@@ -40,7 +40,6 @@ namespace Presentation.Controllers
             if (req.Role == Role.Organization && string.IsNullOrWhiteSpace(req.OrganizationLicense))
                 return BadRequest("Organization license is required when registering as an Organization manager.");
 
-            // Both independent journalists AND org managers start as Pending
             bool isPending = (req.Role == Role.Journalist) || (req.Role == Role.Organization);
 
             var user = new User
@@ -76,18 +75,22 @@ namespace Presentation.Controllers
         public async Task<ActionResult<AuthResponse>> Login(LoginRequest req)
         {
             var user = (await _users.GetAllAsync()).FirstOrDefault(u => u.Email == req.Email);
-            if (user is null || !user.IsActive)
+
+            // Validate password first (do not reveal whether email exists)
+            if (user is null || !PasswordHasher.Verify(req.Password, user.PasswordHash))
                 return Unauthorized("Invalid credentials.");
 
+            // Pending approval
             if (user.RegistrationStatus == RegistrationStatus.Pending)
                 return Unauthorized("Your account is pending admin approval. Please wait for verification.");
 
+            // Registration rejected
             if (user.RegistrationStatus == RegistrationStatus.Rejected)
                 return Unauthorized($"Your registration was rejected. Reason: {user.RejectionReason ?? "No reason provided."}");
 
-            var ok = PasswordHasher.Verify(req.Password, user.PasswordHash);
-            if (!ok)
-                return Unauthorized("Invalid credentials.");
+            // FIX: Deactivated accounts show a clear deactivated message (not "invalid credentials")
+            if (!user.IsActive)
+                return Unauthorized("Your account has been deactivated. Please contact your organization or support.");
 
             var token = _tokens.CreateToken(user);
             return Ok(new AuthResponse(token, user.Id, user.Name, user.Email, user.Role.ToString()));
@@ -102,13 +105,32 @@ namespace Presentation.Controllers
 
             var user = await _users.GetByIdAsync(Guid.Parse(userId));
             if (user is null) return NotFound();
-            return Ok(new
-            {
-                user.Id,
-                user.Name,
-                user.Email,
-                Role = user.Role.ToString(),
-            });
+            return Ok(new { user.Id, user.Name, user.Email, Role = user.Role.ToString() });
+        }
+
+        /// <summary>
+        /// Change password for the currently authenticated user.
+        /// </summary>
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<ActionResult> ChangePassword([FromBody] ChangePasswordRequest req)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId is null) return Unauthorized();
+
+            var user = await _users.GetByIdAsync(Guid.Parse(userId));
+            if (user is null) return NotFound("User not found.");
+
+            if (!PasswordHasher.Verify(req.CurrentPassword, user.PasswordHash))
+                return BadRequest("Current password is incorrect.");
+
+            if (req.NewPassword.Length < 6)
+                return BadRequest("New password must be at least 6 characters.");
+
+            user.PasswordHash = PasswordHasher.Hash(req.NewPassword);
+            await _users.UpdateAsync(user);
+
+            return Ok(new { Message = "Password changed successfully." });
         }
     }
 }

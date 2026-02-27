@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 
 namespace Shared.DTOs
 {
-    public record EditProfileRequest(string? Name);
+    public record EditProfileRequest(string? Name, string? Email, string? Profile);
 }

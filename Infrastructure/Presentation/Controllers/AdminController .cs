@@ -352,7 +352,8 @@ namespace Presentation.Controllers
             {
                 Id = Guid.NewGuid(),
                 PostId = id,
-                ActionType = moderationStatus switch
+                ActorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
+                Action = moderationStatus switch
                 {
                     ModerationStatus.Approved => ModerationActionType.Keep,
                     ModerationStatus.Removed => ModerationActionType.Remove,

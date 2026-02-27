@@ -1,4 +1,4 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -8,13 +8,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/user")]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserRepository _users;
@@ -37,82 +37,65 @@ namespace Presentation.Controllers
             _follows = follows;
         }
 
+        private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         [HttpGet("me")]
-        [Authorize]
         public async Task<ActionResult<RegularUserResponse>> Me()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
-
-            var user = await _users.GetByIdAsync(Guid.Parse(userId));
+            var user = await _users.GetByIdAsync(GetUserId());
             if (user is null) return NotFound("User not found");
 
-            var dto = new RegularUserResponse(
-                user.Id,
-                user.Name,
-                user.Email,
+            return Ok(new RegularUserResponse(
+                user.Id, user.Name, user.Email,
                 user.Role.ToString(),
                 user.Followers?.Count ?? 0,
                 user.Followees?.Count ?? 0
-            );
-
-            return Ok(dto);
+            ));
         }
 
+        /// <summary>
+        /// Edit profile — supports updating Name, Email, and Profile bio in one call.
+        /// Any field left null is not changed.
+        /// </summary>
         [HttpPut("edit")]
-        [Authorize]
         public async Task<ActionResult> EditProfile([FromBody] EditProfileRequest req)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
-
-            var user = await _users.GetByIdAsync(Guid.Parse(userId));
+            var user = await _users.GetByIdAsync(GetUserId());
             if (user is null) return NotFound("User not found");
 
-            user.Name = req.Name ?? user.Name;
-            await _users.UpdateAsync(user);
+            if (req.Name != null)    user.Name    = req.Name;
+            if (req.Email != null)   user.Email   = req.Email;
+            if (req.Profile != null) user.Profile = req.Profile;
 
-            return NoContent();
+            await _users.UpdateAsync(user);
+            return Ok(new { user.Id, user.Name, user.Email, user.Profile });
         }
 
         [HttpGet("overview")]
-        [Authorize]
         public async Task<ActionResult<UserOverviewResponse>> Overview()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
-
-            var uid = Guid.Parse(userId);
-
+            var uid = GetUserId();
             var interactions = await _interactions.GetByUserAsync(uid);
-            var likes = interactions.Count(i => i.Type == InteractionType.Like);
-            var comments = interactions.Count(i => i.Type == InteractionType.Comment);
-            var reports = interactions.Count(i => i.Type == InteractionType.Report);
+            var likes     = interactions.Count(i => i.Type == InteractionType.Like);
+            var comments  = interactions.Count(i => i.Type == InteractionType.Comment);
+            var reports   = interactions.Count(i => i.Type == InteractionType.Report);
 
-            var moderations = await _moderations.GetByActorAsync(uid);
+            var moderations    = await _moderations.GetByActorAsync(uid);
             var helpfulReports = moderations.Count(m => m.Action == ModerationActionType.Keep);
 
-            var followees = await _follows.GetFolloweesAsync(uid);
+            var followees           = await _follows.GetFolloweesAsync(uid);
             var followingJournalists = followees.Count(f => f.Followee.Role == Role.Journalist);
 
-            var dto = new UserOverviewResponse(likes, comments, reports, helpfulReports, followingJournalists);
-
-            return Ok(dto);
+            return Ok(new UserOverviewResponse(likes, comments, reports, helpfulReports, followingJournalists));
         }
 
         [HttpGet("following")]
-        [Authorize]
         public async Task<ActionResult<IEnumerable<FollowingResponse>>> Following()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
-
-            var followees = await _follows.GetFolloweesAsync(Guid.Parse(userId));
+            var followees = await _follows.GetFolloweesAsync(GetUserId());
 
             var dto = followees.Select(f => new FollowingResponse(
-                f.Followee.Id,
-                f.Followee.Name,
-                f.Followee.Role.ToString(),
+                f.Followee.Id, f.Followee.Name, f.Followee.Role.ToString(),
                 f.Followee.Organization?.Name,
                 f.Followee.Followers?.Count ?? 0,
                 f.Followee.Posts?.Count ?? 0,
@@ -122,16 +105,23 @@ namespace Presentation.Controllers
             return Ok(dto);
         }
 
+        /// <summary>
+        /// Follow a journalist or organization. Returns 409 if already following.
+        /// </summary>
         [HttpPost("follow/{targetId}")]
-        [Authorize]
         public async Task<ActionResult> Follow(Guid targetId)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = GetUserId();
 
             var targetUser = await _users.GetByIdAsync(targetId);
             if (targetUser == null) return NotFound("User not found");
             if (targetUser.Role != Role.Journalist && targetUser.Role != Role.Organization)
                 return BadRequest("You can only follow journalists or organizations.");
+
+            // FIX: Check for duplicate follow
+            var existing = await _follows.GetAsync(userId, targetId);
+            if (existing is not null)
+                return Conflict("You are already following this user.");
 
             await _follows.AddAsync(new Follow
             {
@@ -140,155 +130,57 @@ namespace Presentation.Controllers
                 CreatedAt = DateTime.UtcNow
             });
 
-            var followersCount = targetUser.Followers?.Count ?? 0;
-            return Ok(new { Followers = followersCount });
+            targetUser = await _users.GetByIdAsync(targetId);
+            return Ok(new { Followers = targetUser?.Followers?.Count ?? 0 });
         }
 
         [HttpDelete("unfollow/{targetId}")]
-        [Authorize]
         public async Task<ActionResult> Unfollow(Guid targetId)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
+            var userId = GetUserId();
             await _follows.RemoveAsync(userId, targetId);
 
             var targetUser = await _users.GetByIdAsync(targetId);
             if (targetUser == null) return NotFound("User not found");
-
-            var followersCount = targetUser.Followers?.Count ?? 0;
-            return Ok(new { Followers = followersCount });
+            return Ok(new { Followers = targetUser.Followers?.Count ?? 0 });
         }
 
-        [HttpPost("posts/{postId}/like")]
-        [Authorize]
-        public async Task<ActionResult> Like(Guid postId)
-        {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            var interaction = new Interaction
-            {
-                PostId = postId,
-                UserId = userId,
-                Type = InteractionType.Like,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _interactions.AddAsync(interaction);
-
-            post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            var likesCount = post.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0;
-            return Ok(new { Likes = likesCount });
-        }
-
-        [HttpDelete("posts/{postId}/unlike")]
-        [Authorize]
-        public async Task<ActionResult> Unlike(Guid postId)
-        {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var interactions = await _interactions.GetByUserAsync(userId);
-            var like = interactions.FirstOrDefault(i => i.PostId == postId && i.Type == InteractionType.Like);
-
-            if (like != null)
-                await _interactions.DeleteAsync(like.Id);
-
-            var post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            var likesCount = post.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0;
-            return Ok(new { Likes = likesCount });
-        }
-
-        [HttpPost("posts/{postId}/comment")]
-        [Authorize]
-        public async Task<ActionResult> Comment(Guid postId, [FromBody] CommentRequest req)
-        {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-            var post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            var interaction = new Interaction
-            {
-                PostId = postId,
-                UserId = userId,
-                Type = InteractionType.Comment,
-                Content = req.Content,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _interactions.AddAsync(interaction);
-
-            post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            var commentsCount = post.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0;
-            return Ok(new { Comments = commentsCount });
-        }
-
-        public record CommentRequest(string Content);
-
-        [HttpDelete("posts/{postId}/comment/{commentId}")]
-        [Authorize(Roles = "Regular")]
-        public async Task<ActionResult> DeleteComment(Guid postId, Guid commentId)
-        {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var interactions = await _interactions.GetByUserAsync(userId);
-            var comment = interactions.FirstOrDefault(i => i.Id == commentId && i.PostId == postId && i.Type == InteractionType.Comment);
-            if (comment == null) return NotFound("Comment not found or not owned by you");
-
-            await _interactions.DeleteAsync(comment.Id);
-            return NoContent();
-        }
+        /// <summary>
+        /// Report a post. Any authenticated user can report.
+        /// </summary>
         [HttpPost("posts/{postId}/report")]
-        [Authorize]
         public async Task<ActionResult> Report(Guid postId, [FromBody] ReportRequest req)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = GetUserId();
 
             var post = await _posts.GetByIdAsync(postId);
             if (post == null) return NotFound("Post not found");
 
-            var interaction = new Interaction
+            await _interactions.AddAsync(new Interaction
             {
+                Id = Guid.NewGuid(),
                 PostId = postId,
                 UserId = userId,
                 Type = InteractionType.Report,
                 Content = req.Reason,
                 CreatedAt = DateTime.UtcNow
-            };
-
-            await _interactions.AddAsync(interaction);
+            });
 
             post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            var reportsCount = post.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0;
-            return Ok(new { Reports = reportsCount });
+            return Ok(new { Reports = post?.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0 });
         }
 
         public record ReportRequest(string Reason);
 
         [HttpGet("activity")]
-        [Authorize]
         public async Task<ActionResult<IEnumerable<UserActivityResponse>>> Activity()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
-
-            var interactions = await _interactions.GetByUserAsync(Guid.Parse(userId));
-
+            var interactions = await _interactions.GetByUserAsync(GetUserId());
             var dto = interactions.Select(a => new UserActivityResponse(
                 a.Type.ToString(),
                 a.Post?.Title ?? "Unknown Post",
                 a.CreatedAt
             ));
-
             return Ok(dto);
         }
     }

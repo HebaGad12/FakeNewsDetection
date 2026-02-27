@@ -10,7 +10,6 @@ namespace Shared.DTOs
         string Name,
         string Email,
         string Password,
-        string LicenceNumber,
-        string? Phone
+        string LicenceNumber
     );
 }

@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 
 namespace Shared.DTOs
 {
-    public record JournalistEditProfileRequest(string? Name, Guid? OrganizationId);
+    // OrganizationId intentionally removed - journalists cannot change their organization via edit profile
+    public record JournalistEditProfileRequest(string? Name, string? Email);
 }
