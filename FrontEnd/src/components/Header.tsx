@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Shield, Search, Bell, User, LogOut } from "lucide-react";
+import { Menu, X, Shield, Search, Bell, User, LogOut, Settings, Lock, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -15,6 +24,7 @@ const navLinks = [
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
@@ -68,21 +78,33 @@ export function Header() {
             </Button>
             {isAuthenticated ? (
               <>
-                <Link to="/dashboard">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <User className="h-4 w-4" />
-                    {user?.name || "Dashboard"}
-                  </Button>
-                </Link>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="gap-2"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <User className="h-4 w-4" />
+                      {user?.name || "Account"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/dashboard" className="cursor-pointer">
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsChangePasswordOpen(true)}>
+                      <Lock className="mr-2 h-4 w-4" />
+                      Change Password
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             ) : (
               <>
@@ -144,14 +166,25 @@ export function Header() {
                 {isAuthenticated ? (
                   <>
                     <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                      <Button variant="outline" className="w-full gap-2">
-                        <User className="h-4 w-4" />
-                        {user?.name || "Dashboard"}
+                      <Button variant="outline" className="w-full gap-2 justify-start">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
                       </Button>
                     </Link>
                     <Button 
+                      variant="outline" 
+                      className="w-full gap-2 justify-start"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsChangePasswordOpen(true);
+                      }}
+                    >
+                      <Lock className="h-4 w-4" />
+                      Change Password
+                    </Button>
+                    <Button 
                       variant="ghost" 
-                      className="w-full gap-2"
+                      className="w-full gap-2 justify-start"
                       onClick={handleLogout}
                     >
                       <LogOut className="h-4 w-4" />
@@ -175,6 +208,12 @@ export function Header() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Change Password Dialog */}
+      <ChangePasswordDialog 
+        open={isChangePasswordOpen} 
+        onOpenChange={setIsChangePasswordOpen} 
+      />
     </header>
   );
 }

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { authService, Role } from "@/services";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { 
   Shield, 
@@ -23,6 +25,7 @@ type UserRole = "viewer" | "journalist" | "organization";
 const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>("viewer");
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -30,10 +33,82 @@ const RegisterPage = () => {
     organizationName: "",
     licenseNumber: "",
   });
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Map UI role to API Role enum
+  const mapRoleToApiRole = (role: UserRole): Role => {
+    const roleMap: Record<UserRole, Role> = {
+      viewer: Role.Regular,
+      journalist: Role.Journalist,
+      organization: Role.Organization,
+    };
+    return roleMap[role];
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration
+    e.stopPropagation();
+    
+    console.log("Registration form submitted", { 
+      role: selectedRole, 
+      email: formData.email,
+      name: formData.name 
+    });
+    
+    // Validation
+    if (!formData.name || !formData.email || !formData.password) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    
+    setIsLoading(true);
+
+    try {
+      // Prepare registration data
+      const registerData = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: mapRoleToApiRole(selectedRole),
+        ...(selectedRole === "organization" && formData.organizationName && {
+          organizationLicense: formData.organizationName,
+        }),
+        ...(selectedRole === "journalist" && formData.licenseNumber && {
+          journalistId: formData.licenseNumber,
+        }),
+      };
+
+      console.log("Attempting registration...", { ...registerData, password: "***" });
+      await authService.register(registerData);
+      console.log("Registration successful");
+      toast.success("Account created successfully!");
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      console.error("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Handle different error scenarios
+      const status = error.response?.status;
+      const message = error.response?.data?.message;
+      
+      if (status === 409 || (message && message.toLowerCase().includes("already exists"))) {
+        toast.error("An account with this email already exists.");
+      } else if (status === 400) {
+        toast.error(message || "Invalid registration data. Please check your information.");
+      } else if (error.code === "ERR_NETWORK" || error.message.includes("Network")) {
+        toast.error("Cannot connect to server. Please ensure the backend is running.");
+      } else if (message) {
+        toast.error(message);
+      } else {
+        toast.error("Failed to create account. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const roles = [
@@ -251,8 +326,8 @@ const RegisterPage = () => {
               </label>
             </div>
 
-            <Button type="submit" className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
-              Create Account
+            <Button type="submit" disabled={isLoading} className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
+              {isLoading ? "Creating Account..." : "Create Account"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>

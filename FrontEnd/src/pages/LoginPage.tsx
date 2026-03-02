@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { useAuth, testUsers } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const LoginPage = () => {
@@ -26,13 +26,68 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email, password)) {
-      toast.success("Login successful!");
+    e.stopPropagation();
+    
+    console.log("Login form submitted", { email, password: "***" });
+    
+    // Validation
+    if (!email || !password) {
+      toast.error("Please enter both email and password");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      console.log("Attempting login...");
+      await login(email, password);
+      console.log("Login successful");
+      
+      toast.success("Login successful!", {
+        duration: 3000,
+        position: "top-right",
+      });
+      
       navigate("/dashboard");
-    } else {
-      toast.error("Invalid credentials. Try one of the test accounts below.");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      console.error("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Handle different error scenarios
+      const status = error.response?.status;
+      const message = error.response?.data?.message;
+      
+      let errorMessage = "";
+      
+      if (status === 401 || status === 400) {
+        errorMessage = "Email or password is incorrect. Please try again.";
+      } else if (message) {
+        errorMessage = message;
+      } else if (error.code === "ERR_NETWORK" || error.message.includes("Network")) {
+        errorMessage = "Cannot connect to server. Please ensure the backend is running.";
+      } else {
+        errorMessage = "Unable to sign in. Please check your email and password.";
+      }
+      
+      console.log("Showing error toast:", errorMessage);
+      
+      // Call toast with a delay to ensure it renders
+      setTimeout(() => {
+        toast.error(errorMessage, {
+          duration: 5000,
+          position: "top-right",
+        });
+      }, 100);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -112,8 +167,8 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
-              Sign In
+            <Button type="submit" disabled={isLoading} className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
+              {isLoading ? "Signing in..." : "Sign In"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>

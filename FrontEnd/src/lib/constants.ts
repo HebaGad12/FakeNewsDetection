@@ -4,7 +4,7 @@ export const APP_DESCRIPTION = "AI-Powered News Verification Platform";
 export const APP_URL = "https://truthtrack.com";
 
 // API Configuration (placeholder for future backend)
-export const API_BASE_URL = process.env.VITE_API_URL || "http://localhost:3000/api";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5263/api";
 export const API_TIMEOUT = 30000; // 30 seconds
 
 // Auth Configuration

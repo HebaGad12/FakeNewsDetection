@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { authService } from "@/services";
+import { AuthResponse, Role, UserProfile } from "@/services/types";
 
 export type UserRole = "viewer" | "journalist" | "organization" | "admin";
 
@@ -15,9 +17,10 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,24 +72,62 @@ const testUsers: Record<string, { password: string; user: User }> = {
   },
 };
 
+// Helper function to map API role string to UserRole
+const mapRoleToUserRole = (role: string): UserRole => {
+  const roleMap: Record<string, UserRole> = {
+    "Regular": "viewer",
+    "Journalist": "journalist",
+    "Organization": "organization",
+    "Admin": "admin",
+  };
+  return roleMap[role] || "viewer";
+};
+
+// Helper function to convert AuthResponse or UserProfile to User
+const mapAuthResponseToUser = (response: AuthResponse | UserProfile): User => {
+  return {
+    id: response.userId,
+    name: response.name,
+    email: response.email,
+    role: mapRoleToUserRole(response.role),
+  };
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (email: string, password: string): boolean => {
-    const testUser = testUsers[email.toLowerCase()];
-    if (testUser && testUser.password === password) {
-      setUser(testUser.user);
-      return true;
-    }
-    return false;
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (authService.isAuthenticated()) {
+          const profile = await authService.getCurrentUser();
+          setUser(mapAuthResponseToUser(profile));
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        authService.logout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  const login = async (email: string, password: string): Promise<void> => {
+    const response = await authService.login({ email, password });
+    setUser(mapAuthResponseToUser(response));
   };
 
   const logout = () => {
+    authService.logout();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

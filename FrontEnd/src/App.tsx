@@ -52,8 +52,8 @@ function App() {
         <AuthProvider>
           <BrowserRouter>
             <TooltipProvider>
-              <Toaster />
               <Sonner />
+              <Toaster />
               <Suspense fallback={<LoadingSpinner fullScreen message="Loading..." />}>
                 <AppRoutes />
                 <ChatbotWidget />
