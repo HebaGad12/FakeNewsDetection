@@ -23,22 +23,49 @@ import {
   Bell,
   Settings,
   Search,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Send,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import journalistService, {
   JournalistResponse,
   JournalistPostResponse,
   JournalistFollowingResponse,
   JournalistFollowerResponse,
 } from "@/services/journalistService";
+import donationService, {
+  WalletResponse,
+  WalletTransactionResponse,
+  DonationRecord,
+} from "@/services/donationService";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "posts" | "following" | "followers" | "create";
+type Tab = "overview" | "posts" | "following" | "followers" | "create" | "wallet";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -449,82 +476,6 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-// ─── Edit Profile Modal ───────────────────────────────────────────────────────
-
-function EditProfileModal({
-  profile,
-  onClose,
-  onSave,
-}: {
-  profile: JournalistResponse;
-  onClose: () => void;
-  onSave: (updated: Partial<JournalistResponse>) => void;
-}) {
-  const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSave = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      await journalistService.editProfile({ name, email });
-      onSave({ name, email });
-      onClose();
-    } catch {
-      setError("Failed to update profile.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-foreground">Edit Profile</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1.5 block">Name</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-muted border-border h-10" />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} className="bg-muted border-border h-10" />
-          </div>
-          {error && <p className="text-rose-400 text-sm">{error}</p>}
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} className="flex-1 h-10">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={loading}
-              className="flex-1 h-10 bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const JournalistDashboard = () => {
@@ -535,8 +486,21 @@ const JournalistDashboard = () => {
   const [followers, setFollowers] = useState<JournalistFollowerResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportPostId, setReportPostId] = useState<string | null>(null);
-  const [showEditProfile, setShowEditProfile] = useState(false);
   const [searchQ, setSearchQ] = useState("");
+  const [myWallet, setMyWallet] = useState<WalletResponse | null>(null);
+  const [walletTxns, setWalletTxns] = useState<WalletTransactionResponse[]>([]);
+  const [sentDonations, setSentDonations] = useState<DonationRecord[]>([]);
+  const [receivedDonations, setReceivedDonations] = useState<DonationRecord[]>([]);
+
+  // Send donation dialog
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [sendRecipientId, setSendRecipientId] = useState("");
+  const [sendAmount, setSendAmount] = useState("");
+  const [sendMessage, setSendMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Map following names to IDs for the send dialog
+  const recipientName = following.find((f) => f.followeeId === sendRecipientId)?.name ?? "";
 
   useEffect(() => {
     Promise.all([
@@ -552,11 +516,66 @@ const JournalistDashboard = () => {
         setFollowers(fl);
       })
       .finally(() => setLoading(false));
+
+    // Load wallet + donations (non-blocking)
+    Promise.all([
+      donationService.getMyWallet(),
+      donationService.getMyTransactions(),
+      donationService.getSentDonations(),
+      donationService.getReceivedDonations(),
+    ])
+      .then(([w, txns, sent, received]) => {
+        setMyWallet(w);
+        setWalletTxns(txns);
+        setSentDonations(sent);
+        setReceivedDonations(received);
+      })
+      .catch(() => { /* wallet may not exist yet */ });
   }, []);
 
   const handleUnfollow = async (id: string) => {
     await journalistService.unfollowUser(id);
     setFollowing((prev) => prev.filter((f) => f.followeeId !== id));
+  };
+
+  const handleSendDonation = async () => {
+    const amount = parseFloat(sendAmount);
+    if (!sendRecipientId) {
+      toast.error("Please select a recipient");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount greater than 0");
+      return;
+    }
+    setSending(true);
+    try {
+      await donationService.sendDonation({
+        recipientId: sendRecipientId,
+        amount,
+        message: sendMessage.trim() || undefined,
+      });
+      toast.success("Donation sent successfully!");
+      setShowSendDialog(false);
+      setSendRecipientId("");
+      setSendAmount("");
+      setSendMessage("");
+      // Refresh wallet data
+      try {
+        const [w, txns, sent] = await Promise.all([
+          donationService.getMyWallet(),
+          donationService.getMyTransactions(),
+          donationService.getSentDonations(),
+        ]);
+        setMyWallet(w);
+        setWalletTxns(txns);
+        setSentDonations(sent);
+      } catch { /* ignore */ }
+    } catch {
+      toast.error("Failed to send donation");
+    } finally {
+      setSending(false);
+    }
   };
 
   const filteredPosts = posts.filter(
@@ -571,6 +590,7 @@ const JournalistDashboard = () => {
     { id: "following", label: "Following", icon: <UserCheck className="h-4 w-4" />, count: following.length },
     { id: "followers", label: "Followers", icon: <Users className="h-4 w-4" />, count: followers.length },
     { id: "create", label: "New Post", icon: <Plus className="h-4 w-4" /> },
+    { id: "wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
   ];
 
   if (loading) {
@@ -600,15 +620,6 @@ const JournalistDashboard = () => {
               <span className="text-foreground font-medium">{profile?.name ?? "..."}</span>
             </p>
           </div>
-          {profile && (
-            <button
-              onClick={() => setShowEditProfile(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:border-accent/50 hover:shadow-md transition-all text-sm font-medium text-foreground"
-            >
-              <Edit3 className="h-4 w-4 text-accent" />
-              Edit Profile
-            </button>
-          )}
         </div>
 
         {/* Profile Card */}
@@ -645,11 +656,11 @@ const JournalistDashboard = () => {
               </div>
               <div className="flex gap-6 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.followersCount)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.followersCount || 0)}</p>
                   <p className="text-xs text-muted-foreground">Followers</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.postsCount)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.postsCount || 0)}</p>
                   <p className="text-xs text-muted-foreground">Posts</p>
                 </div>
               </div>
@@ -882,22 +893,209 @@ const JournalistDashboard = () => {
               />
             </motion.div>
           )}
+
+          {/* WALLET */}
+          {activeTab === "wallet" && (
+            <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+              {/* Balance Card */}
+              <div className="relative overflow-hidden rounded-2xl bg-accent p-6">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-2xl" />
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-white/70" />
+                    <p className="text-white/70 text-sm">Current Balance</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="relative z-10"
+                    onClick={() => setShowSendDialog(true)}
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    Send Donation
+                  </Button>
+                </div>
+                <p className="text-4xl font-bold text-white tracking-tight">
+                  ${(myWallet?.balance ?? 0).toFixed(2)}
+                </p>
+                {myWallet && (
+                  <p className="text-white/50 text-xs mt-2">
+                    Last updated {new Date(myWallet.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                  </p>
+                )}
+              </div>
+
+              {/* Transactions */}
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <h3 className="font-semibold text-foreground mb-4">Transaction History</h3>
+                {walletTxns.length > 0 ? (
+                  <div>
+                    {walletTxns.map((tx) => {
+                      const isCredit = tx.amount > 0;
+                      return (
+                        <div key={tx.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+                          <div className={cn(
+                            "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
+                            isCredit ? "bg-emerald-400/10 text-emerald-400" : "bg-rose-400/10 text-rose-400"
+                          )}>
+                            {isCredit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{tx.description || tx.type}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {tx.type}{tx.actorName ? ` \u00b7 ${tx.actorName}` : ""} \u00b7 {new Date(tx.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                            </p>
+                          </div>
+                          <span className={cn("font-semibold text-sm tabular-nums", isCredit ? "text-emerald-400" : "text-rose-400")}>
+                            {isCredit ? "+" : ""}${Math.abs(tx.amount).toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Wallet className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm">No transactions yet.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Sent & Received Donations */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Sent Donations */}
+                <div className="rounded-2xl border border-border bg-card p-5">
+                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <ArrowUpRight className="h-4 w-4 text-rose-400" />
+                    Sent Donations ({sentDonations.length})
+                  </h3>
+                  {sentDonations.length > 0 ? (
+                    <div className="space-y-0">
+                      {sentDonations.map((d) => (
+                        <div key={d.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">To {d.recipientName}</p>
+                            {d.message && <p className="text-xs text-muted-foreground truncate">{d.message}</p>}
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(d.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                            </p>
+                          </div>
+                          <span className="font-semibold text-sm text-rose-400 tabular-nums">-${d.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center py-6 text-sm text-muted-foreground">No donations sent yet.</p>
+                  )}
+                </div>
+
+                {/* Received Donations */}
+                <div className="rounded-2xl border border-border bg-card p-5">
+                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <ArrowDownLeft className="h-4 w-4 text-emerald-400" />
+                    Received Donations ({receivedDonations.length})
+                  </h3>
+                  {receivedDonations.length > 0 ? (
+                    <div className="space-y-0">
+                      {receivedDonations.map((d) => (
+                        <div key={d.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">From {d.senderName}</p>
+                            {d.message && <p className="text-xs text-muted-foreground truncate">{d.message}</p>}
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(d.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                            </p>
+                          </div>
+                          <span className="font-semibold text-sm text-emerald-400 tabular-nums">+${d.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center py-6 text-sm text-muted-foreground">No donations received yet.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
       <Footer />
 
+      {/* Send Donation Dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-accent" />
+              Send Donation
+            </DialogTitle>
+            <DialogDescription>
+              Send a donation to a user or journalist. Your current balance: ${(myWallet?.balance ?? 0).toFixed(2)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Recipient</Label>
+              <Select value={sendRecipientId} onValueChange={setSendRecipientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a person you follow" />
+                </SelectTrigger>
+                <SelectContent>
+                  {following.length > 0 ? (
+                    following.map((person) => (
+                      <SelectItem key={person.followeeId} value={person.followeeId}>
+                        {person.name} <span className="text-muted-foreground">({person.role})</span>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      You're not following anyone yet
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Amount ($)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="Enter amount"
+                value={sendAmount}
+                onChange={(e) => setSendAmount(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Message (optional)</Label>
+              <Textarea
+                placeholder="Add a message..."
+                value={sendMessage}
+                onChange={(e) => setSendMessage(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSendDialog(false)}>Cancel</Button>
+            <Button onClick={handleSendDonation} disabled={sending}>
+              {sending ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+              ) : (
+                <Send className="h-4 w-4 mr-1" />
+              )}
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modals */}
       <AnimatePresence>
         {reportPostId && (
           <ReportModal postId={reportPostId} onClose={() => setReportPostId(null)} />
-        )}
-        {showEditProfile && profile && (
-          <EditProfileModal
-            profile={profile}
-            onClose={() => setShowEditProfile(false)}
-            onSave={(updated) => setProfile((prev) => (prev ? { ...prev, ...updated } : prev))}
-          />
         )}
       </AnimatePresence>
     </div>

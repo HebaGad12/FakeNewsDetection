@@ -18,6 +18,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  DollarSign,
+  Send,
+  ArrowDownLeft,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -56,6 +62,11 @@ import adminService, {
   RejectedOrganizationRequest,
   PaginatedResult,
 } from "@/services/adminService";
+import adminWalletService, {
+  WalletSummary,
+  WalletTransaction,
+} from "@/services/adminWalletService";
+import donationService, { DonationRecord } from "@/services/donationService";
 
 // ============================================================================
 // Helper utilities
@@ -918,7 +929,18 @@ const JournalistsTab = () => {
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => { setReviewDialog(j); setApprove(true); setRejectionReason(""); }}
+                    onClick={async () => {
+                      try {
+                        await adminService.reviewJournalist(j.id, {
+                          approve: true,
+                          rejectionReason: undefined,
+                        });
+                        toast.success("Journalist approved!");
+                        void loadPending();
+                      } catch {
+                        toast.error("Failed to approve journalist");
+                      }
+                    }}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" /> Approve
                   </Button>
@@ -1114,7 +1136,18 @@ const OrganizationsTab = () => {
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => { setReviewDialog(org.userId); setApprove(true); setRejectionReason(""); }}
+                    onClick={async () => {
+                      try {
+                        await adminService.reviewOrganization(org.userId, {
+                          approve: true,
+                          rejectionReason: undefined,
+                        });
+                        toast.success("Organization approved!");
+                        void loadPending();
+                      } catch {
+                        toast.error("Failed to approve organization");
+                      }
+                    }}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" /> Approve
                   </Button>
@@ -1198,10 +1231,427 @@ const OrganizationsTab = () => {
 };
 
 // ============================================================================
+// Tab: Wallets
+// ============================================================================
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const WalletsTab = () => {
+  const [wallets, setWallets] = useState<WalletSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Transaction viewer
+  const [selectedWallet, setSelectedWallet] = useState<WalletSummary | null>(null);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [loadingTx, setLoadingTx] = useState(false);
+
+  // Adjust balance dialog
+  const [adjustDialog, setAdjustDialog] = useState<WalletSummary | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustDescription, setAdjustDescription] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+
+  const loadWallets = useCallback(async () => {
+    setLoading(true);
+    try {
+      setWallets(await adminWalletService.getAllWallets());
+    } catch {
+      toast.error("Failed to load wallets");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadWallets();
+  }, [loadWallets]);
+
+  const openTransactions = async (wallet: WalletSummary) => {
+    setSelectedWallet(wallet);
+    setLoadingTx(true);
+    try {
+      setTransactions(await adminWalletService.getTransactions(wallet.userId));
+    } catch {
+      toast.error("Failed to load transactions");
+    } finally {
+      setLoadingTx(false);
+    }
+  };
+
+  const handleAdjust = async () => {
+    if (!adjustDialog) return;
+    const amount = parseFloat(adjustAmount);
+    if (isNaN(amount) || amount === 0) {
+      toast.error("Please enter a valid non-zero amount");
+      return;
+    }
+    if (!adjustDescription.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+    setAdjusting(true);
+    try {
+      await adminWalletService.adjustBalance({
+        userId: adjustDialog.userId,
+        amount,
+        description: adjustDescription,
+      });
+      toast.success("Balance adjusted successfully");
+      setAdjustDialog(null);
+      setAdjustAmount("");
+      setAdjustDescription("");
+      void loadWallets();
+      // Refresh transactions if viewing this wallet
+      if (selectedWallet?.userId === adjustDialog.userId) {
+        setLoadingTx(true);
+        adminWalletService
+          .getTransactions(adjustDialog.userId)
+          .then(setTransactions)
+          .catch(() => toast.error("Failed to refresh transactions"))
+          .finally(() => setLoadingTx(false));
+      }
+    } catch {
+      toast.error("Failed to adjust balance");
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
+  const filteredWallets = wallets.filter(
+    (w) =>
+      w.userName.toLowerCase().includes(search.toLowerCase()) ||
+      w.userId.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Search */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by user name or ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={loadWallets} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="py-16 text-center text-muted-foreground">Loading wallets...</div>
+      ) : filteredWallets.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground">
+          {search ? "No wallets matching your search." : "No wallets found."}
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">User</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Last Updated</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredWallets.map((w) => (
+                  <tr key={w.walletId} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-medium">{w.userName}</p>
+                        <p className="text-xs text-muted-foreground">{w.userId}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className={cn("font-semibold", w.balance >= 0 ? "text-green-600" : "text-red-600")}>
+                        {formatCurrency(w.balance)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground text-xs">
+                      {formatDateTime(w.updatedAt)}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openTransactions(w)}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" /> History
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setAdjustDialog(w);
+                            setAdjustAmount("");
+                            setAdjustDescription("");
+                          }}
+                        >
+                          <DollarSign className="h-3.5 w-3.5 mr-1" /> Adjust
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Transactions Dialog */}
+      <Dialog open={!!selectedWallet} onOpenChange={() => setSelectedWallet(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-accent" />
+              Transaction History
+            </DialogTitle>
+            {selectedWallet && (
+              <DialogDescription>
+                {selectedWallet.userName} &middot; Balance: {formatCurrency(selectedWallet.balance)}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            {loadingTx ? (
+              <div className="py-8 text-center text-muted-foreground">Loading transactions...</div>
+            ) : transactions.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">No transactions found.</div>
+            ) : (
+              transactions.map((tx) => (
+                <div key={tx.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className={cn(
+                    "mt-0.5 p-1.5 rounded-full",
+                    tx.amount >= 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                  )}>
+                    {tx.amount >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-sm truncate">{tx.description || tx.type}</p>
+                      <span className={cn("font-semibold text-sm whitespace-nowrap", tx.amount >= 0 ? "text-green-600" : "text-red-600")}>
+                        {tx.amount >= 0 ? "+" : ""}{formatCurrency(tx.amount)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5">{tx.type}</Badge>
+                      {tx.actorName && <span>by {tx.actorName}</span>}
+                      <span>&middot;</span>
+                      <span>{formatDateTime(tx.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Balance Dialog */}
+      <Dialog open={!!adjustDialog} onOpenChange={() => setAdjustDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-accent" />
+              Adjust Balance
+            </DialogTitle>
+            {adjustDialog && (
+              <DialogDescription>
+                {adjustDialog.userName} &middot; Current balance: {formatCurrency(adjustDialog.balance)}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Enter amount (positive to add, negative to deduct)"
+                value={adjustAmount}
+                onChange={(e) => setAdjustAmount(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Use a positive number to credit, negative to debit.
+              </p>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Reason for adjustment..."
+                value={adjustDescription}
+                onChange={(e) => setAdjustDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustDialog(null)}>Cancel</Button>
+            <Button onClick={handleAdjust} disabled={adjusting}>
+              {adjusting ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+              ) : (
+                <DollarSign className="h-4 w-4 mr-1" />
+              )}
+              Confirm Adjustment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// ============================================================================
+// Tab: Donations (all platform donations)
+// ============================================================================
+
+const DonationsTab = () => {
+  const [donations, setDonations] = useState<DonationRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const loadDonations = useCallback(async () => {
+    setLoading(true);
+    try {
+      setDonations(await donationService.getAllDonations());
+    } catch {
+      toast.error("Failed to load donations");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDonations();
+  }, [loadDonations]);
+
+  const filtered = donations.filter(
+    (d) =>
+      d.senderName.toLowerCase().includes(search.toLowerCase()) ||
+      d.recipientName.toLowerCase().includes(search.toLowerCase()) ||
+      (d.message && d.message.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const totalAmount = donations.reduce((sum, d) => sum + d.amount, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-sm text-muted-foreground mb-1">Total Donations</p>
+          <p className="text-2xl font-bold text-foreground">{donations.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
+          <p className="text-2xl font-bold text-emerald-500">${totalAmount.toFixed(2)}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-sm text-muted-foreground mb-1">Avg Donation</p>
+          <p className="text-2xl font-bold text-foreground">
+            ${donations.length > 0 ? (totalAmount / donations.length).toFixed(2) : "0.00"}
+          </p>
+        </div>
+      </div>
+
+      {/* Search + Refresh */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by sender, recipient, or message..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={loadDonations} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="py-16 text-center text-muted-foreground">Loading donations...</div>
+      ) : filtered.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground">
+          {search ? "No donations matching your search." : "No donations found."}
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Sender</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Recipient</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Amount</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Message</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((d) => (
+                  <tr key={d.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="py-3 px-4">
+                      <p className="font-medium">{d.senderName}</p>
+                    </td>
+                    <td className="py-3 px-4">
+                      <p className="font-medium">{d.recipientName}</p>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="font-semibold text-emerald-500">${d.amount.toFixed(2)}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <p className="text-muted-foreground truncate max-w-[200px]">{d.message || "—"}</p>
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground text-xs whitespace-nowrap">
+                      {new Date(d.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // Main AdminDashboard
 // ============================================================================
 
-type Tab = "overview" | "users" | "posts" | "journalists" | "organizations";
+type Tab = "overview" | "users" | "posts" | "journalists" | "organizations" | "wallets" | "donations";
 
 const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: TrendingUp },
@@ -1209,6 +1659,8 @@ const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "posts", label: "Posts", icon: FileText },
   { id: "journalists", label: "Journalists", icon: UserCheck },
   { id: "organizations", label: "Organizations", icon: Building2 },
+  { id: "wallets", label: "Wallets", icon: Wallet },
+  { id: "donations", label: "Donations", icon: Send },
 ];
 
 const AdminDashboard = () => {
@@ -1253,9 +1705,6 @@ const AdminDashboard = () => {
                 <p className="text-muted-foreground">Welcome, {user?.name}</p>
               </div>
             </div>
-            <Button variant="outline" onClick={logout}>
-              Logout
-            </Button>
           </div>
         </motion.div>
 
@@ -1288,6 +1737,8 @@ const AdminDashboard = () => {
           {activeTab === "posts" && <PostsTab />}
           {activeTab === "journalists" && <JournalistsTab />}
           {activeTab === "organizations" && <OrganizationsTab />}
+          {activeTab === "wallets" && <WalletsTab />}
+          {activeTab === "donations" && <DonationsTab />}
         </motion.div>
       </main>
 

@@ -316,7 +316,7 @@ const RegisterPage = () => {
               </motion.div>
             )}
 
-            {/* Terms */}
+            {/* Terms
             <div className="flex items-start gap-2 text-sm">
               <input type="checkbox" id="terms" className="mt-1 rounded border-border" />
               <label htmlFor="terms" className="text-muted-foreground">
@@ -325,7 +325,7 @@ const RegisterPage = () => {
                 {" "}and{" "}
                 <Link to="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
               </label>
-            </div>
+            </div> */}
 
             <Button type="submit" disabled={isLoading} className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
               {isLoading ? "Creating Account..." : "Create Account"}

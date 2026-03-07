@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Shield, Search, Bell, User, LogOut, Settings, Lock, LayoutDashboard } from "lucide-react";
+import { Menu, X, Shield, Search, Bell, User, LogOut, Settings, Lock, LayoutDashboard, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { EditProfileDialog } from "@/components/EditProfileDialog";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -25,6 +26,7 @@ const navLinks = [
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
@@ -93,6 +95,10 @@ export function Header() {
                         <LayoutDashboard className="mr-2 h-4 w-4" />
                         Dashboard
                       </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsEditProfileOpen(true)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setIsChangePasswordOpen(true)}>
                       <Lock className="mr-2 h-4 w-4" />
@@ -176,6 +182,17 @@ export function Header() {
                       className="w-full gap-2 justify-start"
                       onClick={() => {
                         setIsMenuOpen(false);
+                        setIsEditProfileOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit Profile
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full gap-2 justify-start"
+                      onClick={() => {
+                        setIsMenuOpen(false);
                         setIsChangePasswordOpen(true);
                       }}
                     >
@@ -213,6 +230,12 @@ export function Header() {
       <ChangePasswordDialog 
         open={isChangePasswordOpen} 
         onOpenChange={setIsChangePasswordOpen} 
+      />
+      
+      {/* Edit Profile Dialog */}
+      <EditProfileDialog 
+        open={isEditProfileOpen} 
+        onOpenChange={setIsEditProfileOpen} 
       />
     </header>
   );

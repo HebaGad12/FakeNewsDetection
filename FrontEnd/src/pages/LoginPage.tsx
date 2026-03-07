@@ -176,7 +176,7 @@ const LoginPage = () => {
             </Button>
           </form>
 
-          {/* Test Accounts */}
+          {/* Test Accounts
           <div className="mt-8 p-4 bg-muted/50 rounded-xl">
             <p className="text-xs text-muted-foreground mb-3 font-medium">Quick Login (Test Accounts):</p>
             <div className="grid grid-cols-2 gap-2">
@@ -185,7 +185,7 @@ const LoginPage = () => {
               <Button variant="outline" size="sm" onClick={() => handleQuickLogin("org@test.com", "org123")}>Organization</Button>
               <Button variant="outline" size="sm" onClick={() => handleQuickLogin("admin@test.com", "admin123")}>Admin</Button>
             </div>
-          </div>
+          </div> */}
 
           {/* Sign Up Link */}
           <p className="text-center text-sm text-muted-foreground mt-6">

@@ -5,12 +5,10 @@ import {
   ShieldCheck, 
   Users, 
   Radio, 
-  TrendingUp, 
   Brain, 
   Heart,
   ArrowRight,
   CheckCircle,
-  Play,
   MessageSquare,
   Award
 } from "lucide-react";
@@ -195,9 +193,9 @@ const Index = () => {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="flex flex-wrap justify-center gap-3 mb-10"
             >
-              <CredibilityBadge level="verified" score={98} />
-              <CredibilityBadge level="questionable" score={45} />
-              <CredibilityBadge level="fake" score={12} />
+              <CredibilityBadge level="verified" />
+              <CredibilityBadge level="questionable" />
+              <CredibilityBadge level="fake" />
             </motion.div>
 
             {/* CTAs */}
@@ -211,12 +209,6 @@ const Index = () => {
                 <Button size="lg" className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 gap-2 px-8">
                   Explore News Feed
                   <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link to="/register">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto gap-2 px-8">
-                  <Play className="h-4 w-4" />
-                  Watch Demo
                 </Button>
               </Link>
             </motion.div>
@@ -245,7 +237,7 @@ const Index = () => {
         </motion.div>
       </section>
 
-      {/* Stats Section */}
+      {/* Stats Section
       <section className="py-16 border-y border-border bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -254,7 +246,7 @@ const Index = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Features Section */}
       <section className="py-20">
@@ -387,11 +379,6 @@ const Index = () => {
                 <Link to="/register">
                   <Button size="lg" className="w-full sm:w-auto bg-background text-primary hover:bg-background/90 px-8">
                     Get Started Free
-                  </Button>
-                </Link>
-                <Link to="/journalists">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 px-8">
-                    For Journalists
                   </Button>
                 </Link>
               </div>

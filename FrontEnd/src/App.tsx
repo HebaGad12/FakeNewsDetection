@@ -18,7 +18,6 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const CreateArticlePage = lazy(() => import("./pages/CreateArticlePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const ChatbotWidget = lazy(() => import("./components/ChatbotWidget"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,7 +55,6 @@ function App() {
               <Toaster />
               <Suspense fallback={<LoadingSpinner fullScreen message="Loading..." />}>
                 <AppRoutes />
-                <ChatbotWidget />
               </Suspense>
             </TooltipProvider>
           </BrowserRouter>

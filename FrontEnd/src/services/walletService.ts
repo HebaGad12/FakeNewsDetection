@@ -25,52 +25,51 @@ export interface SendDonationRequest {
   message?: string;
 }
 
+export interface SendDonationResponse {
+  message: string;
+  donationId: string;
+  amount: number;
+  recipientName: string;
+  newBalance: number;
+}
+
 export interface DonationRecord {
   id: string;
-  senderId: string;
-  senderName: string;
-  recipientId: string;
-  recipientName: string;
   amount: number;
-  message: string;
+  message?: string;
+  senderName?: string;
+  recipientName?: string;
   createdAt: string;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
-class DonationService {
-  /** GET /api/donations/my-wallet – get current user's wallet */
+class WalletService {
+  /** Get the current user's wallet (balance, etc.) */
   async getMyWallet(): Promise<WalletResponse> {
     return await apiClient.get<WalletResponse>("/donations/my-wallet");
   }
 
-  /** GET /api/donations/my-wallet/transactions – wallet transaction history */
+  /** Get the current user's wallet transaction history */
   async getMyTransactions(): Promise<WalletTransactionResponse[]> {
-    return await apiClient.get<WalletTransactionResponse[]>(
-      "/donations/my-wallet/transactions"
-    );
+    return await apiClient.get<WalletTransactionResponse[]>("/donations/my-wallet/transactions");
   }
 
-  /** POST /api/donations/send – send a donation */
-  async sendDonation(data: SendDonationRequest): Promise<void> {
-    await apiClient.post<void>("/donations/send", data);
+  /** Send a donation to another user/journalist */
+  async sendDonation(data: SendDonationRequest): Promise<SendDonationResponse> {
+    return await apiClient.post<SendDonationResponse>("/donations/send", data);
   }
 
-  /** GET /api/donations/sent – donations the current user has sent */
+  /** Get donations the current user has sent */
   async getSentDonations(): Promise<DonationRecord[]> {
     return await apiClient.get<DonationRecord[]>("/donations/sent");
   }
 
-  /** GET /api/donations/received – donations the current user has received */
+  /** Get donations the current user has received */
   async getReceivedDonations(): Promise<DonationRecord[]> {
     return await apiClient.get<DonationRecord[]>("/donations/received");
   }
-
-  /** GET /api/donations/all – all donations (admin) */
-  async getAllDonations(): Promise<DonationRecord[]> {
-    return await apiClient.get<DonationRecord[]>("/donations/all");
-  }
 }
 
-export const donationService = new DonationService();
-export default donationService;
+export const walletService = new WalletService();
+export default walletService;
