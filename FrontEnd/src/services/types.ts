@@ -63,3 +63,68 @@ export interface UserProfile {
   email: string;
   role: string;
 }
+
+// ============================================================================
+// User Types
+// ============================================================================
+
+/**
+ * Extended user profile with social stats
+ */
+export interface UserProfileExtended {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  followersCount: number;
+  followingCount: number;
+}
+
+/**
+ * Edit user profile request
+ */
+export interface EditProfileRequest {
+  name: string;
+  email: string;
+  profile?: string;
+}
+
+/**
+ * User overview statistics
+ */
+export interface UserOverview {
+  likes: number;
+  comments: number;
+  reports: number;
+  helpfulReports: number;
+  followingJournalists: number;
+}
+
+/**
+ * Following user item
+ */
+export interface FollowingUser {
+  id: string;
+  name: string;
+  role: string;
+  organizationName?: string;
+  followersCount: number;
+  recentPostsCount: number;
+  memberSince: string;
+}
+
+/**
+ * Report post request
+ */
+export interface ReportPostRequest {
+  reason: string;
+}
+
+/**
+ * User activity item
+ */
+export interface UserActivity {
+  actionType: string;
+  target: string;
+  timestamp: string;
+}
