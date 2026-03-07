@@ -9,8 +9,8 @@ export interface OrgProfileResponse {
   profile?: string;
   isActive: boolean;
   createdAt: string;
-  followersCount: number;
-  postsCount: number;
+  totalFollowers: number;
+  totalPosts: number;
   walletBalance: number;
 }
 
@@ -36,8 +36,8 @@ export interface OrgPostResponse {
   moderationNotes?: string;
   createdAt: string;
   updatedAt?: string;
-  likesCount: number;
-  commentsCount: number;
+  likes: number;
+  comments: number;
 }
 
 export interface OrgFollowerResponse {
@@ -65,7 +65,7 @@ export interface OrgAnalyticsResponse {
 }
 
 export interface OrgWalletResponse {
-  id: string;
+  walletId: string;
   organizationId: string;
   organizationName: string;
   balance: number;
@@ -77,7 +77,7 @@ export interface OrgWalletTransactionResponse {
   amount: number;
   type: string;
   description: string;
-  actorName?: string;
+  donorName?: string;
   createdAt: string;
 }
 

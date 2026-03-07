@@ -460,10 +460,10 @@ function PostCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Heart className="h-3.5 w-3.5 text-rose-400" /> {post.likesCount}
+            <Heart className="h-3.5 w-3.5 text-rose-400" /> {post.likes}
           </span>
           <span className="flex items-center gap-1">
-            <MessageSquare className="h-3.5 w-3.5 text-blue-400" /> {post.commentsCount}
+            <MessageSquare className="h-3.5 w-3.5 text-blue-400" /> {post.comments}
           </span>
         </div>
         {post.moderationStatus === "Pending" && (
@@ -495,7 +495,7 @@ function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{tx.description}</p>
         <p className="text-xs text-muted-foreground">
-          {tx.type}{tx.actorName ? ` · ${tx.actorName}` : ""} · {fmtDate(tx.createdAt)}
+          {tx.type}{tx.donorName ? ` · ${tx.donorName}` : ""} · {fmtDate(tx.createdAt)}
         </p>
       </div>
       <span className={cn("font-semibold text-sm tabular-nums", isCredit ? "text-emerald-400" : "text-rose-400")}>
@@ -672,11 +672,11 @@ const OrganizationDashboard = () => {
               </div>
               <div className="flex gap-6 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{fmt(profile.followersCount)}</p>
+                  <p className="text-2xl font-bold text-foreground">{fmt(profile.totalFollowers)}</p>
                   <p className="text-xs text-muted-foreground">Followers</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{fmt(profile.postsCount)}</p>
+                  <p className="text-2xl font-bold text-foreground">{fmt(profile.totalPosts)}</p>
                   <p className="text-xs text-muted-foreground">Posts</p>
                 </div>
                 <div>
