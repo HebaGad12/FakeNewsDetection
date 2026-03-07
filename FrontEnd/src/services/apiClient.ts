@@ -35,9 +35,12 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Handle unauthorized - redirect to login
-          localStorage.removeItem(AUTH_TOKEN_KEY);
-          window.location.href = "/login";
+          // Do NOT redirect if the request was to the login endpoint
+          const isLoginRequest = error.config.url?.includes('/auth/login');
+          if (!isLoginRequest) {
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            window.location.href = "/login";
+          }
         }
         return Promise.reject(error);
       }

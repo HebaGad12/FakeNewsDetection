@@ -62,31 +62,33 @@ const LoginPage = () => {
         message: error.message
       });
       
-      // Handle different error scenarios
-      const status = error.response?.status;
-      const message = error.response?.data?.message;
-      
-      let errorMessage = "";
-      
-      if (status === 401 || status === 400) {
-        errorMessage = "Email or password is incorrect. Please try again.";
-      } else if (message) {
-        errorMessage = message;
+      let errorMessage = "Unable to sign in. Please check your email and password.";
+
+      if (error.response) {
+        const { status, data } = error.response;
+
+        // If the backend returns a plain string
+        if (typeof data === "string") {
+          errorMessage = data;
+        }
+        // If it returns an object with a message property
+        else if (data?.message) {
+          errorMessage = data.message;
+        }
+        // Common status-based messages
+        else if (status === 401 || status === 400) {
+          errorMessage = "Email or password is incorrect. Please try again.";
+        }
       } else if (error.code === "ERR_NETWORK" || error.message.includes("Network")) {
         errorMessage = "Cannot connect to server. Please ensure the backend is running.";
-      } else {
-        errorMessage = "Unable to sign in. Please check your email and password.";
       }
-      
+
       console.log("Showing error toast:", errorMessage);
       
-      // Call toast with a delay to ensure it renders
-      setTimeout(() => {
-        toast.error(errorMessage, {
-          duration: 5000,
-          position: "top-right",
-        });
-      }, 100);
+      toast.error(errorMessage, {
+        duration: 5000,
+        position: "top-right",
+      });
     } finally {
       setIsLoading(false);
     }

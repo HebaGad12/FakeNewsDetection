@@ -30,7 +30,7 @@ namespace FakeNewsDetection.web
             });
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
-                opts.UseSqlServer(builder.Configuration.GetConnectionString("Refa3y")));
+                opts.UseSqlServer(builder.Configuration.GetConnectionString("Sohila")));
             //builder.Services.AddDbContext<AppDbContext>(opts =>
             //    opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
             //builder.Services.AddDbContext<AppDbContext>(opts =>
