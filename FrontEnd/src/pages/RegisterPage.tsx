@@ -83,6 +83,7 @@ const RegisterPage = () => {
       console.log("Registration successful");
       toast.success("Account created successfully!");
       navigate("/dashboard");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Registration error:", error);
       console.error("Error details:", {
