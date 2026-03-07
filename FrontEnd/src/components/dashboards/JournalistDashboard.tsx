@@ -1,242 +1,905 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText,
-  Eye,
-  TrendingUp,
-  DollarSign,
-  Plus,
-  Edit,
-  Trash2,
-  Clock,
-  CheckCircle,
-  XCircle,
   User,
-  BarChart3,
+  FileText,
+  Users,
+  UserCheck,
+  TrendingUp,
+  Plus,
+  Trash2,
+  Eye,
+  Heart,
+  MessageSquare,
+  Flag,
+  Edit3,
+  X,
+  Check,
+  AlertCircle,
+  Clock,
+  ChevronRight,
+  BarChart2,
+  LogOut,
+  Bell,
+  Settings,
+  Search,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import journalistService, {
+  JournalistResponse,
+  JournalistPostResponse,
+  JournalistFollowingResponse,
+  JournalistFollowerResponse,
+} from "@/services/journalistService";
 
-const stats = [
-  { label: "Total Articles", value: "47", icon: FileText, change: "+3 this month" },
-  { label: "Total Views", value: "125.4K", icon: Eye, change: "+15% vs last month" },
-  { label: "Engagement Rate", value: "8.2%", icon: TrendingUp, change: "+2.1%" },
-  { label: "Revenue", value: "$2,450", icon: DollarSign, change: "+$350 this month" },
-];
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-const articles = [
-  {
-    id: "1",
-    title: "Global Climate Summit Reaches Historic Agreement",
-    status: "published",
-    views: 45200,
-    publishedAt: "2 hours ago",
-    credibilityScore: 98,
-  },
-  {
-    id: "2",
-    title: "Breakthrough in Renewable Energy Storage Technology",
-    status: "published",
-    views: 31500,
-    publishedAt: "5 hours ago",
-    credibilityScore: 97,
-  },
-  {
-    id: "3",
-    title: "New Environmental Policy Draft",
-    status: "pending",
-    views: 0,
-    publishedAt: "Pending approval",
-    credibilityScore: null,
-  },
-  {
-    id: "4",
-    title: "Interview with Climate Scientists",
-    status: "draft",
-    views: 0,
-    publishedAt: "Draft",
-    credibilityScore: null,
-  },
-];
+type Tab = "overview" | "posts" | "following" | "followers" | "create";
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "published":
-      return <CheckCircle className="h-4 w-4 text-verified" />;
-    case "pending":
-      return <Clock className="h-4 w-4 text-questionable" />;
-    case "draft":
-      return <FileText className="h-4 w-4 text-muted-foreground" />;
-    default:
-      return null;
-  }
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const statusColor: Record<string, string> = {
+  Approved: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+  Pending: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  Rejected: "text-rose-400 bg-rose-400/10 border-rose-400/20",
 };
 
-const JournalistDashboard = () => {
-  const { user, logout } = useAuth();
-  const [filter, setFilter] = useState<"all" | "published" | "pending" | "draft">("all");
+const statusIcon: Record<string, React.ReactNode> = {
+  Approved: <Check className="h-3 w-3" />,
+  Pending: <Clock className="h-3 w-3" />,
+  Rejected: <X className="h-3 w-3" />,
+};
 
-  const filteredArticles = articles.filter(
-    (article) => filter === "all" || article.status === filter
+function formatNum(n: number): string {
+  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+  return String(n);
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StatCard({
+  icon,
+  label,
+  value,
+  delay = 0,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+      className="relative group rounded-2xl border border-border bg-card p-5 hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5 transition-all"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="p-2.5 rounded-xl bg-accent/10 text-accent">{icon}</div>
+        <TrendingUp className="h-4 w-4 text-muted-foreground/40 group-hover:text-accent/60 transition-colors" />
+      </div>
+      <p className="text-2xl font-bold text-foreground tracking-tight">{value}</p>
+      <p className="text-sm text-muted-foreground mt-0.5">{label}</p>
+    </motion.div>
   );
+}
+
+function PostCard({
+  post,
+  onDelete,
+  onViewReport,
+}: {
+  post: JournalistPostResponse;
+  onDelete: (id: string) => void;
+  onViewReport: (id: string) => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this post?")) return;
+    setDeleting(true);
+    try {
+      await journalistService.deletePost(post.id);
+      onDelete(post.id);
+    } catch {
+      setDeleting(false);
+    }
+  };
+
+  const statusClass = statusColor[post.moderationStatus] ?? "text-muted-foreground bg-muted border-border";
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      className="group rounded-2xl border border-border bg-card p-5 hover:shadow-md hover:border-border/80 transition-all"
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium",
+                statusClass
+              )}
+            >
+              {statusIcon[post.moderationStatus]}
+              {post.moderationStatus}
+            </span>
+            {post.organizationName !== "Independent" && (
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {post.organizationName}
+              </span>
+            )}
+          </div>
+          <h3 className="font-semibold text-foreground line-clamp-1">{post.title}</h3>
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{post.content}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Heart className="h-3.5 w-3.5 text-rose-400" />
+            {post.likes}
+          </span>
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-3.5 w-3.5 text-blue-400" />
+            {post.comments}
+          </span>
+          <span className="flex items-center gap-1">
+            <Flag className="h-3.5 w-3.5 text-amber-400" />
+            {post.reports}
+          </span>
+          <span className="text-xs opacity-60">
+            {new Date(post.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        </div>
+        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onViewReport(post.id)}
+            className="p-1.5 rounded-lg hover:bg-accent/10 hover:text-accent text-muted-foreground transition-colors"
+            title="View analytics"
+          >
+            <BarChart2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="p-1.5 rounded-lg hover:bg-rose-500/10 hover:text-rose-400 text-muted-foreground transition-colors"
+            title="Delete post"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function UserRow({
+  name,
+  role,
+  followers,
+  onUnfollow,
+  id,
+}: {
+  name: string;
+  role: string;
+  followers: number;
+  onUnfollow?: (id: string) => void;
+  id: string;
+}) {
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 10 }}
+      className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors group"
+    >
+      <div className="w-10 h-10 rounded-full bg-accent/15 text-accent font-bold flex items-center justify-center text-sm flex-shrink-0">
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground text-sm truncate">{name}</p>
+        <p className="text-xs text-muted-foreground">
+          {role} · {formatNum(followers)} followers
+        </p>
+      </div>
+      {onUnfollow && (
+        <button
+          onClick={() => onUnfollow(id)}
+          className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground hover:border-rose-400/50 hover:text-rose-400 transition-all opacity-0 group-hover:opacity-100"
+        >
+          Unfollow
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Report Modal ─────────────────────────────────────────────────────────────
+
+function ReportModal({
+  postId,
+  onClose,
+}: {
+  postId: string;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<Awaited<
+    ReturnType<typeof journalistService.getPostReport>
+  > | null>(null);
+
+  useEffect(() => {
+    journalistService
+      .getPostReport(postId)
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [postId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <BarChart2 className="h-4 w-4 text-accent" />
+            Post Analytics
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : data ? (
+          <div className="space-y-4">
+            <p className="font-medium text-foreground">{data.title}</p>
+            <div
+              className={cn(
+                "inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium",
+                statusColor[data.moderationStatus] ?? "text-muted-foreground bg-muted border-border"
+              )}
+            >
+              {statusIcon[data.moderationStatus]}
+              {data.moderationStatus}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { icon: <Heart className="h-4 w-4" />, label: "Likes", val: data.likes, color: "text-rose-400" },
+                { icon: <MessageSquare className="h-4 w-4" />, label: "Comments", val: data.comments, color: "text-blue-400" },
+                { icon: <Flag className="h-4 w-4" />, label: "Reports", val: data.reports, color: "text-amber-400" },
+              ].map((s) => (
+                <div key={s.label} className="bg-muted rounded-xl p-3 text-center">
+                  <div className={cn("flex justify-center mb-1", s.color)}>{s.icon}</div>
+                  <p className="font-bold text-foreground">{s.val}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {data.reportReasons.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-foreground mb-2">Report Reasons</p>
+                <ul className="space-y-1">
+                  {data.reportReasons.map((r, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                      {r || "No reason provided"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-center py-4">Failed to load report</p>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Create Post Form ─────────────────────────────────────────────────────────
+
+function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ postId: string; moderationStatus: string } | null>(null);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !content.trim()) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await journalistService.createPost({
+        title: title.trim(),
+        content: content.trim(),
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      });
+      setResult(res);
+      onSuccess();
+    } catch {
+      setError("Failed to create post. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-8 text-center"
+      >
+        <div className="w-12 h-12 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+          <Check className="h-6 w-6" />
+        </div>
+        <h3 className="font-semibold text-foreground mb-1">Post Created!</h3>
+        <p className="text-sm text-muted-foreground mb-2">
+          Status:{" "}
+          <span className={cn("font-medium", statusColor[result.moderationStatus]?.split(" ")[0])}>
+            {result.moderationStatus}
+          </span>
+        </p>
+        <button
+          onClick={() => {
+            setTitle("");
+            setContent("");
+            setTags("");
+            setResult(null);
+          }}
+          className="mt-4 text-sm text-accent hover:underline"
+        >
+          Write another post
+        </button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1.5 block">Title</label>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Enter post title..."
+          className="bg-muted border-border h-11"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1.5 block">Content</label>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Write your story..."
+          rows={8}
+          className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 transition"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1.5 block">
+          Tags <span className="text-muted-foreground font-normal">(comma-separated)</span>
+        </label>
+        <Input
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="politics, economy, technology..."
+          className="bg-muted border-border h-11"
+        />
+      </div>
+      {error && (
+        <div className="flex items-center gap-2 text-rose-400 text-sm">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
+      <Button
+        onClick={handleSubmit}
+        disabled={loading || !title.trim() || !content.trim()}
+        className="w-full h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-medium"
+      >
+        {loading ? (
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <>
+            <Plus className="h-4 w-4 mr-2" />
+            Publish Post
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Edit Profile Modal ───────────────────────────────────────────────────────
+
+function EditProfileModal({
+  profile,
+  onClose,
+  onSave,
+}: {
+  profile: JournalistResponse;
+  onClose: () => void;
+  onSave: (updated: Partial<JournalistResponse>) => void;
+}) {
+  const [name, setName] = useState(profile.name);
+  const [email, setEmail] = useState(profile.email);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      await journalistService.editProfile({ name, email });
+      onSave({ name, email });
+      onClose();
+    } catch {
+      setError("Failed to update profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-foreground">Edit Profile</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Name</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-muted border-border h-10" />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} className="bg-muted border-border h-10" />
+          </div>
+          {error && <p className="text-rose-400 text-sm">{error}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onClose} className="flex-1 h-10">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={loading}
+              className="flex-1 h-10 bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
+
+const JournalistDashboard = () => {
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [profile, setProfile] = useState<JournalistResponse | null>(null);
+  const [posts, setPosts] = useState<JournalistPostResponse[]>([]);
+  const [following, setFollowing] = useState<JournalistFollowingResponse[]>([]);
+  const [followers, setFollowers] = useState<JournalistFollowerResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      journalistService.getMe(),
+      journalistService.getMyPosts(),
+      journalistService.getFollowing(),
+      journalistService.getFollowers(),
+    ])
+      .then(([p, po, fo, fl]) => {
+        setProfile(p);
+        setPosts(po);
+        setFollowing(fo);
+        setFollowers(fl);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleUnfollow = async (id: string) => {
+    await journalistService.unfollowUser(id);
+    setFollowing((prev) => prev.filter((f) => f.followeeId !== id));
+  };
+
+  const filteredPosts = posts.filter(
+    (p) =>
+      p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
+      p.content.toLowerCase().includes(searchQ.toLowerCase())
+  );
+
+  const tabs: { id: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
+    { id: "overview", label: "Overview", icon: <BarChart2 className="h-4 w-4" /> },
+    { id: "posts", label: "My Posts", icon: <FileText className="h-4 w-4" />, count: posts.length },
+    { id: "following", label: "Following", icon: <UserCheck className="h-4 w-4" />, count: following.length },
+    { id: "followers", label: "Followers", icon: <Users className="h-4 w-4" />, count: followers.length },
+    { id: "create", label: "New Post", icon: <Plus className="h-4 w-4" /> },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center">
-                  <User className="h-8 w-8 text-accent-foreground" />
+      <main className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-primary mb-2">
+              Journalist Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Welcome back,{" "}
+              <span className="text-foreground font-medium">{profile?.name ?? "..."}</span>
+            </p>
+          </div>
+          {profile && (
+            <button
+              onClick={() => setShowEditProfile(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:border-accent/50 hover:shadow-md transition-all text-sm font-medium text-foreground"
+            >
+              <Edit3 className="h-4 w-4 text-accent" />
+              Edit Profile
+            </button>
+          )}
+        </div>
+
+        {/* Profile Card */}
+        {profile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 mb-8"
+          >
+            {/* subtle bg accent */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-accent/15 text-accent font-bold text-xl flex items-center justify-center flex-shrink-0">
+                {profile.name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)}
+              </div>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                  <h2 className="font-bold text-xl text-foreground">{profile.name}</h2>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20 font-medium">
+                    {profile.role}
+                  </span>
                 </div>
-              )}
-              <div>
-                <h1 className="font-display text-2xl md:text-3xl font-bold text-primary">
-                  Welcome, {user?.name}!
-                </h1>
-                <p className="text-muted-foreground">
-                  Journalist Dashboard • {user?.organization}
+                <p className="text-sm text-muted-foreground">{profile.email}</p>
+                <p className="text-sm text-muted-foreground">
+                  Organization:{" "}
+                  <span className="text-foreground font-medium">{profile.organizationName}</span>
                 </p>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button asChild>
-                <Link to="/create-article">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Article
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={logout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-card border border-border rounded-xl p-5"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <stat.icon className="h-5 w-5 text-accent" />
-                <span className="text-xs text-verified">{stat.change}</span>
+              <div className="flex gap-6 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.followersCount)}</p>
+                  <p className="text-xs text-muted-foreground">Followers</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.postsCount)}</p>
+                  <p className="text-xs text-muted-foreground">Posts</p>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-foreground mb-1">{stat.value}</p>
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-            </motion.div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-1 overflow-x-auto pb-1 mb-8 scrollbar-hide">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
+                activeTab === tab.id
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+              {tab.count !== undefined && (
+                <span
+                  className={cn(
+                    "text-xs px-1.5 py-0.5 rounded-full font-medium",
+                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-border text-foreground"
+                  )}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
           ))}
         </div>
 
-        {/* Articles Management */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-card border border-border rounded-xl p-6"
-        >
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-            <h2 className="font-display text-xl font-semibold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-accent" />
-              Your Articles
-            </h2>
-            <div className="flex gap-2">
-              {(["all", "published", "pending", "draft"] as const).map((status) => (
-                <Button
-                  key={status}
-                  variant={filter === status ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setFilter(status)}
-                  className="capitalize"
-                >
-                  {status}
-                </Button>
-              ))}
-            </div>
-          </div>
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {/* OVERVIEW */}
+          {activeTab === "overview" && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <StatCard icon={<FileText className="h-5 w-5" />} label="Total Posts" value={posts.length} delay={0} />
+                <StatCard
+                  icon={<Heart className="h-5 w-5" />}
+                  label="Total Likes"
+                  value={formatNum(posts.reduce((s, p) => s + p.likes, 0))}
+                  delay={0.05}
+                />
+                <StatCard
+                  icon={<MessageSquare className="h-5 w-5" />}
+                  label="Total Comments"
+                  value={formatNum(posts.reduce((s, p) => s + p.comments, 0))}
+                  delay={0.1}
+                />
+                <StatCard
+                  icon={<Users className="h-5 w-5" />}
+                  label="Following"
+                  value={following.length}
+                  delay={0.15}
+                />
+              </div>
 
-          <div className="space-y-4">
-            {filteredArticles.map((article) => (
-              <div
-                key={article.id}
-                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  {getStatusIcon(article.status)}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{article.title}</p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{article.publishedAt}</span>
-                      {article.views > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Eye className="h-3.5 w-3.5" />
-                          {article.views.toLocaleString()}
-                        </span>
-                      )}
-                      {article.credibilityScore && (
-                        <span className="text-verified">
-                          {article.credibilityScore}% credibility
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              {/* Recent Posts Preview */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-foreground">Recent Posts</h2>
+                  <button
+                    onClick={() => setActiveTab("posts")}
+                    className="text-sm text-accent hover:underline flex items-center gap-1"
+                  >
+                    View all <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link to={`/edit-article/${article.id}`}>
-                      <Edit className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {posts.slice(0, 3).map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                        onViewReport={setReportPostId}
+                      />
+                    ))}
+                  </AnimatePresence>
+                  {posts.length === 0 && (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                      <p>No posts yet.</p>
+                      <button
+                        onClick={() => setActiveTab("create")}
+                        className="mt-2 text-accent hover:underline text-sm"
+                      >
+                        Create your first post →
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </motion.div>
+            </motion.div>
+          )}
 
-        {/* Analytics Preview */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 bg-card border border-border rounded-xl p-6"
-        >
-          <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-accent" />
-            Analytics Overview
-          </h2>
-          <div className="h-48 flex items-center justify-center text-muted-foreground">
-            <p>Analytics visualization coming soon...</p>
-          </div>
-        </motion.div>
+          {/* POSTS */}
+          {activeTab === "posts" && (
+            <motion.div
+              key="posts"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-4"
+            >
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search posts..."
+                  value={searchQ}
+                  onChange={(e) => setSearchQ(e.target.value)}
+                  className="pl-11 h-11 bg-card border-border"
+                />
+              </div>
+              <AnimatePresence>
+                {filteredPosts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                    onViewReport={setReportPostId}
+                  />
+                ))}
+              </AnimatePresence>
+              {filteredPosts.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-25" />
+                  <p>{searchQ ? "No matching posts found." : "No posts yet."}</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* FOLLOWING */}
+          {activeTab === "following" && (
+            <motion.div
+              key="following"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="rounded-2xl border border-border bg-card p-4"
+            >
+              <h2 className="font-semibold text-foreground mb-4 px-1">
+                People You Follow ({following.length})
+              </h2>
+              <div className="space-y-1">
+                <AnimatePresence>
+                  {following.map((f) => (
+                    <UserRow
+                      key={f.followeeId}
+                      id={f.followeeId}
+                      name={f.name}
+                      role={f.role}
+                      followers={f.followersCount}
+                      onUnfollow={handleUnfollow}
+                    />
+                  ))}
+                </AnimatePresence>
+                {following.length === 0 && (
+                  <p className="text-center py-10 text-muted-foreground text-sm">
+                    You're not following anyone yet.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* FOLLOWERS */}
+          {activeTab === "followers" && (
+            <motion.div
+              key="followers"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="rounded-2xl border border-border bg-card p-4"
+            >
+              <h2 className="font-semibold text-foreground mb-4 px-1">
+                Your Followers ({followers.length})
+              </h2>
+              <div className="space-y-1">
+                <AnimatePresence>
+                  {followers.map((f) => (
+                    <UserRow
+                      key={f.followerId}
+                      id={f.followerId}
+                      name={f.name}
+                      role={f.role}
+                      followers={f.followersCount}
+                    />
+                  ))}
+                </AnimatePresence>
+                {followers.length === 0 && (
+                  <p className="text-center py-10 text-muted-foreground text-sm">
+                    No followers yet.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* CREATE POST */}
+          {activeTab === "create" && (
+            <motion.div
+              key="create"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="rounded-2xl border border-border bg-card p-6 max-w-2xl"
+            >
+              <h2 className="font-semibold text-foreground mb-5 flex items-center gap-2">
+                <Plus className="h-4 w-4 text-accent" />
+                Create New Post
+              </h2>
+              <CreatePostForm
+                onSuccess={() => {
+                  journalistService.getMyPosts().then(setPosts);
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       <Footer />
+
+      {/* Modals */}
+      <AnimatePresence>
+        {reportPostId && (
+          <ReportModal postId={reportPostId} onClose={() => setReportPostId(null)} />
+        )}
+        {showEditProfile && profile && (
+          <EditProfileModal
+            profile={profile}
+            onClose={() => setShowEditProfile(false)}
+            onSave={(updated) => setProfile((prev) => (prev ? { ...prev, ...updated } : prev))}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
