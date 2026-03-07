@@ -95,6 +95,22 @@ class ApiClient {
     const response: AxiosResponse<T> = await this.client.delete(url, config);
     return response.data;
   }
+
+  /**
+   * GET request returning data + pagination headers
+   */
+  async getPaginated<T>(
+    url: string,
+    config?: AxiosRequestConfig
+  ): Promise<{ data: T; totalCount: number; page: number; pageSize: number }> {
+    const response: AxiosResponse<T> = await this.client.get(url, config);
+    return {
+      data: response.data,
+      totalCount: parseInt(response.headers["x-total-count"] || "0"),
+      page: parseInt(response.headers["x-page"] || "1"),
+      pageSize: parseInt(response.headers["x-page-size"] || "20"),
+    };
+  }
 }
 
 // Export singleton instance
