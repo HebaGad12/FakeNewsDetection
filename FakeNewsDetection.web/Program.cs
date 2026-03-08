@@ -57,6 +57,7 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IFollowRepository, FollowRepository>();
             builder.Services.AddScoped<IPostRepository, PostRepository>();
+            builder.Services.AddScoped<IPostMediaRepository, PostMediaRepository>();
             builder.Services.AddScoped<IInteractionRepository, InteractionRepository>();
             builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
             builder.Services.AddScoped<IWalletRepository, WalletRepository>();
@@ -109,6 +110,7 @@ namespace FakeNewsDetection.web
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles(); // serves /uploads/... for images
             app.UseAuthentication();
             app.UseAuthorization();
 
