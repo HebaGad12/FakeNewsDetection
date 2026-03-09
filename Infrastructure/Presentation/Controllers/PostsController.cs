@@ -24,15 +24,18 @@ namespace Presentation.Controllers
         private readonly IPostRepository _posts;
         private readonly IInteractionRepository _interactions;
         private readonly IUserRepository _users;
+        private readonly IPostMediaRepository _media;
 
         public PostsController(
             IPostRepository posts,
             IInteractionRepository interactions,
-            IUserRepository users)
+            IUserRepository users,
+            IPostMediaRepository media)
         {
             _posts = posts;
             _interactions = interactions;
             _users = users;
+            _media = media;
         }
 
         private Guid GetUserId() =>
@@ -43,7 +46,7 @@ namespace Presentation.Controllers
         // ─────────────────────────────────────────
 
         /// <summary>
-        /// Returns all approved posts with their comments (and other interaction counts).
+        /// Returns all approved posts with their comments, interactions, and media.
         /// </summary>
         [HttpGet]
         [AllowAnonymous]
@@ -53,45 +56,52 @@ namespace Presentation.Controllers
             var allUsers = await _users.GetAllAsync();
             var userDict = allUsers.ToDictionary(u => u.Id);
 
-            var result = posts
+            var result = new List<PostWithCommentsResponse>();
+
+            foreach (var p in posts
                 .Where(p => p.ModerationStatus == ModerationStatus.Approved)
-                .OrderByDescending(p => p.CreatedAt)
-                .Select(p =>
-                {
-                    var comments = p.Interactions?
-                        .Where(i => i.Type == InteractionType.Comment)
-                        .OrderBy(i => i.CreatedAt)
-                        .Select(i =>
-                        {
-                            userDict.TryGetValue(i.UserId, out var commenter);
-                            return new CommentDto(
-                                i.Id,
-                                commenter?.Name ?? "Unknown",
-                                commenter?.Role.ToString() ?? "Unknown",
-                                i.Content ?? "",
-                                i.CreatedAt
-                            );
-                        }).ToList() ?? new();
+                .OrderByDescending(p => p.CreatedAt))
+            {
+                var comments = p.Interactions?
+                    .Where(i => i.Type == InteractionType.Comment)
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i =>
+                    {
+                        userDict.TryGetValue(i.UserId, out var commenter);
+                        return new CommentDto(
+                            i.Id,
+                            commenter?.Name ?? "Unknown",
+                            commenter?.Role.ToString() ?? "Unknown",
+                            i.Content ?? "",
+                            i.CreatedAt
+                        );
+                    }).ToList() ?? new();
 
-                    userDict.TryGetValue(p.AuthorId, out var author);
-                    string orgName = "Independent";
-                    if (p.OrganizationId.HasValue && userDict.TryGetValue(p.OrganizationId.Value, out var org))
-                        orgName = org.Name;
+                userDict.TryGetValue(p.AuthorId, out var author);
+                string orgName = "Independent";
+                if (p.OrganizationId.HasValue && userDict.TryGetValue(p.OrganizationId.Value, out var org))
+                    orgName = org.Name;
 
-                    return new PostWithCommentsResponse(
-                        p.Id,
-                        p.Title,
-                        p.Content,
-                        p.Tags,
-                        author?.Name ?? "Unknown",
-                        p.AuthorId,
-                        orgName,
-                        p.CreatedAt,
-                        p.UpdatedAt,
-                        p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
-                        comments
-                    );
-                });
+                var mediaItems = await _media.GetByPostIdAsync(p.Id);
+                var mediaDtos = mediaItems.Select(m => new MediaDto(
+                    m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt
+                )).ToList();
+
+                result.Add(new PostWithCommentsResponse(
+                    p.Id,
+                    p.Title,
+                    p.Content,
+                    p.Tags,
+                    author?.Name ?? "Unknown",
+                    p.AuthorId,
+                    orgName,
+                    p.CreatedAt,
+                    p.UpdatedAt,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                    comments,
+                    mediaDtos
+                ));
+            }
 
             return Ok(result);
         }
@@ -211,7 +221,8 @@ namespace Presentation.Controllers
         DateTime CreatedAt,
         DateTime? UpdatedAt,
         int LikesCount,
-        List<CommentDto> Comments
+        List<CommentDto> Comments,
+        List<Shared.DTOs.MediaDto> Media
     );
 
     public record CommentRequestDto(string Content);

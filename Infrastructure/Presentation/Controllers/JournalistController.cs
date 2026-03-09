@@ -2,12 +2,10 @@ using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -22,27 +20,21 @@ namespace Presentation.Controllers
         private readonly IUserRepository _users;
         private readonly IPostRepository _posts;
         private readonly IFollowRepository _follows;
-        private readonly IPostMediaRepository _mediaRepo;
-        private readonly IWebHostEnvironment _env;
+        private readonly IPostMediaRepository _media;
 
         public JournalistController(
             IUserRepository users,
             IPostRepository posts,
             IFollowRepository follows,
-            IPostMediaRepository mediaRepo,
-            IWebHostEnvironment env)
+            IPostMediaRepository media)
         {
             _users = users;
             _posts = posts;
             _follows = follows;
-            _mediaRepo = mediaRepo;
-            _env = env;
+            _media = media;
         }
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        private string GetUserName() => User.FindFirstValue(ClaimTypes.Name) ?? GetUserId().ToString("N");
-
-        // ── Profile ──
 
         [HttpGet("me")]
         public async Task<ActionResult<JournalistResponse>> Me()
@@ -66,14 +58,19 @@ namespace Presentation.Controllers
             ));
         }
 
+        /// <summary>
+        /// Edit journalist profile. Only Name and Email can be changed.
+        /// OrganizationId is intentionally excluded — it is managed by the organization.
+        /// </summary>
         [HttpPut("edit")]
         public async Task<ActionResult> EditProfile([FromBody] JournalistEditProfileRequest req)
         {
             var journalist = await _users.GetByIdAsync(GetUserId());
             if (journalist is null) return NotFound("Journalist not found");
 
-            if (req.Name != null) journalist.Name = req.Name;
+            if (req.Name  != null) journalist.Name  = req.Name;
             if (req.Email != null) journalist.Email = req.Email;
+            // OrganizationId is NOT changed here — journalists cannot change their own org
 
             await _users.UpdateAsync(journalist);
             return Ok(new { journalist.Id, journalist.Name, journalist.Email });
@@ -81,22 +78,26 @@ namespace Presentation.Controllers
 
         // ── Posts ──
 
+        /// <summary>
+        /// Create a new article. Optionally include media items in the same request.
+        /// Media paths are stored as-is — upload the files first, then pass their paths here.
+        /// IsCopyrighted is only applied to items where MediaType == "image".
+        /// </summary>
         [HttpPost("posts")]
         public async Task<ActionResult> CreatePost([FromBody] JournalistCreatePostRequest req)
         {
             var journalist = await _users.GetByIdAsync(GetUserId());
             if (journalist is null) return NotFound("Journalist not found");
 
-            var postId = Guid.NewGuid();
             var post = new Post
             {
-                Id = postId,
-                Title = req.Title,
-                Content = req.Content,
-                AuthorId = journalist.Id,
+                Id             = Guid.NewGuid(),
+                Title          = req.Title,
+                Content        = req.Content,
+                AuthorId       = journalist.Id,
                 OrganizationId = journalist.OrganizationId,
-                CreatedAt = DateTime.UtcNow,
-                Tags = req.Tags.ToArray(),
+                CreatedAt      = DateTime.UtcNow,
+                Tags           = req.Tags.ToArray(),
                 ModerationStatus = journalist.OrganizationId == null
                     ? ModerationStatus.Approved
                     : ModerationStatus.Pending
@@ -104,83 +105,22 @@ namespace Presentation.Controllers
 
             await _posts.AddAsync(post);
 
-            // ── Attach media from temp storage ──
+            // Attach media items if provided
             if (req.Media != null && req.Media.Count > 0)
             {
-                var journalistUsername = SanitizePathSegment(journalist.Name);
-                var mediaList = new List<PostMedia>();
-
-                foreach (var attachment in req.Media)
+                var mediaEntities = req.Media.Select(m => new PostMedia
                 {
-                    var tempDir = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "temp");
-                    var tempFiles = Directory.Exists(tempDir)
-                        ? Directory.GetFiles(tempDir, $"{attachment.TempId}*")
-                        : Array.Empty<string>();
+                    Id            = Guid.NewGuid(),
+                    PostId        = post.Id,
+                    Path          = m.Path.Trim(),
+                    MediaType     = m.MediaType.ToLower(),
+                    IsCopyrighted = m.MediaType.ToLower() == "image" && m.IsCopyrighted
+                }).ToList();
 
-                    if (tempFiles.Length == 0) continue;
-
-                    var tempFile = tempFiles[0];
-                    var extension = Path.GetExtension(tempFile);
-                    var storedFileName = $"{attachment.TempId}{extension}";
-
-                    var destRelative = Path.Combine(journalistUsername, postId.ToString("N"), "images", storedFileName)
-                        .Replace('\\', '/');
-                    var destFull = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", destRelative);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destFull)!);
-                    System.IO.File.Move(tempFile, destFull);
-
-                    mediaList.Add(new PostMedia
-                    {
-                        Id = Guid.NewGuid(),
-                        PostId = postId,
-                        FileName = storedFileName,
-                        OriginalFileName = storedFileName,
-                        FilePath = destRelative,
-                        Copyright = attachment.Copyright,
-                        DisplayOrder = attachment.DisplayOrder,
-                        SizeBytes = new FileInfo(destFull).Length,
-                        UploadedAt = DateTime.UtcNow
-                    });
-                }
-
-                if (mediaList.Count > 0)
-                    await _mediaRepo.AddRangeAsync(mediaList);
+                await _media.AddRangeAsync(mediaEntities);
             }
 
-            return Ok(new
-            {
-                PostId = post.Id,
-                ModerationStatus = post.ModerationStatus.ToString(),
-                MediaCount = req.Media?.Count ?? 0
-            });
-        }
-
-        [HttpGet("posts")]
-        public async Task<ActionResult<IEnumerable<JournalistPostResponse>>> MyPosts()
-        {
-            var userId = GetUserId();
-            var posts = await _posts.GetByAuthorAsync(userId);
-            var allUsers = await _users.GetAllAsync();
-
-            var dto = posts.Select(p =>
-            {
-                string orgName = "Independent";
-                if (p.OrganizationId.HasValue)
-                {
-                    var orgUser = allUsers.FirstOrDefault(u => u.Id == p.OrganizationId.Value);
-                    orgName = orgUser?.Name ?? "Unknown";
-                }
-                return new JournalistPostResponse(
-                    p.Id, p.Title, p.Content, p.CreatedAt,
-                    p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
-                    p.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
-                    p.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0,
-                    orgName,
-                    p.ModerationStatus.ToString()
-                );
-            });
-
-            return Ok(dto);
+            return Ok(new { PostId = post.Id, ModerationStatus = post.ModerationStatus.ToString() });
         }
 
         [HttpDelete("posts/{postId}")]
@@ -191,59 +131,164 @@ namespace Presentation.Controllers
             if (post == null || post.AuthorId != userId)
                 return NotFound("Post not found or not owned by you");
 
-            var mediaList = await _mediaRepo.GetByPostIdAsync(postId);
-            foreach (var m in mediaList)
-            {
-                var fullPath = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", m.FilePath.TrimStart('/'));
-                if (System.IO.File.Exists(fullPath))
-                    System.IO.File.Delete(fullPath);
-            }
-
             await _posts.DeleteAsync(post.Id);
             return NoContent();
         }
 
+        [HttpGet("posts")]
+        public async Task<ActionResult<IEnumerable<JournalistPostResponse>>> MyPosts()
+        {
+            var userId = GetUserId();
+            var posts = await _posts.GetByAuthorAsync(userId);
+            var allUsers = await _users.GetAllAsync();
+
+            var result = new List<JournalistPostResponse>();
+
+            foreach (var p in posts)
+            {
+                string orgName = "Independent";
+                if (p.OrganizationId.HasValue)
+                {
+                    var orgUser = allUsers.FirstOrDefault(u => u.Id == p.OrganizationId.Value);
+                    orgName = orgUser?.Name ?? "Unknown";
+                }
+
+                var mediaItems = await _media.GetByPostIdAsync(p.Id);
+                var mediaDtos = mediaItems.Select(m => new MediaDto(
+                    m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt
+                )).ToList();
+
+                result.Add(new JournalistPostResponse(
+                    p.Id, p.Title, p.Content, p.CreatedAt,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0,
+                    orgName,
+                    p.ModerationStatus.ToString(),
+                    mediaDtos
+                ));
+            }
+
+            return Ok(result);
+        }
+
+        // ── Media management (nested under the article) ──
+
+        /// <summary>
+        /// Add one or more media items to an existing article.
+        /// POST api/journalist/posts/{postId}/media
+        /// Body: { "mediaItems": [ { "path": "...", "mediaType": "image", "isCopyrighted": true } ] }
+        /// </summary>
+        [HttpPost("posts/{postId}/media")]
+        public async Task<ActionResult<IEnumerable<MediaDto>>> AddMedia(
+            Guid postId,
+            [FromBody] AddPostMediaRequest req)
+        {
+            if (req.MediaItems == null || !req.MediaItems.Any())
+                return BadRequest("At least one media item is required.");
+
+            var post = await _posts.GetByIdAsync(postId);
+            if (post == null || post.AuthorId != GetUserId())
+                return NotFound("Post not found or not owned by you.");
+
+            var allowedTypes = new[] { "image", "video" };
+            var invalidTypes = req.MediaItems
+                .Where(m => !allowedTypes.Contains(m.MediaType.ToLower()))
+                .Select(m => m.MediaType).Distinct().ToList();
+
+            if (invalidTypes.Any())
+                return BadRequest($"Unsupported media type(s): {string.Join(", ", invalidTypes)}. Allowed: image, video.");
+
+            var entities = req.MediaItems.Select(m => new PostMedia
+            {
+                Id            = Guid.NewGuid(),
+                PostId        = postId,
+                Path          = m.Path.Trim(),
+                MediaType     = m.MediaType.ToLower(),
+                IsCopyrighted = m.MediaType.ToLower() == "image" && m.IsCopyrighted
+            }).ToList();
+
+            await _media.AddRangeAsync(entities);
+
+            var dtos = entities.Select(m => new MediaDto(
+                m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt)).ToList();
+
+            return Ok(dtos);
+        }
+
+        /// <summary>
+        /// Remove a single media item from an article.
+        /// DELETE api/journalist/posts/{postId}/media/{mediaId}
+        /// </summary>
+        [HttpDelete("posts/{postId}/media/{mediaId}")]
+        public async Task<ActionResult> DeleteMedia(Guid postId, Guid mediaId)
+        {
+            var post = await _posts.GetByIdAsync(postId);
+            if (post == null || post.AuthorId != GetUserId())
+                return NotFound("Post not found or not owned by you.");
+
+            var item = await _media.GetByIdAsync(mediaId);
+            if (item == null || item.PostId != postId)
+                return NotFound("Media item not found on this post.");
+
+            await _media.DeleteAsync(mediaId);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Toggle the copyright flag on a single image.
+        /// PATCH api/journalist/posts/{postId}/media/{mediaId}/copyright
+        /// Body: { "isCopyrighted": true }
+        /// Returns 400 if the media item is not an image.
+        /// </summary>
+        [HttpPatch("posts/{postId}/media/{mediaId}/copyright")]
+        public async Task<ActionResult<MediaDto>> SetCopyright(
+            Guid postId,
+            Guid mediaId,
+            [FromBody] SetCopyrightRequest req)
+        {
+            var post = await _posts.GetByIdAsync(postId);
+            if (post == null || post.AuthorId != GetUserId())
+                return NotFound("Post not found or not owned by you.");
+
+            var item = await _media.GetByIdAsync(mediaId);
+            if (item == null || item.PostId != postId)
+                return NotFound("Media item not found on this post.");
+
+            if (item.MediaType != "image")
+                return BadRequest("Copyright can only be set on image media items.");
+
+            item.IsCopyrighted = req.IsCopyrighted;
+            await _media.UpdateAsync(item);
+
+            return Ok(new MediaDto(item.Id, item.Path, item.MediaType, item.IsCopyrighted, item.UploadedAt));
+        }
+
+        // ── Report post (journalist-specific; like/comment now at api/posts/{id}/like|comment) ──
+
         [HttpPost("posts/{postId}/report")]
         public async Task<ActionResult> Report(Guid postId, [FromBody] JournalistReportRequest req)
         {
+            var userId = GetUserId();
             var post = await _posts.GetByIdAsync(postId);
             if (post == null) return NotFound("Post not found");
+
+            // NOTE: Like and Comment are now unified at POST api/posts/{postId}/like|comment
+            // This endpoint remains for the report action which is journalist-specific here.
             return Ok(new { Message = "Use the unified endpoint POST /api/posts/{postId}/report" });
-        }
-
-        [HttpGet("posts/{postId}/report")]
-        public async Task<ActionResult> GetPostReport(Guid postId)
-        {
-            var userId = GetUserId();
-            var journalist = await _users.GetByIdAsync(userId);
-            if (journalist is null) return NotFound("Journalist not found");
-
-            var post = await _posts.GetByIdAsync(postId);
-            if (post == null || post.AuthorId != userId)
-                return NotFound("Post not found or not owned by you");
-
-            var interactions = post.Interactions ?? new List<Interaction>();
-
-            return Ok(new PostReportResponse(
-                post.Id,
-                post.Title,
-                post.ModerationStatus.ToString(),
-                interactions.Count(i => i.Type == InteractionType.Like),
-                interactions.Count(i => i.Type == InteractionType.Comment),
-                interactions.Count(i => i.Type == InteractionType.Report),
-                interactions
-                    .Where(i => i.Type == InteractionType.Report)
-                    .Select(i => i.Content ?? "")
-                    .ToList()
-            ));
         }
 
         // ── Follow / Unfollow ──
 
+        /// <summary>
+        /// Follow a user. Returns 409 if already following.
+        /// </summary>
         [HttpPost("follow/{targetId}")]
         public async Task<ActionResult> Follow(Guid targetId)
         {
             var userId = GetUserId();
+
+            // FIX: Prevent duplicate follows
             var existing = await _follows.GetAsync(userId, targetId);
             if (existing is not null)
                 return Conflict("You are already following this user.");
@@ -291,13 +336,38 @@ namespace Presentation.Controllers
             return Ok(dto);
         }
 
-        // ── Helpers ──
+        // ── Post report analytics (for journalist's own posts) ──
 
-        private static string SanitizePathSegment(string name)
+        /// <summary>
+        /// Report analytics for a journalist's own post.
+        /// Independent journalists see their own post reports.
+        /// Organization journalists also see their posts, if approved by org.
+        /// </summary>
+        [HttpGet("posts/{postId}/report")]
+        public async Task<ActionResult> GetPostReport(Guid postId)
         {
-            var invalid = Path.GetInvalidFileNameChars();
-            var clean = new string(name.Where(c => !invalid.Contains(c) && c != ' ').ToArray());
-            return string.IsNullOrEmpty(clean) ? "journalist" : clean.ToLowerInvariant();
+            var userId = GetUserId();
+            var journalist = await _users.GetByIdAsync(userId);
+            if (journalist is null) return NotFound("Journalist not found");
+
+            var post = await _posts.GetByIdAsync(postId);
+            if (post == null || post.AuthorId != userId)
+                return NotFound("Post not found or not owned by you");
+
+            var interactions = post.Interactions ?? new List<Interaction>();
+
+            return Ok(new PostReportResponse(
+                post.Id,
+                post.Title,
+                post.ModerationStatus.ToString(),
+                interactions.Count(i => i.Type == InteractionType.Like),
+                interactions.Count(i => i.Type == InteractionType.Comment),
+                interactions.Count(i => i.Type == InteractionType.Report),
+                interactions
+                    .Where(i => i.Type == InteractionType.Report)
+                    .Select(i => i.Content ?? "")
+                    .ToList()
+            ));
         }
     }
 
@@ -310,4 +380,6 @@ namespace Presentation.Controllers
         int Reports,
         List<string> ReportReasons
     );
+
+    public record SetCopyrightRequest(bool IsCopyrighted);
 }

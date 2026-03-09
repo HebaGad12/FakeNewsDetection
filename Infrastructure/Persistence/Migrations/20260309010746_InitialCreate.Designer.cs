@@ -12,8 +12,8 @@ using Persistence;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260224220429_fix")]
-    partial class fix
+    [Migration("20260309010746_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -159,84 +159,6 @@ namespace Persistence.Migrations
                     b.ToTable("ModerationActions");
                 });
 
-            modelBuilder.Entity("Domain.Models.OrganizationFollow", b =>
-                {
-                    b.Property<Guid>("FollowerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("OrganizationUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("FollowerId", "OrganizationUserId");
-
-                    b.HasIndex("OrganizationUserId");
-
-                    b.ToTable("OrganizationFollows");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWallet", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Balance")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("OrganizationUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationUserId")
-                        .IsUnique();
-
-                    b.ToTable("OrganizationWallets");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWalletTransaction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ActorId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("WalletId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActorId");
-
-                    b.HasIndex("WalletId");
-
-                    b.ToTable("OrganizationWalletTransactions");
-                });
-
             modelBuilder.Entity("Domain.Models.Post", b =>
                 {
                     b.Property<Guid>("Id")
@@ -292,6 +214,38 @@ namespace Persistence.Migrations
                     b.HasIndex("OrganizationId");
 
                     b.ToTable("Posts");
+                });
+
+            modelBuilder.Entity("Domain.Models.PostMedia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsCopyrighted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostId");
+
+                    b.ToTable("PostMedia", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Models.User", b =>
@@ -499,54 +453,6 @@ namespace Persistence.Migrations
                     b.Navigation("Post");
                 });
 
-            modelBuilder.Entity("Domain.Models.OrganizationFollow", b =>
-                {
-                    b.HasOne("Domain.Models.User", "Follower")
-                        .WithMany()
-                        .HasForeignKey("FollowerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Models.User", "OrganizationUser")
-                        .WithMany("OrgFollowers")
-                        .HasForeignKey("OrganizationUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Follower");
-
-                    b.Navigation("OrganizationUser");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWallet", b =>
-                {
-                    b.HasOne("Domain.Models.User", "OrganizationUser")
-                        .WithOne("OrgWallet")
-                        .HasForeignKey("Domain.Models.OrganizationWallet", "OrganizationUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("OrganizationUser");
-                });
-
-            modelBuilder.Entity("Domain.Models.OrganizationWalletTransaction", b =>
-                {
-                    b.HasOne("Domain.Models.User", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Domain.Models.OrganizationWallet", "Wallet")
-                        .WithMany("Transactions")
-                        .HasForeignKey("WalletId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Actor");
-
-                    b.Navigation("Wallet");
-                });
-
             modelBuilder.Entity("Domain.Models.Post", b =>
                 {
                     b.HasOne("Domain.Models.User", "Author")
@@ -563,6 +469,17 @@ namespace Persistence.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("OrganizationUser");
+                });
+
+            modelBuilder.Entity("Domain.Models.PostMedia", b =>
+                {
+                    b.HasOne("Domain.Models.Post", "Post")
+                        .WithMany("Media")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
                 });
 
             modelBuilder.Entity("Domain.Models.User", b =>
@@ -604,14 +521,11 @@ namespace Persistence.Migrations
                     b.Navigation("Wallet");
                 });
 
-            modelBuilder.Entity("Domain.Models.OrganizationWallet", b =>
-                {
-                    b.Navigation("Transactions");
-                });
-
             modelBuilder.Entity("Domain.Models.Post", b =>
                 {
                     b.Navigation("Interactions");
+
+                    b.Navigation("Media");
 
                     b.Navigation("ModerationActions");
                 });
@@ -626,11 +540,7 @@ namespace Persistence.Migrations
 
                     b.Navigation("ModerationActions");
 
-                    b.Navigation("OrgFollowers");
-
                     b.Navigation("OrgMembers");
-
-                    b.Navigation("OrgWallet");
 
                     b.Navigation("Posts");
                 });

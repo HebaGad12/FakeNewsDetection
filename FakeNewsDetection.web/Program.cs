@@ -17,12 +17,10 @@ namespace FakeNewsDetection.web
         {
             var builder = WebApplication.CreateBuilder(args);
 
+
             builder.Services.AddDbContext<AppDbContext>(opts =>
-                opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
-            //builder.Services.AddDbContext<AppDbContext>(opts =>
-            //    opts.UseSqlServer(builder.Configuration.GetConnectionString("Mostafa")));
-            //builder.Services.AddDbContext<AppDbContext>(opts =>
-            //  opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("Mostafa")));
+
 
             builder.Services.AddAuthentication(options =>
             {
@@ -110,7 +108,6 @@ namespace FakeNewsDetection.web
             }
 
             app.UseHttpsRedirection();
-            app.UseStaticFiles(); // serves /uploads/... for images
             app.UseAuthentication();
             app.UseAuthorization();
 

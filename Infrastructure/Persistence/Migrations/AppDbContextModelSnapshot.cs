@@ -219,33 +219,21 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Copyright")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                    b.Property<bool>("IsCopyrighted")
+                        .HasColumnType("bit");
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FileName")
+                    b.Property<string>("MediaType")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("FilePath")
+                    b.Property<string>("Path")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<Guid>("PostId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("datetime2");
@@ -254,7 +242,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("PostMedia");
+                    b.ToTable("PostMedia", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Models.User", b =>

@@ -1,4 +1,4 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -11,59 +11,66 @@ namespace Persistence.Repositories
     public class PostMediaRepository : IPostMediaRepository
     {
         private readonly AppDbContext _context;
+
         public PostMediaRepository(AppDbContext context) => _context = context;
 
-        public async Task<PostMedia?> GetByIdAsync(Guid id) =>
-            await _context.PostMedia.FirstOrDefaultAsync(m => m.Id == id);
-
         public async Task<IEnumerable<PostMedia>> GetByPostIdAsync(Guid postId) =>
-            await _context.PostMedia
+            await _context.PostMediaItems
                 .Where(m => m.PostId == postId)
-                .OrderBy(m => m.DisplayOrder)
+                .OrderBy(m => m.UploadedAt)
                 .ToListAsync();
+
+        public async Task<PostMedia?> GetByIdAsync(Guid mediaId) =>
+            await _context.PostMediaItems.FindAsync(mediaId);
 
         public async Task AddAsync(PostMedia media)
         {
-            if (media.Id == Guid.Empty) media.Id = Guid.NewGuid();
+            if (media.Id == Guid.Empty)
+                media.Id = Guid.NewGuid();
+
             media.UploadedAt = DateTime.UtcNow;
-            await _context.PostMedia.AddAsync(media);
+            await _context.PostMediaItems.AddAsync(media);
             await _context.SaveChangesAsync();
         }
 
         public async Task AddRangeAsync(IEnumerable<PostMedia> mediaList)
         {
-            var list = mediaList.ToList();
-            foreach (var m in list)
+            var now = DateTime.UtcNow;
+            foreach (var m in mediaList)
             {
                 if (m.Id == Guid.Empty) m.Id = Guid.NewGuid();
-                m.UploadedAt = DateTime.UtcNow;
+                m.UploadedAt = now;
             }
-            await _context.PostMedia.AddRangeAsync(list);
+
+            await _context.PostMediaItems.AddRangeAsync(mediaList);
             await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(PostMedia media)
         {
-            _context.PostMedia.Update(media);
+            _context.PostMediaItems.Update(media);
             await _context.SaveChangesAsync();
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid mediaId)
         {
-            var media = await _context.PostMedia.FindAsync(id);
+            var media = await _context.PostMediaItems.FindAsync(mediaId);
             if (media != null)
             {
-                _context.PostMedia.Remove(media);
+                _context.PostMediaItems.Remove(media);
                 await _context.SaveChangesAsync();
             }
         }
 
         public async Task DeleteByPostIdAsync(Guid postId)
         {
-            var items = await _context.PostMedia.Where(m => m.PostId == postId).ToListAsync();
+            var items = await _context.PostMediaItems
+                .Where(m => m.PostId == postId)
+                .ToListAsync();
+
             if (items.Any())
             {
-                _context.PostMedia.RemoveRange(items);
+                _context.PostMediaItems.RemoveRange(items);
                 await _context.SaveChangesAsync();
             }
         }
