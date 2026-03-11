@@ -28,5 +28,6 @@ namespace Domain.Models
         public string? ModerationNotes { get; set; }
         public ICollection<Interaction> Interactions { get; set; } = new List<Interaction>();
         public ICollection<ModerationAction> ModerationActions { get; set; } = new List<ModerationAction>();
+        public ICollection<PostMedia> Media { get; set; } = new List<PostMedia>();
     }
 }

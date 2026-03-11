@@ -1,0 +1,24 @@
+# FakeNewsDetection — Python API dependencies
+# Install with:  pip install -r requirements.txt
+
+# ── Web framework (grad.py) ─────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+pydantic
+
+# ── Toxicity model (toxic.py) ───────────────────────────────────────────────
+torch
+spacy
+numpy
+
+# Download the spaCy language model after installing (run once):
+#   python -m spacy download en_core_web_md
+
+# ── Image copyright model (images.py) ───────────────────────────────────────
+torchvision
+Pillow
+chromadb
+
+# ── Fact-checking (FactChecker.py) ──────────────────────────────────────────
+google-genai
+python-dotenv

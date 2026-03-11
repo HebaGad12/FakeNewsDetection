@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Shared.DTOs
 {
@@ -11,6 +12,7 @@ namespace Shared.DTOs
         int Comments,
         int Reports,
         string Organization,
-        string ModerationStatus
+        string ModerationStatus,
+        List<MediaDto> Media
     );
 }

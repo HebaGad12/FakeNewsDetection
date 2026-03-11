@@ -15,6 +15,7 @@ namespace Persistence
 
         public DbSet<User> Users => Set<User>();
         public DbSet<Post> Posts => Set<Post>();
+        public DbSet<PostMedia> PostMediaItems => Set<PostMedia>();
         public DbSet<Interaction> Interactions => Set<Interaction>();
         public DbSet<Follow> Follows => Set<Follow>();
         public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
@@ -84,6 +85,28 @@ namespace Persistence
                 .WithMany()
                 .HasForeignKey(p => p.OrganizationId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+
+            // ===================== POST MEDIA =====================
+
+            b.Entity<PostMedia>().ToTable("PostMedia");
+            b.Entity<PostMedia>().HasKey(m => m.Id);
+
+            b.Entity<PostMedia>()
+                .Property(m => m.Path)
+                .HasMaxLength(1000)
+                .IsRequired();
+
+            b.Entity<PostMedia>()
+                .Property(m => m.MediaType)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            b.Entity<PostMedia>()
+                .HasOne(m => m.Post)
+                .WithMany(p => p.Media)
+                .HasForeignKey(m => m.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
 
 
             // ===================== INTERACTION =====================

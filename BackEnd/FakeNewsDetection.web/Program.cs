@@ -30,13 +30,7 @@ namespace FakeNewsDetection.web
             });
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
-                opts.UseSqlServer(builder.Configuration.GetConnectionString("kaarem")));
-            //builder.Services.AddDbContext<AppDbContext>(opts =>
-            //    opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
-            //builder.Services.AddDbContext<AppDbContext>(opts =>
-            //    opts.UseSqlServer(builder.Configuration.GetConnectionString("Mostafa")));
-            //builder.Services.AddDbContext<AppDbContext>(opts =>
-            //  opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
 
             builder.Services.AddAuthentication(options =>
             {
@@ -71,10 +65,33 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IFollowRepository, FollowRepository>();
             builder.Services.AddScoped<IPostRepository, PostRepository>();
+            builder.Services.AddScoped<IPostMediaRepository, PostMediaRepository>();
             builder.Services.AddScoped<IInteractionRepository, InteractionRepository>();
             builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
             builder.Services.AddScoped<IWalletRepository, WalletRepository>();
             builder.Services.AddScoped<IDonationRepository, DonationRepository>();
+
+            // ── Python Services ──────────────────────────────────────────────
+            var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8000";
+
+            builder.Services.AddHttpClient<IToxicityService, ToxicityService>(client =>
+            {
+                client.BaseAddress = new Uri(pythonUrl);
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+
+            builder.Services.AddHttpClient<IFactCheckerService, FactCheckerService>(client =>
+            {
+                client.BaseAddress = new Uri(pythonUrl);
+                client.Timeout = TimeSpan.FromSeconds(30); // fact-checking takes longer
+            });
+
+            builder.Services.AddHttpClient<IImageCopyrightService, ImageCopyrightService>(client =>
+            {
+                client.BaseAddress = new Uri(pythonUrl);
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {

@@ -213,6 +213,38 @@ namespace Persistence.Migrations
                     b.ToTable("Posts");
                 });
 
+            modelBuilder.Entity("Domain.Models.PostMedia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsCopyrighted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostId");
+
+                    b.ToTable("PostMedia", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -436,6 +468,17 @@ namespace Persistence.Migrations
                     b.Navigation("OrganizationUser");
                 });
 
+            modelBuilder.Entity("Domain.Models.PostMedia", b =>
+                {
+                    b.HasOne("Domain.Models.Post", "Post")
+                        .WithMany("Media")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
             modelBuilder.Entity("Domain.Models.User", b =>
                 {
                     b.HasOne("Domain.Models.User", "Organization")
@@ -478,6 +521,8 @@ namespace Persistence.Migrations
             modelBuilder.Entity("Domain.Models.Post", b =>
                 {
                     b.Navigation("Interactions");
+
+                    b.Navigation("Media");
 
                     b.Navigation("ModerationActions");
                 });

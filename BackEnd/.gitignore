@@ -361,3 +361,15 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+
+# ── Python (Machine Models directory) ───────────────────────────────────────
+
+# Secret API keys — share privately, never commit
+Machine Models/.env
+
+# Virtual environment
+Machine Models/venv/
+
+# ChromaDB vector store — large local database, rebuilt automatically
+Machine Models/chroma_image_db/
