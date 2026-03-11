@@ -3,6 +3,7 @@ using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ServicesAbstraction;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
@@ -25,17 +26,20 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IUserRepository _users;
         private readonly IPostMediaRepository _media;
+        private readonly IToxicityService _toxicity;
 
         public PostsController(
             IPostRepository posts,
             IInteractionRepository interactions,
             IUserRepository users,
-            IPostMediaRepository media)
+            IPostMediaRepository media,
+            IToxicityService toxicity)
         {
             _posts = posts;
             _interactions = interactions;
             _users = users;
             _media = media;
+            _toxicity = toxicity;
         }
 
         private Guid GetUserId() =>
@@ -165,6 +169,15 @@ namespace Presentation.Controllers
             var post = await _posts.GetByIdAsync(postId);
             if (post == null) return NotFound("Post not found.");
 
+            // ── Toxicity check ──────────────────────────────────────────────
+            if (await _toxicity.IsToxicAsync(req.Content))
+                return BadRequest(new
+                {
+                    Error = "ToxicContent",
+                    Message = "Your comment contains toxic language and cannot be posted."
+                });
+            // ────────────────────────────────────────────────────────────────
+
             var interaction = new Interaction
             {
                 Id = Guid.NewGuid(),
@@ -199,7 +212,7 @@ namespace Presentation.Controllers
     }
 
     // ─────────────────────────────────────────
-    // Response DTOs (inline for simplicity)
+    // Response DTOs
     // ─────────────────────────────────────────
 
     public record CommentDto(
@@ -222,7 +235,7 @@ namespace Presentation.Controllers
         DateTime? UpdatedAt,
         int LikesCount,
         List<CommentDto> Comments,
-        List<Shared.DTOs.MediaDto> Media
+        List<MediaDto> Media
     );
 
     public record CommentRequestDto(string Content);
