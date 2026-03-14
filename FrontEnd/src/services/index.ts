@@ -16,6 +16,7 @@ export { default as liveService } from "./liveService";
 export { default as organizationService } from "./organizationService";
 export { default as postReportsService } from "./postReportsService";
 export { default as postsService } from "./postsService";
+export { default as publicProfileService } from "./publicProfileService";
 export { default as userService } from "./userService";
 
 // Export Types

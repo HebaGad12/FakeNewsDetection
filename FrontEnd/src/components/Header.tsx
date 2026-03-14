@@ -15,6 +15,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { EditProfileDialog } from "@/components/EditProfileDialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { publicProfileService, userService } from "@/services";
+import type { ProfileSearchItem } from "@/services/publicProfileService";
+import { toast } from "sonner";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -27,6 +33,15 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isProfileSearchOpen, setIsProfileSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchRole, setSearchRole] = useState<string>("all");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchResults, setSearchResults] = useState<ProfileSearchItem[]>([]);
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const [followLoadingId, setFollowLoadingId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
@@ -35,6 +50,74 @@ export function Header() {
     logout();
     navigate("/");
     setIsMenuOpen(false);
+  };
+
+  const loadFollowingProfiles = async () => {
+    try {
+      const following = await userService.getFollowing();
+      setFollowingIds(following.map((item) => item.id));
+    } catch {
+      setFollowingIds([]);
+    }
+  };
+
+  const openProfileSearch = async () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+    setIsProfileSearchOpen(true);
+    await loadFollowingProfiles();
+  };
+
+  const handleSearchProfiles = async (page = 1, append = false) => {
+    setSearchLoading(true);
+    try {
+      const response = await publicProfileService.searchProfiles({
+        q: searchQuery,
+        role: searchRole === "all" ? undefined : searchRole,
+        page,
+        pageSize: 10,
+      });
+
+      setSearchPage(response.page);
+      setSearchTotal(response.total);
+      setSearchResults((prev) => (append ? [...prev, ...response.results] : response.results));
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleLoadMoreProfiles = async () => {
+    await handleSearchProfiles(searchPage + 1, true);
+  };
+
+  const handleViewProfile = (id: string) => {
+    setIsProfileSearchOpen(false);
+    navigate(`/profiles/${id}`);
+  };
+
+  const handleFollowProfile = async (id: string) => {
+    setFollowLoadingId(id);
+    try {
+      await userService.follow(id);
+      setFollowingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      setSearchResults((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, followers: item.followers + 1 } : item
+        )
+      );
+      toast.success("Profile followed successfully");
+    } catch (error: any) {
+      if (error?.response?.status === 409) {
+        setFollowingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        toast.error("You are already following this profile");
+      } else {
+        toast.error("Failed to follow profile");
+      }
+    } finally {
+      setFollowLoadingId(null);
+    }
   };
 
   return (
@@ -72,7 +155,13 @@ export function Header() {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" aria-label="Search">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Search public profiles"
+              onClick={openProfileSearch}
+            >
               <Search className="h-5 w-5" />
             </Button>
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" aria-label="Notifications">
@@ -169,6 +258,17 @@ export function Header() {
                 </Link>
               ))}
               <div className="pt-4 border-t border-border space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 justify-start"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    openProfileSearch();
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                  Search Profiles
+                </Button>
                 {isAuthenticated ? (
                   <>
                     <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
@@ -237,6 +337,85 @@ export function Header() {
         open={isEditProfileOpen} 
         onOpenChange={setIsEditProfileOpen} 
       />
+
+      <Dialog open={isProfileSearchOpen} onOpenChange={setIsProfileSearchOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Search Public Profiles</DialogTitle>
+            <DialogDescription>
+              Find journalists and organizations by name.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <Input
+                placeholder="Search by name"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Select value={searchRole} onValueChange={setSearchRole}>
+                <SelectTrigger className="md:w-52">
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                  <SelectItem value="Journalist">Journalist</SelectItem>
+                  <SelectItem value="Organization">Organization</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => handleSearchProfiles(1, false)} disabled={searchLoading}>
+                {searchLoading ? "Searching..." : "Search"}
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-border p-3 space-y-3 max-h-[55vh] overflow-y-auto">
+                {searchResults.length > 0 ? (
+                  searchResults.map((item) => (
+                    <div key={item.id} className="rounded-md border border-border p-3">
+                      <p className="font-medium text-foreground">{item.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.role}
+                        {item.organization ? ` • ${item.organization}` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {item.followers} followers • {item.totalPosts} posts
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleViewProfile(item.id)}>
+                          View Profile
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleFollowProfile(item.id)}
+                          disabled={followingIds.includes(item.id) || followLoadingId === item.id}
+                        >
+                          {followLoadingId === item.id
+                            ? "Following..."
+                            : followingIds.includes(item.id)
+                              ? "Following"
+                              : "Follow"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Use search to find profiles.
+                  </p>
+                )}
+
+                {searchResults.length > 0 && searchResults.length < searchTotal && (
+                  <div className="text-center pt-1">
+                    <Button variant="outline" onClick={handleLoadMoreProfiles} disabled={searchLoading}>
+                      {searchLoading ? "Loading..." : "Load More"}
+                    </Button>
+                  </div>
+                )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

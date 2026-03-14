@@ -2,9 +2,12 @@ import apiClient from "./apiClient";
 import {
   UserProfileExtended,
   EditProfileRequest,
+  EditProfileResponse,
   UserOverview,
   FollowingUser,
   ReportPostRequest,
+  ReportPostResponse,
+  FollowActionResponse,
   UserActivity,
 } from "./types";
 
@@ -24,10 +27,10 @@ class UserService {
   /**
    * Edit user profile
    * @param data - Profile update data
-   * @returns Promise<void>
+   * @returns Promise<EditProfileResponse>
    */
-  async editProfile(data: EditProfileRequest): Promise<void> {
-    await apiClient.put<void>("/user/edit", data);
+  async editProfile(data: EditProfileRequest): Promise<EditProfileResponse> {
+    return await apiClient.put<EditProfileResponse>("/user/edit", data);
   }
 
   /**
@@ -49,29 +52,29 @@ class UserService {
   /**
    * Follow a user or journalist
    * @param targetId - UUID of the user to follow
-   * @returns Promise<void>
+   * @returns Promise<FollowActionResponse>
    */
-  async follow(targetId: string): Promise<void> {
-    await apiClient.post<void>(`/user/follow/${targetId}`);
+  async follow(targetId: string): Promise<FollowActionResponse> {
+    return await apiClient.post<FollowActionResponse>(`/user/follow/${targetId}`);
   }
 
   /**
    * Unfollow a user or journalist
    * @param targetId - UUID of the user to unfollow
-   * @returns Promise<void>
+   * @returns Promise<FollowActionResponse>
    */
-  async unfollow(targetId: string): Promise<void> {
-    await apiClient.delete<void>(`/user/unfollow/${targetId}`);
+  async unfollow(targetId: string): Promise<FollowActionResponse> {
+    return await apiClient.delete<FollowActionResponse>(`/user/unfollow/${targetId}`);
   }
 
   /**
    * Report a post
    * @param postId - UUID of the post to report
    * @param data - Report reason
-   * @returns Promise<void>
+   * @returns Promise<ReportPostResponse>
    */
-  async reportPost(postId: string, data: ReportPostRequest): Promise<void> {
-    await apiClient.post<void>(`/user/posts/${postId}/report`, data);
+  async reportPost(postId: string, data: ReportPostRequest): Promise<ReportPostResponse> {
+    return await apiClient.post<ReportPostResponse>(`/user/posts/${postId}/report`, data);
   }
 
   /**

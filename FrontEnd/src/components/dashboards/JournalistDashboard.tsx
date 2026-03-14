@@ -500,7 +500,7 @@ const JournalistDashboard = () => {
   const [sending, setSending] = useState(false);
 
   // Map following names to IDs for the send dialog
-  const recipientName = following.find((f) => f.followeeId === sendRecipientId)?.name ?? "";
+  const recipientName = following.find((f) => f.id === sendRecipientId)?.name ?? "";
 
   useEffect(() => {
     Promise.all([
@@ -535,7 +535,7 @@ const JournalistDashboard = () => {
 
   const handleUnfollow = async (id: string) => {
     await journalistService.unfollowUser(id);
-    setFollowing((prev) => prev.filter((f) => f.followeeId !== id));
+    setFollowing((prev) => prev.filter((f) => f.id !== id));
   };
 
   const handleSendDonation = async () => {
@@ -651,16 +651,16 @@ const JournalistDashboard = () => {
                 <p className="text-sm text-muted-foreground">{profile.email}</p>
                 <p className="text-sm text-muted-foreground">
                   Organization:{" "}
-                  <span className="text-foreground font-medium">{profile.organizationName}</span>
+                  <span className="text-foreground font-medium">{profile.organization ?? "Independent"}</span>
                 </p>
               </div>
               <div className="flex gap-6 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.followersCount || 0)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.followers || 0)}</p>
                   <p className="text-xs text-muted-foreground">Followers</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.postsCount || 0)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.posts || 0)}</p>
                   <p className="text-xs text-muted-foreground">Posts</p>
                 </div>
               </div>
@@ -822,11 +822,11 @@ const JournalistDashboard = () => {
                 <AnimatePresence>
                   {following.map((f) => (
                     <UserRow
-                      key={f.followeeId}
-                      id={f.followeeId}
+                      key={f.id}
+                      id={f.id}
                       name={f.name}
                       role={f.role}
-                      followers={f.followersCount}
+                      followers={f.followers}
                       onUnfollow={handleUnfollow}
                     />
                   ))}
@@ -856,11 +856,11 @@ const JournalistDashboard = () => {
                 <AnimatePresence>
                   {followers.map((f) => (
                     <UserRow
-                      key={f.followerId}
-                      id={f.followerId}
+                      key={f.id}
+                      id={f.id}
                       name={f.name}
                       role={f.role}
-                      followers={f.followersCount}
+                      followers={f.followers}
                     />
                   ))}
                 </AnimatePresence>
@@ -1045,7 +1045,7 @@ const JournalistDashboard = () => {
                 <SelectContent>
                   {following.length > 0 ? (
                     following.map((person) => (
-                      <SelectItem key={person.followeeId} value={person.followeeId}>
+                      <SelectItem key={person.id} value={person.id}>
                         {person.name} <span className="text-muted-foreground">({person.role})</span>
                       </SelectItem>
                     ))

@@ -203,7 +203,7 @@ const RegisterPage = () => {
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Full Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="pl-11 h-12"
@@ -246,9 +246,9 @@ const RegisterPage = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
                 Must be at least 8 characters with uppercase, lowercase, and numbers
-              </p>
+              </p> */}
             </div>
 
             {/* Journalist-specific field */}

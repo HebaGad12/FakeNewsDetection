@@ -6,9 +6,9 @@ export interface JournalistResponse {
   name: string;
   email: string;
   role: string;
-  organizationName: string;
-  followersCount: number;
-  postsCount: number;
+  organization?: string | null;
+  followers: number;
+  posts: number;
   createdAt: string;
 }
 
@@ -36,17 +36,17 @@ export interface JournalistPostResponse {
 }
 
 export interface JournalistFollowingResponse {
-  followeeId: string;
+  id: string;
   name: string;
   role: string;
-  followersCount: number;
+  followers: number;
 }
 
 export interface JournalistFollowerResponse {
-  followerId: string;
+  id: string;
   name: string;
   role: string;
-  followersCount: number;
+  followers: number;
 }
 
 export interface PostReportResponse {

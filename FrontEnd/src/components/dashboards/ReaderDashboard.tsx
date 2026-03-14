@@ -619,6 +619,7 @@ const ReaderDashboard = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </main>
 
       <Footer />

@@ -89,6 +89,13 @@ export interface EditProfileRequest {
   profile?: string;
 }
 
+export interface EditProfileResponse {
+  id: string;
+  name: string;
+  email: string;
+  profile?: string | null;
+}
+
 /**
  * User overview statistics
  */
@@ -118,6 +125,14 @@ export interface FollowingUser {
  */
 export interface ReportPostRequest {
   reason: string;
+}
+
+export interface FollowActionResponse {
+  followers: number;
+}
+
+export interface ReportPostResponse {
+  reports: number;
 }
 
 /**

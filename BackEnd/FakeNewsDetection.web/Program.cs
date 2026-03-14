@@ -30,7 +30,7 @@ namespace FakeNewsDetection.web
             });
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("Ezzat")));
 
             builder.Services.AddAuthentication(options =>
             {
