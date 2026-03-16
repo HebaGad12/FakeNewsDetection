@@ -18,6 +18,7 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const CreateArticlePage = lazy(() => import("./pages/CreateArticlePage"));
 const PublicProfilePage = lazy(() => import("./pages/PublicProfilePage"));
+const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -34,6 +35,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/feed" element={<FeedPage />} />
+      <Route path="/article/:id" element={<PostDetailPage />} />
       <Route path="/communities" element={<CommunitiesPage />} />
       <Route path="/live" element={<LivePage />} />
       <Route path="/login" element={<LoginPage />} />
