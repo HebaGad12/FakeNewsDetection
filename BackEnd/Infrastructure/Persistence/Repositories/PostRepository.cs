@@ -58,9 +58,23 @@ namespace Persistence.Repositories
 
         public async Task DeleteAsync(Guid id)
         {
-            var post = await _context.Posts.FindAsync(id);
+            var post = await _context.Posts
+                .Include(p => p.Interactions)
+                .Include(p => p.ModerationActions)
+                .Include(p => p.Media)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
             if (post != null)
             {
+                if (post.Interactions.Count > 0)
+                    _context.Interactions.RemoveRange(post.Interactions);
+
+                if (post.ModerationActions.Count > 0)
+                    _context.ModerationActions.RemoveRange(post.ModerationActions);
+
+                if (post.Media.Count > 0)
+                    _context.PostMediaItems.RemoveRange(post.Media);
+
                 _context.Posts.Remove(post);
                 await _context.SaveChangesAsync();
             }

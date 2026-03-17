@@ -89,6 +89,7 @@ const CreateArticlePage = () => {
   });
   const [dragActive, setDragActive] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isImageCopyrighted, setIsImageCopyrighted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
   if (!isAuthenticated || !user || user.role !== "journalist") {
@@ -142,6 +143,7 @@ const CreateArticlePage = () => {
   const removeImage = () => {
     setFormData({ ...formData, imageFile: null, featuredImage: "" });
     setImagePreview(null);
+    setIsImageCopyrighted(false);
   };
 
   const handleSaveDraft = () => {
@@ -169,7 +171,7 @@ const CreateArticlePage = () => {
             {
               path: uploadResponse.path,
               mediaType: "image",
-              isCopyrighted: false,
+              isCopyrighted: isImageCopyrighted,
             },
           ];
         } catch (uploadErr: any) {
@@ -420,6 +422,20 @@ const CreateArticlePage = () => {
               </p>
             </div>
           </motion.div>
+
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={isImageCopyrighted}
+                  onChange={(e) => setIsImageCopyrighted(e.target.checked)}
+                  disabled={!formData.imageFile}
+                  className="h-4 w-4 rounded border-border disabled:opacity-50"
+                />
+                Mark this image as copyrighted (only you can reuse it)
+              </label>
+              {!formData.imageFile && (
+                <p className="text-xs text-muted-foreground">Upload an image to enable this option.</p>
+              )}
         </div>
       </main>
 

@@ -63,6 +63,7 @@ import donationService, {
   WalletTransactionResponse,
   DonationRecord,
 } from "@/services/donationService";
+import { postsService } from "@/services/postsService";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -120,13 +121,16 @@ function StatCard({
 function PostCard({
   post,
   onDelete,
+  onUpdatePost,
   onViewReport,
 }: {
   post: JournalistPostResponse;
   onDelete: (id: string) => void;
+  onUpdatePost: (postId: string, updater: (post: JournalistPostResponse) => JournalistPostResponse) => void;
   onViewReport: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [updatingMediaId, setUpdatingMediaId] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!confirm("Delete this post?")) return;
@@ -134,8 +138,61 @@ function PostCard({
     try {
       await journalistService.deletePost(post.id);
       onDelete(post.id);
-    } catch {
+      toast.success("Post deleted successfully");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Failed to delete post";
+      toast.error(message);
+    } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleToggleCopyright = async (mediaId: string, nextValue: boolean) => {
+    setUpdatingMediaId(mediaId);
+    try {
+      const updated = await journalistService.setMediaCopyright(post.id, mediaId, nextValue);
+      onUpdatePost(post.id, (prevPost) => ({
+        ...prevPost,
+        media: (prevPost.media || []).map((m) =>
+          m.mediaId === mediaId ? { ...m, isCopyrighted: updated.isCopyrighted } : m
+        ),
+      }));
+      toast.success(nextValue ? "Image marked as copyrighted" : "Copyright removed");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Failed to update copyright";
+      toast.error(message);
+    } finally {
+      setUpdatingMediaId(null);
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId: string) => {
+    if (!confirm("Remove this media item from the post?")) return;
+    setUpdatingMediaId(mediaId);
+    try {
+      await journalistService.deleteMediaFromPost(post.id, mediaId);
+      onUpdatePost(post.id, (prevPost) => ({
+        ...prevPost,
+        media: (prevPost.media || []).filter((m) => m.mediaId !== mediaId),
+      }));
+      toast.success("Media removed successfully");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Failed to remove media";
+      toast.error(message);
+    } finally {
+      setUpdatingMediaId(null);
     }
   };
 
@@ -194,7 +251,7 @@ function PostCard({
             })}
           </span>
         </div>
-        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onViewReport(post.id)}
             className="p-1.5 rounded-lg hover:bg-accent/10 hover:text-accent text-muted-foreground transition-colors"
@@ -212,6 +269,42 @@ function PostCard({
           </button>
         </div>
       </div>
+
+      {post.media && post.media.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-border space-y-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Media</p>
+          <div className="space-y-3">
+            {post.media.map((media) => (
+              <div key={media.mediaId} className="rounded-xl border border-border p-3 bg-muted/30">
+                {media.mediaType === "image" && (
+                  <img
+                    src={postsService.getImageUrl(media.path)}
+                    alt="Post media"
+                    className="w-full h-28 object-cover rounded-lg mb-2"
+                  />
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs text-muted-foreground break-all">{media.path}</div>
+                  <div className="flex items-center gap-3">
+                    {media.mediaType === "image" && (
+                      <label className="flex items-center gap-2 text-xs text-foreground">
+                      </label>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMedia(media.mediaId)}
+                      disabled={updatingMediaId === media.mediaId}
+                      className="text-xs px-2 py-1 rounded border border-border text-rose-400 hover:bg-rose-500/10"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -371,6 +464,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [error, setError] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isImageCopyrighted, setIsImageCopyrighted] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -423,6 +517,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const removeImage = () => {
     setImageFile(null);
     setImagePreview(null);
+    setIsImageCopyrighted(false);
   };
 
   const handleSubmit = async () => {
@@ -439,7 +534,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             {
               path: uploadResponse.path,
               mediaType: "image",
-              isCopyrighted: false,
+              isCopyrighted: isImageCopyrighted,
             },
           ];
         } catch (uploadErr: any) {
@@ -501,6 +596,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             setTags("");
             setImageFile(null);
             setImagePreview(null);
+            setIsImageCopyrighted(false);
             setResult(null);
           }}
           className="mt-4 text-sm text-accent hover:underline"
@@ -588,6 +684,20 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
               Supported: JPEG, PNG, WebP, GIF (Max 5MB)
             </p>
           </div>
+        )}
+
+        <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={isImageCopyrighted}
+            onChange={(e) => setIsImageCopyrighted(e.target.checked)}
+            disabled={!imageFile}
+            className="h-4 w-4 rounded border-border disabled:opacity-50"
+          />
+          Mark this image as copyrighted (only you can reuse it)
+        </label>
+        {!imageFile && (
+          <p className="text-xs text-muted-foreground">Upload an image to enable this option.</p>
         )}
       </div>
 
@@ -743,6 +853,13 @@ const JournalistDashboard = () => {
     );
   }
 
+  const updatePostInState = (
+    postId: string,
+    updater: (post: JournalistPostResponse) => JournalistPostResponse
+  ) => {
+    setPosts((prev) => prev.map((p) => (p.id === postId ? updater(p) : p)));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -887,6 +1004,7 @@ const JournalistDashboard = () => {
                         key={post.id}
                         post={post}
                         onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                        onUpdatePost={updatePostInState}
                         onViewReport={setReportPostId}
                       />
                     ))}
@@ -932,6 +1050,7 @@ const JournalistDashboard = () => {
                     key={post.id}
                     post={post}
                     onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                    onUpdatePost={updatePostInState}
                     onViewReport={setReportPostId}
                   />
                 ))}

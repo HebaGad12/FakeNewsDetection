@@ -47,6 +47,63 @@ namespace Presentation.Controllers
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+        private static string ResolveServerPath(string mediaPath)
+        {
+            var trimmed = mediaPath.Trim();
+            if (Path.IsPathRooted(trimmed))
+                return Path.GetFullPath(trimmed);
+
+            var normalized = trimmed
+                .Replace("/", Path.DirectorySeparatorChar.ToString())
+                .TrimStart(Path.DirectorySeparatorChar);
+
+            return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), normalized));
+        }
+
+        private async Task<(List<object> CrossOwnerMatches, bool HasUnresolvedMatches)> AnalyzeCopyrightMatchesAsync(
+            CopyrightCheckResult check,
+            Guid requesterId)
+        {
+            var crossOwnerMatches = new List<object>();
+            var hasUnresolvedMatches = false;
+
+            foreach (var match in check.Matches)
+            {
+                if (!Guid.TryParse(match.Id, out var mediaId))
+                {
+                    hasUnresolvedMatches = true;
+                    continue;
+                }
+
+                var media = await _media.GetByIdAsync(mediaId);
+                if (media == null)
+                {
+                    hasUnresolvedMatches = true;
+                    continue;
+                }
+
+                var ownerPost = await _posts.GetByIdAsync(media.PostId);
+                if (ownerPost == null)
+                {
+                    hasUnresolvedMatches = true;
+                    continue;
+                }
+
+                if (ownerPost.AuthorId == requesterId)
+                    continue;
+
+                crossOwnerMatches.Add(new
+                {
+                    MediaId = media.Id,
+                    Path = media.Path,
+                    OwnerId = ownerPost.AuthorId,
+                    match.Similarity
+                });
+            }
+
+            return (crossOwnerMatches, hasUnresolvedMatches);
+        }
+
         [HttpGet("me")]
         public async Task<ActionResult<JournalistResponse>> Me()
         {
@@ -90,6 +147,8 @@ namespace Presentation.Controllers
             var journalist = await _users.GetByIdAsync(GetUserId());
             if (journalist is null) return NotFound("Journalist not found");
 
+            var validMedia = new List<MediaItemRequest>();
+
             // ── Toxicity check ──────────────────────────────────────────────
             var textToCheck = $"{req.Title} {req.Content}";
             if (await _toxicity.IsToxicAsync(textToCheck))
@@ -129,47 +188,54 @@ namespace Presentation.Controllers
                 ModerationStatus = ModerationStatus.Approved
             };
 
-            await _posts.AddAsync(post);
-
             if (req.Media != null && req.Media.Count > 0)
             {
-                var validMedia = req.Media
+                validMedia = req.Media
                     .Where(m => !string.IsNullOrWhiteSpace(m.Path)
                              && (m.MediaType.ToLower() == "image" || m.MediaType.ToLower() == "video"))
                     .ToList();
 
-                // ── Copyright check for images ───────────────────────────
+                // Enforce ownership-aware copyright:
+                // same owner can reuse, different owners are blocked.
                 foreach (var m in validMedia.Where(m => m.MediaType.ToLower() == "image"))
                 {
-                    var check = await _copyright.CheckAsync(m.Path.Trim());
+                    var check = await _copyright.CheckAsync(ResolveServerPath(m.Path));
                     if (check.IsDuplicate)
-                        return BadRequest(new
-                        {
-                            Error = "CopyrightViolation",
-                            Message = $"Image '{m.Path}' appears to be copyrighted and cannot be used.",
-                            Matches = check.Matches
-                        });
-                }
-                // ────────────────────────────────────────────────────────
-
-                if (validMedia.Count > 0)
-                {
-                    var mediaEntities = validMedia.Select(m => new PostMedia
                     {
-                        Id            = Guid.NewGuid(),
-                        PostId        = post.Id,
-                        Path          = m.Path.Trim(),
-                        MediaType     = m.MediaType.ToLower(),
-                        IsCopyrighted = m.MediaType.ToLower() == "image" && m.IsCopyrighted
-                    }).ToList();
+                        var (crossOwnerMatches, hasUnresolvedMatches) =
+                            await AnalyzeCopyrightMatchesAsync(check, journalist.Id);
 
-                    await _media.AddRangeAsync(mediaEntities);
-
-                    // ── Register copyrighted images in vector store ──────────
-                    foreach (var entity in mediaEntities.Where(e => e.MediaType == "image" && e.IsCopyrighted))
-                        await _copyright.StoreAsync(entity.Path, entity.Id.ToString());
-                    // ────────────────────────────────────────────────────────
+                        if (crossOwnerMatches.Count > 0 || hasUnresolvedMatches)
+                        {
+                            return BadRequest(new
+                            {
+                                Error = "CopyrightViolation",
+                                Message = "This image is copyrighted by another journalist and cannot be used.",
+                                Matches = crossOwnerMatches.Count > 0 ? (object)crossOwnerMatches : check.Matches
+                            });
+                        }
+                    }
                 }
+            }
+
+            await _posts.AddAsync(post);
+
+            if (validMedia.Count > 0)
+            {
+                var mediaEntities = validMedia.Select(m => new PostMedia
+                {
+                    Id            = Guid.NewGuid(),
+                    PostId        = post.Id,
+                    Path          = m.Path.Trim(),
+                    MediaType     = m.MediaType.ToLower(),
+                    IsCopyrighted = m.MediaType.ToLower() == "image" && m.IsCopyrighted
+                }).ToList();
+
+                await _media.AddRangeAsync(mediaEntities);
+
+                // Register only copyrighted images to protect against cross-author reuse.
+                foreach (var entity in mediaEntities.Where(e => e.MediaType == "image" && e.IsCopyrighted))
+                    await _copyright.StoreAsync(ResolveServerPath(entity.Path), entity.Id.ToString());
             }
 
             return Ok(new
@@ -187,6 +253,10 @@ namespace Presentation.Controllers
             var post = await _posts.GetByIdAsync(postId);
             if (post == null || post.AuthorId != userId)
                 return NotFound("Post not found or not owned by you");
+
+            var mediaItems = await _media.GetByPostIdAsync(post.Id);
+            foreach (var media in mediaItems.Where(m => m.MediaType == "image" && m.IsCopyrighted))
+                await _copyright.RemoveAsync(media.Id.ToString());
 
             await _posts.DeleteAsync(post.Id);
             return NoContent();
@@ -251,19 +321,29 @@ namespace Presentation.Controllers
             if (invalidTypes.Any())
                 return BadRequest($"Unsupported media type(s): {string.Join(", ", invalidTypes)}. Allowed: image, video.");
 
-            // ── Copyright check for images ───────────────────────────────
+            var requesterId = GetUserId();
+
+            // Enforce ownership-aware copyright:
+            // same owner can reuse, different owners are blocked.
             foreach (var m in req.MediaItems.Where(m => m.MediaType.ToLower() == "image"))
             {
-                var check = await _copyright.CheckAsync(m.Path.Trim());
+                var check = await _copyright.CheckAsync(ResolveServerPath(m.Path));
                 if (check.IsDuplicate)
-                    return BadRequest(new
+                {
+                    var (crossOwnerMatches, hasUnresolvedMatches) =
+                        await AnalyzeCopyrightMatchesAsync(check, requesterId);
+
+                    if (crossOwnerMatches.Count > 0 || hasUnresolvedMatches)
                     {
-                        Error = "CopyrightViolation",
-                        Message = $"Image '{m.Path}' appears to be copyrighted and cannot be used.",
-                        Matches = check.Matches
-                    });
+                        return BadRequest(new
+                        {
+                            Error = "CopyrightViolation",
+                            Message = "This image is copyrighted by another journalist and cannot be used.",
+                            Matches = crossOwnerMatches.Count > 0 ? (object)crossOwnerMatches : check.Matches
+                        });
+                    }
+                }
             }
-            // ────────────────────────────────────────────────────────────
 
             var entities = req.MediaItems.Select(m => new PostMedia
             {
@@ -278,7 +358,7 @@ namespace Presentation.Controllers
 
             // ── Register copyrighted images in vector store ──────────────
             foreach (var entity in entities.Where(e => e.MediaType == "image" && e.IsCopyrighted))
-                await _copyright.StoreAsync(entity.Path, entity.Id.ToString());
+                await _copyright.StoreAsync(ResolveServerPath(entity.Path), entity.Id.ToString());
             // ────────────────────────────────────────────────────────────
 
             var dtos = entities.Select(m => new MediaDto(
@@ -297,6 +377,9 @@ namespace Presentation.Controllers
             var item = await _media.GetByIdAsync(mediaId);
             if (item == null || item.PostId != postId)
                 return NotFound("Media item not found on this post.");
+
+            if (item.MediaType == "image" && item.IsCopyrighted)
+                await _copyright.RemoveAsync(item.Id.ToString());
 
             await _media.DeleteAsync(mediaId);
             return NoContent();
@@ -318,6 +401,32 @@ namespace Presentation.Controllers
 
             if (item.MediaType != "image")
                 return BadRequest("Copyright can only be set on image media items.");
+
+            if (req.IsCopyrighted && !item.IsCopyrighted)
+            {
+                var check = await _copyright.CheckAsync(ResolveServerPath(item.Path));
+                if (check.IsDuplicate)
+                {
+                    var (crossOwnerMatches, hasUnresolvedMatches) =
+                        await AnalyzeCopyrightMatchesAsync(check, GetUserId());
+
+                    if (crossOwnerMatches.Count > 0 || hasUnresolvedMatches)
+                    {
+                        return BadRequest(new
+                        {
+                            Error = "CopyrightViolation",
+                            Message = "This image is copyrighted by another journalist and cannot be marked as copyrighted by you.",
+                            Matches = crossOwnerMatches.Count > 0 ? (object)crossOwnerMatches : check.Matches
+                        });
+                    }
+                }
+
+                await _copyright.StoreAsync(ResolveServerPath(item.Path), item.Id.ToString());
+            }
+            else if (!req.IsCopyrighted && item.IsCopyrighted)
+            {
+                await _copyright.RemoveAsync(item.Id.ToString());
+            }
 
             item.IsCopyrighted = req.IsCopyrighted;
             await _media.UpdateAsync(item);

@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CredibilityLevel } from "@/components/CredibilityBadge";
 import { cn } from "@/lib/utils";
-import { postsService, Post } from "@/services/postsService";
+import { postsService, Post, POST_DELETED_EVENT } from "@/services/postsService";
 
 const categories = [
   "All",
@@ -73,6 +73,24 @@ const FeedPage = () => {
     };
 
     loadPosts();
+
+    const handlePostDeleted = (event: CustomEvent<{ postId: string }>) => {
+      const deletedPostId = event.detail?.postId;
+      if (!deletedPostId) return;
+      setAllPosts((prev) => prev.filter((post) => post.id !== deletedPostId));
+    };
+
+    window.addEventListener(
+      POST_DELETED_EVENT,
+      handlePostDeleted as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        POST_DELETED_EVENT,
+        handlePostDeleted as EventListener
+      );
+    };
   }, []);
 
   // Transform posts to NewsCard props and apply filters/sorting

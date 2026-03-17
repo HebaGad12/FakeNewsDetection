@@ -18,5 +18,10 @@ namespace ServicesAbstraction
         /// Registers an image in the vector store after it has been saved.
         /// </summary>
         Task StoreAsync(string imagePath, string imageId);
+
+        /// <summary>
+        /// Removes an image from the vector store using its stored ID.
+        /// </summary>
+        Task RemoveAsync(string imageId);
     }
 }

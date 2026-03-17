@@ -113,6 +113,9 @@ namespace Presentation.Controllers
         {
             var userId = GetUserId();
 
+            if (userId == targetId)
+                return BadRequest("You cannot follow yourself.");
+
             var targetUser = await _users.GetByIdAsync(targetId);
             if (targetUser == null) return NotFound("User not found");
             if (targetUser.Role != Role.Journalist && targetUser.Role != Role.Organization)

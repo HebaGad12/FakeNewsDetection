@@ -98,6 +98,11 @@ export function Header() {
   };
 
   const handleFollowProfile = async (id: string) => {
+    if (id === user?.id) {
+      toast.error("You cannot follow yourself");
+      return;
+    }
+
     setFollowLoadingId(id);
     try {
       await userService.follow(id);
@@ -385,6 +390,11 @@ export function Header() {
                         <Button size="sm" variant="outline" onClick={() => handleViewProfile(item.id)}>
                           View Profile
                         </Button>
+                        {item.id === user?.id ? (
+                          <Button size="sm" variant="secondary" disabled>
+                            Your Profile
+                          </Button>
+                        ) : (
                         <Button
                           size="sm"
                           onClick={() => handleFollowProfile(item.id)}
@@ -396,6 +406,7 @@ export function Header() {
                               ? "Following"
                               : "Follow"}
                         </Button>
+                        )}
                       </div>
                     </div>
                   ))

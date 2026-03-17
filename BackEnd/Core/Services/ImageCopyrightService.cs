@@ -63,6 +63,26 @@ namespace Services
             }
         }
 
+        public async Task RemoveAsync(string imageId)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Delete, "/images/delete")
+                {
+                    Content = JsonContent.Create(new ImageDeleteRequest
+                    {
+                        ImageId = imageId
+                    })
+                };
+
+                await _http.SendAsync(request);
+            }
+            catch
+            {
+                // Fire-and-forget — don't block the response if deleting fails
+            }
+        }
+
         // ── Request / Response shapes matching grad.py ──────────────────────
 
         private class ImageCheckRequest
@@ -87,6 +107,12 @@ namespace Services
 
             [JsonPropertyName("matches")]
             public List<ImageMatchItem>? Matches { get; set; }
+        }
+
+        private class ImageDeleteRequest
+        {
+            [JsonPropertyName("image_id")]
+            public string ImageId { get; set; } = "";
         }
 
         private class ImageMatchItem

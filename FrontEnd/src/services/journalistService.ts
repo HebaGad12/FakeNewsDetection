@@ -1,4 +1,5 @@
 import apiClient from "./apiClient";
+import { POST_DELETED_EVENT } from "./postsService";
 
 // ---------- Types matching backend DTOs ----------
 export interface JournalistResponse {
@@ -40,6 +41,7 @@ export interface JournalistPostResponse {
   reports: number;
   organizationName: string;
   moderationStatus: string;
+  media: MediaDto[];
 }
 
 export interface JournalistFollowingResponse {
@@ -47,6 +49,18 @@ export interface JournalistFollowingResponse {
   name: string;
   role: string;
   followers: number;
+}
+
+export interface MediaDto {
+  mediaId: string;
+  path: string;
+  mediaType: string;
+  isCopyrighted: boolean;
+  uploadedAt: string;
+}
+
+export interface AddPostMediaRequest {
+  mediaItems: MediaItemRequest[];
 }
 
 export interface JournalistFollowerResponse {
@@ -98,10 +112,26 @@ class JournalistService {
 
   async deletePost(postId: string): Promise<void> {
     await apiClient.delete(`/journalist/posts/${postId}`);
+    window.dispatchEvent(new CustomEvent(POST_DELETED_EVENT, { detail: { postId } }));
   }
 
   async getMyPosts(): Promise<JournalistPostResponse[]> {
     return await apiClient.get<JournalistPostResponse[]>("/journalist/posts");
+  }
+
+  async addMediaToPost(postId: string, data: AddPostMediaRequest): Promise<MediaDto[]> {
+    return await apiClient.post<MediaDto[]>(`/journalist/posts/${postId}/media`, data);
+  }
+
+  async deleteMediaFromPost(postId: string, mediaId: string): Promise<void> {
+    await apiClient.delete(`/journalist/posts/${postId}/media/${mediaId}`);
+  }
+
+  async setMediaCopyright(postId: string, mediaId: string, isCopyrighted: boolean): Promise<MediaDto> {
+    return await apiClient.patch<MediaDto>(
+      `/journalist/posts/${postId}/media/${mediaId}/copyright`,
+      { isCopyrighted }
+    );
   }
 
   // الإبلاغ عن منشور (خاص بالصحفي)

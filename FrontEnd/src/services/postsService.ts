@@ -2,6 +2,14 @@ import apiClient from "./apiClient";
 import { API_BASE_URL } from "@/lib/constants";
 import type { AxiosError } from "axios";
 
+export const POST_DELETED_EVENT = "post:deleted";
+
+declare global {
+  interface WindowEventMap {
+    "post:deleted": CustomEvent<{ postId: string }>;
+  }
+}
+
 // ────── TypeScript Interfaces ──────
 
 /**
@@ -185,6 +193,7 @@ class PostsService {
   async deletePost(postId: string): Promise<void> {
     try {
       await apiClient.delete(`/journalist/posts/${postId}`);
+      window.dispatchEvent(new CustomEvent(POST_DELETED_EVENT, { detail: { postId } }));
     } catch (error) {
       console.error(`Failed to delete post ${postId}:`, error);
       throw error;
