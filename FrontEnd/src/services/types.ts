@@ -139,6 +139,7 @@ export interface ReportPostResponse {
  * User activity item
  */
 export interface UserActivity {
+  postId: string;
   actionType: string;
   target: string;
   timestamp: string;

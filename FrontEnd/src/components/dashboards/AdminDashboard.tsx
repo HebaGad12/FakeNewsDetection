@@ -67,6 +67,10 @@ import adminWalletService, {
   WalletTransaction,
 } from "@/services/adminWalletService";
 import donationService, { DonationRecord } from "@/services/donationService";
+import postReportsService, {
+  PostReportItem,
+  PostReportSummary,
+} from "@/services/postReportsService";
 
 // ============================================================================
 // Helper utilities
@@ -1648,16 +1652,290 @@ const DonationsTab = () => {
 };
 
 // ============================================================================
+// Tab: Reports
+// ============================================================================
+
+const ReportsTab = () => {
+  const [loading, setLoading] = useState(false);
+  const [postsByModeration, setPostsByModeration] = useState<unknown>(null);
+  const [postsByVerification, setPostsByVerification] = useState<unknown>(null);
+  const [usersByRole, setUsersByRole] = useState<unknown>(null);
+  const [postReports, setPostReports] = useState<PostReportSummary[]>([]);
+  const [selectedPostReport, setSelectedPostReport] = useState<PostReportSummary | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [moderation, verification, roles, reports] = await Promise.all([
+        adminService.getPostsByModeration(),
+        adminService.getPostsByVerification(),
+        adminService.getUsersByRole(),
+        postReportsService.getPostReports(),
+      ]);
+      setPostsByModeration(moderation);
+      setPostsByVerification(verification);
+      setUsersByRole(roles);
+      setPostReports(reports);
+    } catch {
+      toast.error("Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openPostReportDetails = async (postId: string) => {
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setSelectedPostReport(null);
+    try {
+      const details = await postReportsService.getPostReportById(postId);
+      setSelectedPostReport(details);
+    } catch {
+      toast.error("Failed to load post report details");
+      setSelectedPostReport(null);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
+
+  const toRows = (data: unknown): Array<{ key: string; value: string | number }> => {
+    if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+
+    return Object.entries(data as Record<string, unknown>).map(([key, value]) => ({
+      key,
+      value: typeof value === "number" || typeof value === "string" ? value : String(value),
+    }));
+  };
+
+  const formatKey = (key: string) =>
+    key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const getMetricTone = (key: string) => {
+    const k = key.toLowerCase();
+
+    if (k.includes("approved") || k.includes("trusted") || k.includes("active")) {
+      return {
+        row: "border-emerald-200/60 bg-emerald-50/40",
+        label: "text-emerald-700",
+        value: "text-emerald-800",
+      };
+    }
+
+    if (
+      k.includes("rejected") ||
+      k.includes("fake") ||
+      k.includes("flagged") ||
+      k.includes("removed") ||
+      k.includes("inactive")
+    ) {
+      return {
+        row: "border-rose-200/60 bg-rose-50/40",
+        label: "text-rose-700",
+        value: "text-rose-800",
+      };
+    }
+
+    if (k.includes("pending") || k.includes("underreview") || k.includes("suspicious") || k.includes("unknown")) {
+      return {
+        row: "border-amber-200/60 bg-amber-50/40",
+        label: "text-amber-700",
+        value: "text-amber-800",
+      };
+    }
+
+    return {
+      row: "border-border/60 bg-muted/20",
+      label: "text-muted-foreground",
+      value: "text-foreground",
+    };
+  };
+
+  const renderReport = (title: string, data: unknown) => {
+    const rows = toRows(data);
+    const total = rows.reduce((sum, row) => {
+      const numericValue = typeof row.value === "number" ? row.value : Number(row.value);
+      return Number.isFinite(numericValue) ? sum + numericValue : sum;
+    }, 0);
+
+    return (
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-foreground">{title}</h3>
+          <span className="text-xs text-muted-foreground">Total: {total}</span>
+        </div>
+
+        {rows.length === 0 ? (
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No data available.</div>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((row) => (
+              (() => {
+                const tone = getMetricTone(row.key);
+                return (
+                  <div
+                    key={row.key}
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border px-3 py-2",
+                      tone.row
+                    )}
+                  >
+                    <span className={cn("text-sm", tone.label)}>{formatKey(row.key)}</span>
+                    <span className={cn("text-sm font-semibold", tone.value)}>{row.value}</span>
+                  </div>
+                );
+              })()
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">System reports from admin endpoints</p>
+        <Button variant="outline" size="sm" onClick={() => void loadReports()} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {loading && !postsByModeration && !postsByVerification && !usersByRole ? (
+        <div className="py-16 text-center text-muted-foreground">Loading reports...</div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {renderReport("Posts by Moderation", postsByModeration)}
+          {renderReport("Posts by Verification", postsByVerification)}
+          {renderReport("Users by Role", usersByRole)}
+        </div>
+      )}
+
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-foreground">Reported Posts</h3>
+          <span className="text-xs text-muted-foreground">Total: {postReports.length}</span>
+        </div>
+
+        {loading && postReports.length === 0 ? (
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">Loading reported posts...</div>
+        ) : postReports.length === 0 ? (
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No reported posts found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/60 text-left text-muted-foreground">
+                  <th className="py-2 pr-3">Post ID</th>
+                  <th className="py-2 pr-3">Title</th>
+                  <th className="py-2 pr-3">Author ID</th>
+                  <th className="py-2 pr-3">Reports</th>
+                  <th className="py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {postReports.map((report) => (
+                  <tr key={report.postId} className="border-b border-border/40">
+                    <td className="py-2 pr-3 font-medium text-foreground">#{report.postId}</td>
+                    <td className="py-2 pr-3 text-foreground max-w-[300px] truncate" title={report.title}>
+                      {report.title}
+                    </td>
+                    <td className="py-2 pr-3 text-muted-foreground">{report.authorId}</td>
+                    <td className="py-2 pr-3">
+                      <Badge variant="secondary">{report.totalReports}</Badge>
+                    </td>
+                    <td className="py-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void openPostReportDetails(report.postId)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Post Report Details</DialogTitle>
+            <DialogDescription>
+              {selectedPostReport ? `Reports submitted for post #${selectedPostReport.postId}` : "Report details"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailsLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading details...</div>
+          ) : !selectedPostReport || selectedPostReport.reports.length === 0 ? (
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No report details found.</div>
+          ) : (
+            <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
+              {selectedPostReport.reports.map((item: PostReportItem) => (
+                <div key={item.id} className="rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-foreground">Report #{item.id}</span>
+                    <span className="text-xs text-muted-foreground">Reporter: {item.reporterName}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">Role: {item.reporterRole}</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Reported at: {new Date(item.reportedAt).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-1">Reason</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{item.reason}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedPostReport) return;
+                window.open(`/article/${selectedPostReport.postId}`, "_blank", "noopener,noreferrer");
+              }}
+              disabled={!selectedPostReport}
+            >
+              Go to Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// ============================================================================
 // Main AdminDashboard
 // ============================================================================
 
-type Tab = "overview" | "users" | "journalists" | "organizations" | "wallets" | "donations";
+type Tab = "overview" | "users" | "posts" | "journalists" | "organizations" | "reports" | "wallets" | "donations";
 
 const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: TrendingUp },
   { id: "users", label: "Users", icon: Users },
+  { id: "posts", label: "Posts", icon: FileText },
   { id: "journalists", label: "Journalists", icon: UserCheck },
   { id: "organizations", label: "Organizations", icon: Building2 },
+  { id: "reports", label: "Reports", icon: AlertTriangle },
   { id: "wallets", label: "Wallets", icon: Wallet },
   { id: "donations", label: "Donations", icon: Send },
 ];
@@ -1733,8 +2011,10 @@ const AdminDashboard = () => {
         >
           {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} />}
           {activeTab === "users" && <UsersTab />}
+          {activeTab === "posts" && <PostsTab />}
           {activeTab === "journalists" && <JournalistsTab />}
           {activeTab === "organizations" && <OrganizationsTab />}
+          {activeTab === "reports" && <ReportsTab />}
           {activeTab === "wallets" && <WalletsTab />}
           {activeTab === "donations" && <DonationsTab />}
         </motion.div>

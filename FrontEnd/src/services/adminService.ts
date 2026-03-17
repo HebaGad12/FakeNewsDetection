@@ -157,11 +157,27 @@ export interface PaginatedResult<T> {
   pageSize: number;
 }
 
+type RawRejectedJournalist = RejectedJournalistRequest | string;
+type RawRejectedOrganization = RejectedOrganizationRequest | string;
+
 // ============================================================================
 // AdminService
 // ============================================================================
 
 class AdminService {
+  private normalizePaginated<T>(
+    result: { data: T[]; totalCount: number; page: number; pageSize: number },
+    requestedPage: number,
+    requestedPageSize: number
+  ): PaginatedResult<T> {
+    return {
+      data: result.data,
+      totalCount: result.totalCount > 0 ? result.totalCount : result.data.length,
+      page: result.page > 0 ? result.page : requestedPage,
+      pageSize: result.pageSize > 0 ? result.pageSize : requestedPageSize,
+    };
+  }
+
   // --- Dashboard ---
 
   async getDashboardStats(): Promise<AdminDashboardStats> {
@@ -179,7 +195,7 @@ class AdminService {
     const result = await apiClient.getPaginated<AdminUserListItem[]>("/admin/users", {
       params: query,
     });
-    return { data: result.data, totalCount: result.totalCount, page: result.page, pageSize: result.pageSize };
+    return this.normalizePaginated(result, page, pageSize);
   }
 
   async getUserById(id: string): Promise<AdminUserDetail> {
@@ -206,7 +222,7 @@ class AdminService {
     const result = await apiClient.getPaginated<AdminPostListItem[]>("/admin/posts", {
       params: query,
     });
-    return { data: result.data, totalCount: result.totalCount, page: result.page, pageSize: result.pageSize };
+    return this.normalizePaginated(result, page, pageSize);
   }
 
   async getPostById(id: string): Promise<AdminPostDetail> {
@@ -236,7 +252,18 @@ class AdminService {
   }
 
   async getRejectedJournalists(): Promise<RejectedJournalistRequest[]> {
-    return apiClient.get<RejectedJournalistRequest[]>("/admin/journalists/rejected");
+    const data = await apiClient.get<RawRejectedJournalist[]>("/admin/journalists/rejected");
+    return data.map((item, index) => {
+      if (typeof item !== "string") return item;
+      return {
+        id: `${index}`,
+        name: item,
+        email: "",
+        journalistId: item,
+        rejectionReason: "",
+        registeredAt: new Date().toISOString(),
+      };
+    });
   }
 
   async reopenJournalistRequest(id: string): Promise<void> {
@@ -254,7 +281,17 @@ class AdminService {
   }
 
   async getRejectedOrganizations(): Promise<RejectedOrganizationRequest[]> {
-    return apiClient.get<RejectedOrganizationRequest[]>("/admin/organizations/rejected");
+    const data = await apiClient.get<RawRejectedOrganization[]>("/admin/organizations/rejected");
+    return data.map((item, index) => {
+      if (typeof item !== "string") return item;
+      return {
+        userId: `${index}`,
+        name: item,
+        email: "",
+        license: "",
+        registeredAt: new Date().toISOString(),
+      };
+    });
   }
 
   // --- Reports ---

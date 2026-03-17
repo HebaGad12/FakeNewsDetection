@@ -152,14 +152,16 @@ const ReaderDashboard = () => {
       setSendMessage("");
       // Refresh wallet data
       try {
-        const [w, txns, sent] = await Promise.all([
+        const [w, txns, sent, received] = await Promise.all([
           donationService.getMyWallet(),
           donationService.getMyTransactions(),
           donationService.getSentDonations(),
+          donationService.getReceivedDonations(),
         ]);
         setMyWallet(w);
         setWalletTxns(txns);
         setSentDonations(sent);
+        setReceivedDonations(received);
       } catch { /* ignore */ }
     } catch {
       toast.error("Failed to send donation");

@@ -59,6 +59,11 @@ export interface AddCommentRequest {
   content: string;
 }
 
+export interface AddCommentResponse {
+  commentId: string;
+  comments: number;
+}
+
 // ────── Posts Service ──────
 
 class PostsService {
@@ -110,10 +115,10 @@ class PostsService {
    * Throws on error (409 = already liked, other = network/server error)
    */
   async likePost(postId: string): Promise<{ likes: number }> {
-    const response = await apiClient.post<{ Likes?: number; LikesCount?: number }>(
+    const response = await apiClient.post<{ likes?: number; Likes?: number; LikesCount?: number }>(
       `${this.baseUrl}/${postId}/like`
     );
-    const likesCount = response.Likes !== undefined ? response.Likes : (response.LikesCount ?? 0);
+    const likesCount = response.likes ?? response.Likes ?? response.LikesCount ?? 0;
     return { likes: likesCount };
   }
 
@@ -124,10 +129,10 @@ class PostsService {
    * Throws on error (404 = not liked, other = network/server error)
    */
   async unlikePost(postId: string): Promise<{ likes: number }> {
-    const response = await apiClient.delete<{ Likes?: number; LikesCount?: number }>(
+    const response = await apiClient.delete<{ likes?: number; Likes?: number; LikesCount?: number }>(
       `${this.baseUrl}/${postId}/like`
     );
-    const likesCount = response.Likes !== undefined ? response.Likes : (response.LikesCount ?? 0);
+    const likesCount = response.likes ?? response.Likes ?? response.LikesCount ?? 0;
     return { likes: likesCount };
   }
 
@@ -156,10 +161,10 @@ class PostsService {
    * Add a comment to a post
    * POST /api/posts/{postId}/comment
    */
-  async addComment(postId: string, content: string): Promise<PostComment> {
+  async addComment(postId: string, content: string): Promise<AddCommentResponse> {
     try {
       const request: AddCommentRequest = { content };
-      const response = await apiClient.post<PostComment>(
+      const response = await apiClient.post<AddCommentResponse>(
         `${this.baseUrl}/${postId}/comment`,
         request
       );

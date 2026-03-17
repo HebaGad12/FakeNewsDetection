@@ -414,13 +414,28 @@ function JournalistRow({
 function PostCard({
   post,
   orgId,
+  onStatusChanged,
   onReview,
 }: {
   post: OrgPostResponse;
   orgId: string;
+  onStatusChanged: (postId: string, isActive: boolean) => void;
   onReview: (post: OrgPostResponse) => void;
 }) {
+  const [statusLoading, setStatusLoading] = useState(false);
   const statusClass = moderationColors[post.moderationStatus] ?? "text-muted-foreground bg-muted border-border";
+
+  const isActivePost = post.moderationStatus !== "Removed";
+
+  const togglePostStatus = async () => {
+    setStatusLoading(true);
+    try {
+      await organizationService.setPostStatus(orgId, post.id, !isActivePost);
+      onStatusChanged(post.id, !isActivePost);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -466,15 +481,30 @@ function PostCard({
             <MessageSquare className="h-3.5 w-3.5 text-blue-400" /> {post.comments}
           </span>
         </div>
-        {post.moderationStatus === "Pending" && (
-          <Button
-            size="sm"
-            onClick={() => onReview(post)}
-            className="h-8 bg-accent hover:bg-accent/90 text-accent-foreground text-xs gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+          {post.moderationStatus === "Pending" && (
+            <Button
+              size="sm"
+              onClick={() => onReview(post)}
+              className="h-8 bg-accent hover:bg-accent/90 text-accent-foreground text-xs gap-1.5"
+            >
+              <BadgeCheck className="h-3.5 w-3.5" /> Review
+            </Button>
+          )}
+          <button
+            onClick={togglePostStatus}
+            disabled={statusLoading}
+            title={isActivePost ? "Deactivate post" : "Activate post"}
           >
-            <BadgeCheck className="h-3.5 w-3.5" /> Review
-          </Button>
-        )}
+            {statusLoading ? (
+              <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            ) : isActivePost ? (
+              <ToggleRight className="h-6 w-6 text-emerald-400 hover:text-emerald-300 transition-colors" />
+            ) : (
+              <ToggleLeft className="h-6 w-6 text-muted-foreground hover:text-foreground transition-colors" />
+            )}
+          </button>
+        </div>
       </div>
     </motion.div>
   );
@@ -857,7 +887,21 @@ const OrganizationDashboard = () => {
 
               <AnimatePresence>
                 {filteredPosts.map((post) => (
-                  <PostCard key={post.id} post={post} orgId={orgId} onReview={setReviewPost} />
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    orgId={orgId}
+                    onReview={setReviewPost}
+                    onStatusChanged={(postId, isActive) =>
+                      setPosts((prev) =>
+                        prev.map((p) =>
+                          p.id === postId
+                            ? { ...p, moderationStatus: isActive ? "Approved" : "Removed" }
+                            : p
+                        )
+                      )
+                    }
+                  />
                 ))}
               </AnimatePresence>
               {filteredPosts.length === 0 && (

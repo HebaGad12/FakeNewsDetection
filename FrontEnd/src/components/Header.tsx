@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { publicProfileService, userService } from "@/services";
+import journalistService from "@/services/journalistService";
 import type { ProfileSearchItem } from "@/services/publicProfileService";
 import { toast } from "sonner";
 
@@ -54,8 +55,13 @@ export function Header() {
 
   const loadFollowingProfiles = async () => {
     try {
-      const following = await userService.getFollowing();
-      setFollowingIds(following.map((item) => item.id));
+      if (user?.role?.toLowerCase() === "journalist") {
+        const following = await journalistService.getFollowing();
+        setFollowingIds(following.map((item) => item.id));
+      } else {
+        const following = await userService.getFollowing();
+        setFollowingIds(following.map((item) => item.id));
+      }
     } catch {
       setFollowingIds([]);
     }
@@ -105,7 +111,11 @@ export function Header() {
 
     setFollowLoadingId(id);
     try {
-      await userService.follow(id);
+      if (user?.role?.toLowerCase() === "journalist") {
+        await journalistService.followUser(id);
+      } else {
+        await userService.follow(id);
+      }
       setFollowingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
       setSearchResults((prev) =>
         prev.map((item) =>
