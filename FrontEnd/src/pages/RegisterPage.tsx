@@ -30,7 +30,7 @@ const RegisterPage = () => {
     name: "",
     email: "",
     password: "",
-    organizationName: "",
+    organizationLicenseNumber: "",
     licenseNumber: "",
   });
   const navigate = useNavigate();
@@ -57,7 +57,16 @@ const RegisterPage = () => {
     
     // Validation
     if (!formData.name || !formData.email || !formData.password) {
-      toast.error("Please fill in all required fields");
+      const missingFields = [];
+      if (!formData.name) missingFields.push("name");
+      if (!formData.email) missingFields.push("email");
+      if (!formData.password) missingFields.push("password");
+      toast.error(`Please fill in: ${missingFields.join(", ")}`);
+      return;
+    }
+    
+    if (formData.password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
       return;
     }
     
@@ -70,8 +79,8 @@ const RegisterPage = () => {
         email: formData.email,
         password: formData.password,
         role: mapRoleToApiRole(selectedRole),
-        ...(selectedRole === "organization" && formData.organizationName && {
-          organizationLicense: formData.organizationName,
+        ...(selectedRole === "organization" && formData.organizationLicenseNumber && {
+          organizationLicense: formData.organizationLicenseNumber,
         }),
         ...(selectedRole === "journalist" && formData.licenseNumber && {
           journalistId: formData.licenseNumber,
@@ -246,9 +255,9 @@ const RegisterPage = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              {/* <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters with uppercase, lowercase, and numbers
-              </p> */}
+              <p className="text-xs text-muted-foreground">
+                Must be at least 8 characters long
+              </p>
             </div>
 
             {/* Journalist-specific field */}
@@ -286,15 +295,15 @@ const RegisterPage = () => {
                 className="space-y-4"
               >
                 <div className="space-y-2">
-                  <Label htmlFor="orgName">Organization Name</Label>
+                  <Label htmlFor="orgLicense">Organization License Number</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
-                      id="orgName"
+                      id="orgLicense"
                       type="text"
-                      placeholder="e.g., Global News Network"
-                      value={formData.organizationName}
-                      onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
+                      placeholder="e.g., ORG-2024-12345"
+                      value={formData.organizationLicenseNumber}
+                      onChange={(e) => setFormData({ ...formData, organizationLicenseNumber: e.target.value })}
                       className="pl-11 h-12"
                     />
                   </div>

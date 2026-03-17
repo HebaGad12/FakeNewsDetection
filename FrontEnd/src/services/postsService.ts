@@ -1,4 +1,5 @@
 import apiClient from "./apiClient";
+import { API_BASE_URL } from "@/lib/constants";
 import type { AxiosError } from "axios";
 
 // ────── TypeScript Interfaces ──────
@@ -56,6 +57,17 @@ class PostsService {
   private baseUrl = "/posts";
 
   /**
+   * Helper: Convert relative image path to full URL
+   */
+  getImageUrl(imagePath: string): string {
+    if (!imagePath) return "";
+    if (imagePath.startsWith("http")) return imagePath; // Already full URL
+    // Remove /api from API_BASE_URL and append the image path
+    const baseWithoutApi = API_BASE_URL.replace("/api", "");
+    return `${baseWithoutApi}/${imagePath}`;
+  }
+
+  /**
    * Get all posts for the feed
    * GET /api/posts
    */
@@ -93,7 +105,8 @@ class PostsService {
     const response = await apiClient.post<{ Likes?: number; LikesCount?: number }>(
       `${this.baseUrl}/${postId}/like`
     );
-    return { likes: response.Likes || response.LikesCount || 0 };
+    const likesCount = response.Likes !== undefined ? response.Likes : (response.LikesCount ?? 0);
+    return { likes: likesCount };
   }
 
   /**
@@ -106,7 +119,27 @@ class PostsService {
     const response = await apiClient.delete<{ Likes?: number; LikesCount?: number }>(
       `${this.baseUrl}/${postId}/like`
     );
-    return { likes: response.Likes || response.LikesCount || 0 };
+    const likesCount = response.Likes !== undefined ? response.Likes : (response.LikesCount ?? 0);
+    return { likes: likesCount };
+  }
+
+  /**
+   * Check if current user has liked a specific post
+   * GET /api/user/activity
+   * Filters user's likes to find if they've liked this post
+   */
+  async hasUserLikedPost(postId: string): Promise<boolean> {
+    try {
+      const response = await apiClient.get<any[]>("/user/activity");
+      if (!Array.isArray(response)) return false;
+      
+      return response.some((activity: any) => 
+        activity.actionType === "Like" && activity.postId === postId
+      );
+    } catch (error) {
+      console.error(`Failed to check if user liked post ${postId}:`, error);
+      return false; // Default to not liked if we can't check
+    }
   }
 
 
@@ -146,6 +179,19 @@ class PostsService {
   }
 
   /**
+   * Delete a post
+   * DELETE /api/journalist/posts/{postId}
+   */
+  async deletePost(postId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/journalist/posts/${postId}`);
+    } catch (error) {
+      console.error(`Failed to delete post ${postId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Helper: Transform Post to NewsCard props
    * Maps Post data to the format expected by NewsCard component
    */
@@ -156,7 +202,9 @@ class PostsService {
       excerpt: post.content.substring(0, 150) + "...", // Truncate for preview
       author: post.authorName,
       organization: post.organizationName,
-      image: post.media?.[0]?.path || "https://images.unsplash.com/photo-1557804506-669714131143?w=800",
+      image: post.media?.[0]?.path 
+        ? this.getImageUrl(post.media[0].path) 
+        : "https://images.unsplash.com/photo-1557804506-669714131143?w=800",
       category: post.tags?.[0] || "News",
       credibility: "verified" as const, // TODO: Determine based on fact-check data
       credibilityScore: 85, // TODO: Calculate from actual data

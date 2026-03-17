@@ -27,6 +27,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Send,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -368,21 +369,109 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ postId: string; moderationStatus: string } | null>(null);
   const [error, setError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const handleImageSelect = (file: File) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error("Please upload a valid image (JPEG, PNG, WebP, or GIF)");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleImageSelect(e.target.files[0]);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) return;
     setLoading(true);
     setError("");
     try {
+      // Step 1: Upload image if one was selected
+      let media = undefined;
+      if (imageFile) {
+        try {
+          const uploadResponse = await journalistService.uploadFile(imageFile);
+          media = [
+            {
+              path: uploadResponse.path,
+              mediaType: "image",
+              isCopyrighted: false,
+            },
+          ];
+        } catch (uploadErr: any) {
+          console.error("Failed to upload image:", uploadErr);
+          const uploadErrorMessage =
+            uploadErr.response?.data?.message ||
+            uploadErr.response?.data?.error ||
+            uploadErr.message ||
+            "Failed to upload image";
+          setError(`Image upload failed: ${uploadErrorMessage}`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Step 2: Create post with media
       const res = await journalistService.createPost({
         title: title.trim(),
         content: content.trim(),
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        media,
       });
       setResult(res);
       onSuccess();
-    } catch {
-      setError("Failed to create post. Please try again.");
+    } catch (err: any) {
+      console.error("Failed to create post:", err);
+      // Extract specific error message from backend response
+      const errorMessage = err?.response?.data?.message || 
+                          err?.response?.data?.error ||
+                          err?.message || 
+                          "Failed to create post. Please try again.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -410,6 +499,8 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             setTitle("");
             setContent("");
             setTags("");
+            setImageFile(null);
+            setImagePreview(null);
             setResult(null);
           }}
           className="mt-4 text-sm text-accent hover:underline"
@@ -452,6 +543,54 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
           className="bg-muted border-border h-11"
         />
       </div>
+
+      {/* Image Upload Section */}
+      <div className="border-t border-border pt-4">
+        <label className="text-sm font-medium text-foreground mb-2 block">Featured Image</label>
+        {imagePreview ? (
+          <div className="relative rounded-lg overflow-hidden mb-3">
+            <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
+            <button
+              onClick={removeImage}
+              className="absolute top-2 right-2 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors"
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+              dragActive ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
+            }`}
+          >
+            <input
+              type="file"
+              id="image-upload-form"
+              accept={ALLOWED_IMAGE_TYPES.join(",")}
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+            <label htmlFor="image-upload-form" className="cursor-pointer block">
+              <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+              <p className="text-xs text-muted-foreground mb-1">
+                Drag and drop an image or
+              </p>
+              <Button variant="outline" size="sm" type="button">
+                Browse Files
+              </Button>
+            </label>
+            <p className="text-xs text-muted-foreground mt-2">
+              Supported: JPEG, PNG, WebP, GIF (Max 5MB)
+            </p>
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="flex items-center gap-2 text-rose-400 text-sm">
           <AlertCircle className="h-4 w-4" />

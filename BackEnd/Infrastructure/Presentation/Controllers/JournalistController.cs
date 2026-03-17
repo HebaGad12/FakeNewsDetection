@@ -2,6 +2,7 @@ using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ServicesAbstraction;
 using Shared.DTOs;
@@ -125,9 +126,7 @@ namespace Presentation.Controllers
                 CreatedAt      = DateTime.UtcNow,
                 Tags           = req.Tags.ToArray(),
                 VerificationStatus = verificationStatus,
-                ModerationStatus = journalist.OrganizationId == null
-                    ? ModerationStatus.Approved
-                    : ModerationStatus.Pending
+                ModerationStatus = ModerationStatus.Approved
             };
 
             await _posts.AddAsync(post);
@@ -342,6 +341,10 @@ namespace Presentation.Controllers
         {
             var userId = GetUserId();
 
+            // Prevent self-follow
+            if (userId == targetId)
+                return BadRequest("You cannot follow yourself.");
+
             var existing = await _follows.GetAsync(userId, targetId);
             if (existing is not null)
                 return Conflict("You are already following this user.");
@@ -414,6 +417,49 @@ namespace Presentation.Controllers
                     .Select(i => i.Content ?? "")
                     .ToList()
             ));
+        }
+
+        // ── File Upload ──
+
+        [HttpPost("upload")]
+        public async Task<ActionResult> UploadFile(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded");
+
+            // Validate file size (5MB limit)
+            const long maxFileSize = 5 * 1024 * 1024;
+            if (file.Length > maxFileSize)
+                return BadRequest("File size exceeds 5MB limit");
+
+            // Validate file type
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp", "image/gif" };
+            if (!allowedTypes.Contains(file.ContentType?.ToLower() ?? ""))
+                return BadRequest("Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed");
+
+            try
+            {
+                // Create uploads directory if it doesn't exist
+                var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "posts");
+                Directory.CreateDirectory(uploadsDir);
+
+                // Generate unique filename
+                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+                var filePath = Path.Combine(uploadsDir, fileName);
+                var relativeFilePath = Path.Combine("uploads", "posts", fileName).Replace("\\", "/");
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                return Ok(new { path = relativeFilePath, fileName });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error uploading file", error = ex.Message });
+            }
         }
     }
 

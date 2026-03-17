@@ -80,9 +80,9 @@ const formatDate = (iso: string) =>
   });
 
 const verificationColor: Record<string, string> = {
-  Verified: "bg-green-100 text-green-700",
+  Trusted: "bg-green-100 text-green-700",
   Fake: "bg-red-100 text-red-700",
-  Misleading: "bg-yellow-100 text-yellow-700",
+  Suspicious: "bg-yellow-100 text-yellow-700",
   Unknown: "bg-gray-100 text-gray-600",
 };
 
@@ -591,9 +591,9 @@ const PostsTab = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Verification</SelectItem>
-            <SelectItem value="Verified">Verified</SelectItem>
+            <SelectItem value="Trusted">Trusted</SelectItem>
             <SelectItem value="Fake">Fake</SelectItem>
-            <SelectItem value="Misleading">Misleading</SelectItem>
+            <SelectItem value="Suspicious">Suspicious</SelectItem>
             <SelectItem value="Unknown">Unknown</SelectItem>
           </SelectContent>
         </Select>
@@ -797,7 +797,7 @@ const PostsTab = () => {
               <Select value={verStatus} onValueChange={setVerStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["Verified", "Fake", "Misleading", "Unknown"].map((s) => (
+                  {["Trusted", "Fake", "Suspicious", "Unknown"].map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1297,7 +1297,7 @@ const WalletsTab = () => {
       return;
     }
     if (!adjustDescription.trim()) {
-      toast.error("Please enter a description");
+      toast.error("Please provide a reason/description for the adjustment");
       return;
     }
     setAdjusting(true);
@@ -1496,7 +1496,7 @@ const WalletsTab = () => {
               </p>
             </div>
             <div>
-              <Label>Description</Label>
+              <Label>Description <span className="text-destructive">*</span></Label>
               <Textarea
                 placeholder="Reason for adjustment..."
                 value={adjustDescription}
@@ -1651,12 +1651,11 @@ const DonationsTab = () => {
 // Main AdminDashboard
 // ============================================================================
 
-type Tab = "overview" | "users" | "posts" | "journalists" | "organizations" | "wallets" | "donations";
+type Tab = "overview" | "users" | "journalists" | "organizations" | "wallets" | "donations";
 
 const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: TrendingUp },
   { id: "users", label: "Users", icon: Users },
-  { id: "posts", label: "Posts", icon: FileText },
   { id: "journalists", label: "Journalists", icon: UserCheck },
   { id: "organizations", label: "Organizations", icon: Building2 },
   { id: "wallets", label: "Wallets", icon: Wallet },
@@ -1734,7 +1733,6 @@ const AdminDashboard = () => {
         >
           {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} />}
           {activeTab === "users" && <UsersTab />}
-          {activeTab === "posts" && <PostsTab />}
           {activeTab === "journalists" && <JournalistsTab />}
           {activeTab === "organizations" && <OrganizationsTab />}
           {activeTab === "wallets" && <WalletsTab />}

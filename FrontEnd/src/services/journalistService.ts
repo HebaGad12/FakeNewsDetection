@@ -17,10 +17,17 @@ export interface JournalistEditProfileRequest {
   email?: string;
 }
 
+export interface MediaItemRequest {
+  path: string;
+  mediaType: "image" | "video";
+  isCopyrighted?: boolean;
+}
+
 export interface JournalistCreatePostRequest {
   title: string;
   content: string;
   tags: string[];
+  media?: MediaItemRequest[];
 }
 
 export interface JournalistPostResponse {
@@ -72,6 +79,16 @@ class JournalistService {
   async editProfile(data: JournalistEditProfileRequest): Promise<void> {
     // apiClient.put قد يعيد بيانات لكننا لا نحتاجها هنا
     await apiClient.put("/journalist/edit", data);
+  }
+
+  // File upload
+  async uploadFile(file: File): Promise<{ path: string; fileName: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return await apiClient.post<{ path: string; fileName: string }>(
+      "/journalist/upload", 
+      formData
+    );
   }
 
   // المنشورات

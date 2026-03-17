@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Heart,
   MessageCircle,
-  Share2,
   Loader,
   AlertCircle,
   Trash2,
@@ -19,16 +18,21 @@ import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { postsService, Post, PostComment } from "@/services/postsService";
 import { usePostInteractions } from "@/hooks/usePostInteractions";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
   const [post, setPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState("");
   const [comments, setComments] = useState<PostComment[]>([]);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Use the post interactions hook for like/comment management
   const {
@@ -68,8 +72,18 @@ export default function PostDetailPage() {
         } else {
           setPost(fetchedPost);
           setComments(fetchedPost.comments || []);
-          // Update the hook's like count and initial state
+          // Update the hook's like count
           setLikesCount(fetchedPost.likesCount);
+          
+          // Check if current user has already liked this post
+          try {
+            const userHasLiked = await postsService.hasUserLikedPost(id);
+            setIsLiked(userHasLiked);
+          } catch (err) {
+            console.error("Failed to check user's like status:", err);
+            // Default to false if we can't determine
+            setIsLiked(false);
+          }
         }
       } catch (err) {
         console.error("Failed to load post:", err);
@@ -83,13 +97,14 @@ export default function PostDetailPage() {
     if (id) {
       loadPost();
     }
-  }, [id, setLikesCount]);
+  }, [id, setLikesCount, setIsLiked]);
 
   // Handle adding a comment
   const handleAddComment = async () => {
     if (!commentInput.trim()) return;
 
     try {
+      setCommentError(null);
       await addComment(commentInput);
       setCommentInput("");
       // Refresh comments by refetching the post
@@ -99,8 +114,9 @@ export default function PostDetailPage() {
           setComments(updatedPost.comments || []);
         }
       }
-    } catch (err) {
-      console.error("Failed to add comment:", err);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to post comment. Please try again.";
+      setCommentError(errorMessage);
     }
   };
 
@@ -113,6 +129,25 @@ export default function PostDetailPage() {
       setComments(comments.filter((c) => c.id !== commentId));
     } catch (err) {
       console.error("Failed to delete comment:", err);
+    }
+  };
+
+  // Handle deleting the post (only author can delete)
+  const handleDeletePost = async () => {
+    if (!post || !user || post.authorId !== user.id) return;
+
+    if (!window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await postsService.deletePost(post.id);
+      navigate("/feed");
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to delete post. Please try again.";
+      setError(errorMessage);
+      setIsDeleting(false);
     }
   };
 
@@ -194,7 +229,7 @@ export default function PostDetailPage() {
               <motion.img
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
-                src={post.media[0].path}
+                src={postsService.getImageUrl(post.media[0].path)}
                 alt={post.title}
                 className="h-96 w-full object-cover"
               />
@@ -221,7 +256,7 @@ export default function PostDetailPage() {
             </h1>
 
             {/* Post Metadata */}
-            <div className="flex flex-wrap items-center gap-4 border-t border-b border-border py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-b border-border py-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-accent to-accent/60" />
                 <div className="flex-1">
@@ -238,6 +273,23 @@ export default function PostDetailPage() {
                   </p>
                 </div>
                 <CredibilityBadge level="verified" score={85} size="sm" />
+                
+                {/* Delete button - only show for post author */}
+                {user && post.authorId === user.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDeletePost}
+                    disabled={isDeleting}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    {isDeleting ? (
+                      <div className="w-4 h-4 border-2 border-destructive border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -263,42 +315,39 @@ export default function PostDetailPage() {
             transition={{ delay: 0.3 }}
             className="mt-12 space-y-6 border-t border-border pt-8"
           >
-            {/* Like and Comment Buttons */}
-            <div className="flex flex-wrap gap-4">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={toggleLike}
-                disabled={isLiking || isLoading}
-                className={cn(
-                  "gap-2",
-                  isLiked && "bg-accent/20 text-accent border-accent"
-                )}
-              >
-                <Heart
+            {/* Like and Comment Buttons - Hidden for admins */}
+            {user?.role !== "admin" && (
+              <div className="flex flex-wrap gap-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={toggleLike}
+                  disabled={isLiking || isLoading}
                   className={cn(
-                    "h-5 w-5",
-                    isLiked && "fill-current"
+                    "gap-2",
+                    isLiked && "bg-accent/20 text-accent border-accent"
                   )}
-                />
-                {likesCount} Likes
-              </Button>
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      isLiked && "fill-current"
+                    )}
+                  />
+                  {likesCount} Likes
+                </Button>
 
-              <Button variant="outline" size="lg" className="gap-2" disabled>
-                <MessageCircle className="h-5 w-5" />
-                {comments.length} Comments
-              </Button>
-
-              <Button variant="outline" size="lg" className="gap-2">
-                <Share2 className="h-5 w-5" />
-                Share
-              </Button>
-            </div>
-
-            {/* Error message for interactions */}
-            {interactionError && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                {interactionError}
+                <Button variant="outline" size="lg" className="gap-2" disabled>
+                  <MessageCircle className="h-5 w-5" />
+                  {comments.length} Comments
+                </Button>
+              </div>
+            )}
+            
+            {/* View only message for admins */}
+            {user?.role === "admin" && (
+              <div className="rounded-lg p-4 text-center">
+                
               </div>
             )}
           </motion.div>
@@ -312,39 +361,50 @@ export default function PostDetailPage() {
           >
             <h2 className="text-2xl font-bold text-foreground">Comments</h2>
 
-            {/* Add Comment Form */}
-            <div className="space-y-3 rounded-lg border border-border p-4">
-              <label className="text-sm font-medium text-foreground">
-                Add a comment
-              </label>
-              <div className="flex gap-3">
-                <Input
-                  placeholder="Share your thoughts..."
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleAddComment();
-                    }
-                  }}
-                  disabled={isCommenting}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleAddComment}
-                  disabled={!commentInput.trim() || isCommenting}
-                  className="gap-2"
-                >
-                  {isCommenting ? (
-                    <Loader className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  Post
-                </Button>
+            {/* Add Comment Form - Not visible for admins */}
+            {user?.role !== "admin" && (
+              <div className="space-y-3 rounded-lg border border-border p-4">
+                <label className="text-sm font-medium text-foreground">
+                  Add a comment
+                </label>
+                {commentError && (
+                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                    <p className="font-semibold">Unable to post comment:</p>
+                    <p>{commentError}</p>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <Input
+                    placeholder="Share your thoughts..."
+                    value={commentInput}
+                    onChange={(e) => {
+                      setCommentInput(e.target.value);
+                      setCommentError(null);
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                    disabled={isCommenting}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleAddComment}
+                    disabled={!commentInput.trim() || isCommenting}
+                    className="gap-2"
+                  >
+                    {isCommenting ? (
+                      <Loader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Post
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Comments List */}
             <div className="space-y-4">

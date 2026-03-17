@@ -177,6 +177,7 @@ namespace Presentation.Controllers
         {
             var interactions = await _interactions.GetByUserAsync(GetUserId());
             var dto = interactions.Select(a => new UserActivityResponse(
+                a.PostId,
                 a.Type.ToString(),
                 a.Post?.Title ?? "Unknown Post",
                 a.CreatedAt

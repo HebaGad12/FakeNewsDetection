@@ -50,6 +50,17 @@ export function usePostInteractions({
       const result = await postsService.likePost(postId);
       setIsLiked(true);
       setLikesCount(result.likes);
+      
+      // Refresh the post to get the most accurate likes count from the database
+      try {
+        const post = await postsService.getPostById(postId);
+        if (post) {
+          setLikesCount(post.likesCount);
+        }
+      } catch (refreshError) {
+        console.error("Failed to refresh post after like:", refreshError);
+        // Keep the count from the API response if refresh fails
+      }
     } catch (err) {
       const error = err as AxiosError;
       
@@ -84,6 +95,17 @@ export function usePostInteractions({
       const result = await postsService.unlikePost(postId);
       setIsLiked(false);
       setLikesCount(result.likes);
+      
+      // Refresh the post to get the most accurate likes count from the database
+      try {
+        const post = await postsService.getPostById(postId);
+        if (post) {
+          setLikesCount(post.likesCount);
+        }
+      } catch (refreshError) {
+        console.error("Failed to refresh post after unlike:", refreshError);
+        // Keep the count from the API response if refresh fails
+      }
     } catch (err) {
       const error = err as AxiosError;
       

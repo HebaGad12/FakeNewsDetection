@@ -13,6 +13,8 @@ import {
   ListOrdered,
   Quote,
   Heading2,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -21,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { journalistService } from "@/services/journalistService";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 
@@ -35,36 +38,183 @@ const categories = [
   "Entertainment",
 ];
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 const CreateArticlePage = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Admins cannot create articles
+  if (user?.role === "admin") {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/feed")}
+            className="mb-6"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Feed
+          </Button>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
+          >
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
+            <h2 className="mb-2 text-xl font-semibold text-foreground">
+              Access Denied
+            </h2>
+            <p className="mb-6 text-muted-foreground">
+              Admins cannot create articles. Please use the admin dashboard for moderation tasks.
+            </p>
+            <Button onClick={() => navigate("/feed")}>Return to Feed</Button>
+          </motion.div>
+        </main>
+      </div>
+    );
+  }
+
   const [formData, setFormData] = useState({
     title: "",
     excerpt: "",
     content: "",
     category: "",
     featuredImage: "",
+    imageFile: null as File | null,
   });
+  const [dragActive, setDragActive] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
-  if (!isAuthenticated || !user || (user.role !== "journalist" && user.role !== "admin")) {
+  if (!isAuthenticated || !user || user.role !== "journalist") {
     return <Navigate to="/login" replace />;
   }
+
+  const handleImageSelect = (file: File) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error("Please upload a valid image (JPEG, PNG, WebP, or GIF)");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+    
+    setFormData({ ...formData, imageFile: file });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleImageSelect(e.target.files[0]);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData({ ...formData, imageFile: null, featuredImage: "" });
+    setImagePreview(null);
+  };
 
   const handleSaveDraft = () => {
     toast.success("Draft saved successfully!");
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!formData.title || !formData.content || !formData.category) {
-      toast.error("Please fill in all required fields");
+      const missingFields = [];
+      if (!formData.title) missingFields.push("title");
+      if (!formData.content) missingFields.push("content");
+      if (!formData.category) missingFields.push("category");
+      toast.error(`Please fill in required fields: ${missingFields.join(", ")}`);
       return;
     }
-    toast.success(
-      user.role === "journalist" && user.organization
-        ? "Article submitted for approval!"
-        : "Article published successfully!"
-    );
-    navigate("/dashboard");
+    
+    setIsPublishing(true);
+    try {
+      // Step 1: Upload image if one was selected
+      let media = undefined;
+      if (formData.imageFile) {
+        try {
+          const uploadResponse = await journalistService.uploadFile(formData.imageFile);
+          media = [
+            {
+              path: uploadResponse.path,
+              mediaType: "image",
+              isCopyrighted: false,
+            },
+          ];
+        } catch (uploadErr: any) {
+          console.error("Failed to upload image:", uploadErr);
+          const uploadErrorMessage =
+            uploadErr.response?.data?.message ||
+            uploadErr.response?.data?.error ||
+            uploadErr.message ||
+            "Failed to upload image";
+          toast.error(`Image upload failed: ${uploadErrorMessage}`);
+          setIsPublishing(false);
+          return;
+        }
+      }
+
+      // Step 2: Create post with media
+      const result = await journalistService.createPost({
+        title: formData.title,
+        content: formData.content,
+        tags: [formData.category],
+        media,
+      });
+
+      if (result.moderationStatus === "Approved") {
+        toast.success("Article published successfully!");
+      } else if (result.moderationStatus === "Pending") {
+        toast.success("Article submitted for approval!");
+      } else {
+        toast.success("Article created successfully!");
+      }
+      
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Failed to publish article:", err);
+      
+      // Extract specific error message from backend response
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error ||
+                          err.message || 
+                          "Failed to publish article. Please try again.";
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -86,13 +236,22 @@ const CreateArticlePage = () => {
             </h1>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleSaveDraft}>
+            <Button variant="outline" onClick={handleSaveDraft} disabled={isPublishing}>
               <Save className="h-4 w-4 mr-2" />
               Save Draft
             </Button>
-            <Button onClick={handlePublish}>
-              <Send className="h-4 w-4 mr-2" />
-              {user.role === "journalist" && user.organization ? "Submit for Review" : "Publish"}
+            <Button onClick={handlePublish} disabled={isPublishing}>
+              {isPublishing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  {user.role === "journalist" && user.organization ? "Submit for Review" : "Publish"}
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -199,15 +358,49 @@ const CreateArticlePage = () => {
             {/* Featured Image */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               <Label>Featured Image</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Drag and drop an image or
-                </p>
-                <Button variant="outline" size="sm">
-                  Browse Files
-                </Button>
-              </div>
+              {imagePreview ? (
+                <div className="relative rounded-lg overflow-hidden">
+                  <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
+                  <button
+                    onClick={removeImage}
+                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                      dragActive ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      id="image-upload"
+                      accept={ALLOWED_IMAGE_TYPES.join(",")}
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer block">
+                      <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Drag and drop an image or
+                      </p>
+                      <Button variant="outline" size="sm" type="button">
+                        Browse Files
+                      </Button>
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Supported formats: JPEG, PNG, WebP, GIF (Max 5MB)
+                    </p>
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="imageUrl">Or paste image URL</Label>
                 <Input

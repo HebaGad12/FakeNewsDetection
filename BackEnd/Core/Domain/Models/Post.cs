@@ -19,7 +19,7 @@ namespace Domain.Models
         public string Content { get; set; } = "";
         public string[] Tags { get; set; } = Array.Empty<string>();
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Unknown;
         public double? ConfidenceScore { get; set; }
