@@ -26,6 +26,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { journalistService } from "@/services/journalistService";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
+import { MediaUpload, UploadedMedia } from "@/components/MediaUpload";
+import { MediaList } from "@/components/MediaList";
 
 const categories = [
   "Politics",
@@ -37,9 +39,6 @@ const categories = [
   "Sports",
   "Entertainment",
 ];
-
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const CreateArticlePage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -85,65 +84,29 @@ const CreateArticlePage = () => {
     content: "",
     category: "",
     featuredImage: "",
-    imageFile: null as File | null,
   });
-  const [dragActive, setDragActive] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isImageCopyrighted, setIsImageCopyrighted] = useState(false);
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
 
   if (!isAuthenticated || !user || user.role !== "journalist") {
     return <Navigate to="/login" replace />;
   }
 
-  const handleImageSelect = (file: File) => {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      toast.error("Please upload a valid image (JPEG, PNG, WebP, or GIF)");
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("Image size must be less than 5MB");
-      return;
-    }
-    
-    setFormData({ ...formData, imageFile: file });
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+  const handleMediaSelected = (media: UploadedMedia[]) => {
+    setUploadedMedia(media);
   };
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+  const handleRemoveMedia = (mediaId: string) => {
+    setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
+    toast.success("Media removed");
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageSelect(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageSelect(e.target.files[0]);
-    }
-  };
-
-  const removeImage = () => {
-    setFormData({ ...formData, imageFile: null, featuredImage: "" });
-    setImagePreview(null);
-    setIsImageCopyrighted(false);
+  const handleToggleCopyright = (mediaId: string, isCopyrighted: boolean) => {
+    setUploadedMedia((prev) =>
+      prev.map((m) =>
+        m.id === mediaId ? { ...m, isCopyrighted } : m
+      )
+    );
   };
 
   const handleSaveDraft = () => {
@@ -162,28 +125,29 @@ const CreateArticlePage = () => {
     
     setIsPublishing(true);
     try {
-      // Step 1: Upload image if one was selected
-      let media = undefined;
-      if (formData.imageFile) {
-        try {
-          const uploadResponse = await journalistService.uploadFile(formData.imageFile);
-          media = [
-            {
+      // Step 1: Upload all media files
+      const mediaItems = [];
+      
+      if (uploadedMedia.length > 0) {
+        for (const mediaItem of uploadedMedia) {
+          try {
+            const uploadResponse = await journalistService.uploadFile(mediaItem.file);
+            mediaItems.push({
               path: uploadResponse.path,
-              mediaType: "image",
-              isCopyrighted: isImageCopyrighted,
-            },
-          ];
-        } catch (uploadErr: any) {
-          console.error("Failed to upload image:", uploadErr);
-          const uploadErrorMessage =
-            uploadErr.response?.data?.message ||
-            uploadErr.response?.data?.error ||
-            uploadErr.message ||
-            "Failed to upload image";
-          toast.error(`Image upload failed: ${uploadErrorMessage}`);
-          setIsPublishing(false);
-          return;
+              mediaType: mediaItem.mediaType,
+              isCopyrighted: mediaItem.isCopyrighted,
+            });
+          } catch (uploadErr: any) {
+            console.error("Failed to upload media:", uploadErr);
+            const uploadErrorMessage =
+              uploadErr.response?.data?.message ||
+              uploadErr.response?.data?.error ||
+              uploadErr.message ||
+              "Failed to upload media";
+            toast.error(`Media upload failed for ${mediaItem.file.name}: ${uploadErrorMessage}`);
+            setIsPublishing(false);
+            return;
+          }
         }
       }
 
@@ -192,7 +156,7 @@ const CreateArticlePage = () => {
         title: formData.title,
         content: formData.content,
         tags: [formData.category],
-        media,
+        media: mediaItems.length > 0 ? mediaItems : undefined,
       });
 
       if (result.moderationStatus === "Approved") {
@@ -357,62 +321,24 @@ const CreateArticlePage = () => {
               </div>
             </div>
 
-            {/* Featured Image */}
+            {/* Media Upload */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <Label>Featured Image</Label>
-              {imagePreview ? (
-                <div className="relative rounded-lg overflow-hidden">
-                  <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
-                  <button
-                    onClick={removeImage}
-                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                      dragActive ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
-                    }`}
-                  >
-                    <input
-                      type="file"
-                      id="image-upload"
-                      accept={ALLOWED_IMAGE_TYPES.join(",")}
-                      onChange={handleFileInputChange}
-                      className="hidden"
-                    />
-                    <label htmlFor="image-upload" className="cursor-pointer block">
-                      <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Drag and drop an image or
-                      </p>
-                      <Button variant="outline" size="sm" type="button">
-                        Browse Files
-                      </Button>
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Supported formats: JPEG, PNG, WebP, GIF (Max 5MB)
-                    </p>
-                  </div>
-                </>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">Or paste image URL</Label>
-                <Input
-                  id="imageUrl"
-                  placeholder="https://..."
-                  value={formData.featuredImage}
-                  onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+              <MediaUpload
+                onMediaSelected={handleMediaSelected}
+                uploadedMedia={uploadedMedia}
+              />
+            </div>
+
+            {/* Media List */}
+            {uploadedMedia.length > 0 && (
+              <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+                <MediaList
+                  media={uploadedMedia}
+                  onRemove={handleRemoveMedia}
+                  onToggleCopyright={handleToggleCopyright}
                 />
               </div>
-            </div>
+            )}
 
             {/* AI Credibility Preview */}
             <div className="bg-card border border-border rounded-xl p-5">
@@ -423,19 +349,6 @@ const CreateArticlePage = () => {
             </div>
           </motion.div>
 
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={isImageCopyrighted}
-                  onChange={(e) => setIsImageCopyrighted(e.target.checked)}
-                  disabled={!formData.imageFile}
-                  className="h-4 w-4 rounded border-border disabled:opacity-50"
-                />
-                Mark this image as copyrighted (only you can reuse it)
-              </label>
-              {!formData.imageFile && (
-                <p className="text-xs text-muted-foreground">Upload an image to enable this option.</p>
-              )}
         </div>
       </main>
 
