@@ -1,5 +1,6 @@
 import apiClient from "./apiClient";
 import { POST_DELETED_EVENT } from "./postsService";
+import { getCachedUpload, cacheUpload } from "@/lib/uploadCache";
 
 // ---------- Types matching backend DTOs ----------
 export interface JournalistResponse {
@@ -95,14 +96,26 @@ class JournalistService {
     await apiClient.put("/journalist/edit", data);
   }
 
-  // File upload
+  // File upload with caching
   async uploadFile(file: File): Promise<{ path: string; fileName: string }> {
+    // Check if this file has already been uploaded
+    const cachedPath = await getCachedUpload(file);
+    if (cachedPath) {
+      return { path: cachedPath, fileName: file.name };
+    }
+
+    // File hasn't been uploaded before, so upload it
     const formData = new FormData();
     formData.append("file", file);
-    return await apiClient.post<{ path: string; fileName: string }>(
-      "/journalist/upload", 
+    const response = await apiClient.post<{ path: string; fileName: string }>(
+      "/journalist/upload",
       formData
     );
+
+    // Cache the upload result
+    await cacheUpload(file, response.path);
+
+    return response;
   }
 
   // المنشورات
