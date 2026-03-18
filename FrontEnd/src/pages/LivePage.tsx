@@ -1,402 +1,392 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { 
-  Radio, 
-  Users, 
-  MessageCircle, 
-  ThumbsUp, 
-  Share2,
-  Clock,
-  Play,
-  Calendar
+import { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Radio, Play, Wifi, WifiOff,
+  AlertCircle, Loader2, StopCircle,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { CredibilityBadge } from "@/components/CredibilityBadge";
 import { cn } from "@/lib/utils";
+import { useSignalR } from "@/hooks/useSignalR";
+import { liveService } from "@/services/liveService";
+import { AUTH_TOKEN_KEY } from "@/lib/constants";
+import type { LiveCard } from "@/services/types";
 
-interface LiveStream {
-  id: string;
-  title: string;
-  host: string;
-  hostAvatar: string;
-  organization?: string;
-  thumbnail: string;
-  viewers: number;
-  category: string;
-  isLive: boolean;
-  scheduledFor?: string;
-  duration?: string;
+// ============================================================================
+// Constants
+// ============================================================================
+
+const JOURNALIST_ROLE = "Journalist";
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function getAuthUser(): { userId: string; role: string; name: string } | null {
+  try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return {
+      userId: payload.sub ?? payload.nameid ?? "",
+      role:
+        payload[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] ?? payload.role ?? "",
+      name: payload.name ?? "",
+    };
+  } catch {
+    return null;
+  }
 }
 
-const liveStreams: LiveStream[] = [
-  {
-    id: "1",
-    title: "Breaking: Climate Summit Day 2 - Live Coverage",
-    host: "Sarah Mitchell",
-    hostAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100",
-    organization: "Climate Watch Network",
-    thumbnail: "https://images.unsplash.com/photo-1569163139599-0f4517e36f51?w=800",
-    viewers: 12450,
-    category: "Environment",
-    isLive: true,
-  },
-  {
-    id: "2",
-    title: "Tech Policy Deep Dive: New Privacy Regulations",
-    host: "James Chen",
-    hostAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
-    organization: "Tech Insider",
-    thumbnail: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800",
-    viewers: 8920,
-    category: "Technology",
-    isLive: true,
-  },
-  {
-    id: "3",
-    title: "Q&A Session: Understanding the New Economic Report",
-    host: "Michael Rivera",
-    hostAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
-    thumbnail: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800",
-    viewers: 5340,
-    category: "Economy",
-    isLive: true,
-  },
-];
+function formatDuration(startedAt: string): string {
+  const ms = Date.now() - new Date(startedAt).getTime();
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "Just started";
+  if (min < 60) return `Live for ${min}m`;
+  return `Live for ${Math.floor(min / 60)}h ${min % 60}m`;
+}
 
-const upcomingStreams: LiveStream[] = [
-  {
-    id: "4",
-    title: "Weekly Health Update: Latest Medical Research",
-    host: "Dr. Lisa Park",
-    hostAvatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100",
-    organization: "Health Research Institute",
-    thumbnail: "https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=800",
-    viewers: 0,
-    category: "Health",
-    isLive: false,
-    scheduledFor: "Tomorrow, 3:00 PM",
-  },
-  {
-    id: "5",
-    title: "Space Exploration: The Next Frontier",
-    host: "Dr. Robert Chang",
-    hostAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100",
-    organization: "Space Exploration Center",
-    thumbnail: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800",
-    viewers: 0,
-    category: "Science",
-    isLive: false,
-    scheduledFor: "Friday, 5:00 PM",
-  },
-];
+// ============================================================================
+// Sub-components
+// ============================================================================
 
-const pastStreams: LiveStream[] = [
-  {
-    id: "6",
-    title: "Political Analysis: Mid-Term Elections Review",
-    host: "Emma Thompson",
-    hostAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100",
-    thumbnail: "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800",
-    viewers: 45200,
-    category: "Politics",
-    isLive: false,
-    duration: "1h 23m",
-  },
-  {
-    id: "7",
-    title: "Investigative Report: Corporate Accountability",
-    host: "David Kim",
-    hostAvatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100",
-    thumbnail: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800",
-    viewers: 28900,
-    category: "Business",
-    isLive: false,
-    duration: "52m",
-  },
-];
+interface LiveCardProps {
+  card: LiveCard;
+  onWatch: (card: LiveCard) => void;
+}
 
+const LiveStreamCard = ({ card, onWatch }: LiveCardProps) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.95 }}
+    className="group rounded-xl overflow-hidden border border-border bg-card hover:shadow-lg transition-all"
+  >
+    {/* Thumbnail */}
+    <div className="relative aspect-video bg-muted flex items-center justify-center">
+      <Radio className="h-12 w-12 text-muted-foreground/30" />
+
+      {/* LIVE badge */}
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive">
+        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+        <span className="text-xs font-semibold text-white tracking-wide">LIVE</span>
+      </div>
+
+      {/* Hover play overlay */}
+      <div
+        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 cursor-pointer"
+        onClick={() => onWatch(card)}
+      >
+        <div className="w-14 h-14 rounded-full bg-accent/90 flex items-center justify-center">
+          <Play className="h-7 w-7 text-accent-foreground ml-0.5" />
+        </div>
+      </div>
+    </div>
+
+    {/* Body */}
+    <div className="p-4 space-y-3">
+      <p className="text-xs text-muted-foreground">{formatDuration(card.startedAt)}</p>
+      <div className="flex items-center gap-3">
+        <img
+          src={card.journalistAvatar}
+          alt={card.journalistName}
+          className="w-9 h-9 rounded-full object-cover border border-border"
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">
+            {card.journalistName}
+          </p>
+          <p className="text-xs text-muted-foreground">Journalist</p>
+        </div>
+        <Button size="sm" onClick={() => onWatch(card)}>
+          Watch
+        </Button>
+      </div>
+    </div>
+  </motion.div>
+);
+
+// ============================================================================
+// Main Page
+// ============================================================================
+
+/**
+ * LivePage — /live
+ *
+ * On mount: fetches all currently active sessions via GET /api/Live/active-sessions
+ * so users who open the page mid-session see the existing streams.
+ *
+ * After mount: SignalR keeps the list up to date in real-time
+ * by adding/removing cards when "LiveStarted" / "LiveEnded" events arrive.
+ */
 const LivePage = () => {
-  const [activeTab, setActiveTab] = useState<"live" | "upcoming" | "past">("live");
+  const navigate = useNavigate();
+  const user = getAuthUser();
+  const isJournalist = user?.role === JOURNALIST_ROLE;
+
+  const [liveSessions, setLiveSessions] = useState<LiveCard[]>([]);
+  const [myLiveId, setMyLiveId] = useState<string | null>(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isTogglingLive, setIsTogglingLive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // --------------------------------------------------------------------------
+  // Load existing sessions on mount
+  // --------------------------------------------------------------------------
+
+  useEffect(() => {
+    const loadSessions = async () => {
+      setIsLoadingSessions(true);
+      try {
+        const sessions = await liveService.getActiveSessions();
+        setLiveSessions(sessions);
+      } catch {
+        // Not a critical error — SignalR will still deliver new sessions
+        console.warn("Could not load active sessions on mount.");
+      } finally {
+        setIsLoadingSessions(false);
+      }
+    };
+
+    loadSessions();
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // SignalR — real-time updates
+  // --------------------------------------------------------------------------
+
+  const { isConnected } = useSignalR({
+    /**
+     * "LiveStarted" — a journalist started a new session.
+     * Add it to the list if not already present.
+     */
+    onLiveStarted: useCallback((liveId: string) => {
+      setLiveSessions((prev) => {
+        if (prev.some((s) => s.liveId === liveId)) return prev;
+        return [
+          {
+            liveId,
+            journalistId: "",
+            journalistName: "Journalist",
+            journalistAvatar: `https://api.dicebear.com/7.x/initials/svg?seed=${liveId}`,
+            startedAt: new Date().toISOString(),
+          },
+          ...prev,
+        ];
+      });
+    }, []),
+
+    /**
+     * "LiveEnded" — a journalist ended their session.
+     * Remove the card from the list.
+     */
+    onLiveEnded: useCallback((liveId: string) => {
+      setLiveSessions((prev) => prev.filter((s) => s.liveId !== liveId));
+      setMyLiveId((prev) => (prev === liveId ? null : prev));
+    }, []),
+  });
+
+  // --------------------------------------------------------------------------
+  // Journalist: Start live
+  // --------------------------------------------------------------------------
+
+  const handleStartLive = async () => {
+    setIsTogglingLive(true);
+    setError(null);
+    try {
+      const { liveId } = await liveService.startLive();
+      setMyLiveId(liveId);
+      // Navigate to broadcast page, pass liveId via router state
+      navigate("/live/broadcast", { state: { liveId } });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to start live.");
+    } finally {
+      setIsTogglingLive(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Journalist: End live
+  // --------------------------------------------------------------------------
+
+  const handleEndLive = async () => {
+    if (!myLiveId) return;
+    setIsTogglingLive(true);
+    setError(null);
+    try {
+      await liveService.endLive(myLiveId);
+      setMyLiveId(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to end live.");
+    } finally {
+      setIsTogglingLive(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Viewer: Watch live
+  // --------------------------------------------------------------------------
+
+  const handleWatch = async (card: LiveCard) => {
+    setError(null);
+    try {
+      // Verify the session is still active before navigating
+      const res = await liveService.joinLive(card.journalistId || card.liveId);
+      navigate(`/live/watch/${res.journalistId}`, {
+        state: { liveId: res.liveId },
+      });
+    } catch {
+      setError("This live session is no longer available.");
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Render
+  // --------------------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
       <main className="container mx-auto px-4 py-8">
-        {/* Page Header */}
+        {/* Page header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10">
-              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-sm font-medium text-destructive">LIVE</span>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10">
+                  <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                  <span className="text-sm font-medium text-destructive">LIVE</span>
+                </div>
+                <h1 className="font-display text-3xl md:text-4xl font-bold text-primary">
+                  Live Streams
+                </h1>
+              </div>
+              <p className="text-muted-foreground">
+                Watch verified journalists report news in real-time
+              </p>
             </div>
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-primary">
-              Live Streams
-            </h1>
-          </div>
-          <p className="text-muted-foreground">
-            Watch verified journalists report news in real-time
-          </p>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-8 border-b border-border">
-          {[
-            { id: "live", label: "Live Now", count: liveStreams.length },
-            { id: "upcoming", label: "Upcoming", count: upcomingStreams.length },
-            { id: "past", label: "Past Streams", count: pastStreams.length },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            {/* SignalR connection status */}
+            <div
               className={cn(
-                "px-4 py-3 text-sm font-medium border-b-2 transition-all",
-                activeTab === tab.id
-                  ? "border-accent text-accent"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                "flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border",
+                isConnected
+                  ? "border-green-500/30 text-green-600 bg-green-500/10"
+                  : "border-muted text-muted-foreground"
               )}
             >
-              {tab.label}
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-muted text-xs">
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Live Streams */}
-        {activeTab === "live" && (
-          <div className="space-y-8">
-            {/* Featured Stream */}
-            {liveStreams[0] && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative rounded-2xl overflow-hidden group cursor-pointer"
-              >
-                <div className="aspect-video md:aspect-[21/9]">
-                  <img 
-                    src={liveStreams[0].thumbnail} 
-                    alt={liveStreams[0].title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                </div>
-                
-                {/* Live Badge */}
-                <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full bg-destructive">
-                  <span className="w-2 h-2 rounded-full bg-destructive-foreground animate-pulse" />
-                  <span className="text-sm font-medium text-destructive-foreground">LIVE</span>
-                </div>
-
-                {/* Viewers */}
-                <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm">
-                  <Users className="h-4 w-4 text-white" />
-                  <span className="text-sm font-medium text-white">
-                    {liveStreams[0].viewers.toLocaleString()} watching
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                  <span className="px-3 py-1 rounded-full bg-accent/90 text-accent-foreground text-xs font-medium mb-3 inline-block">
-                    {liveStreams[0].category}
-                  </span>
-                  <h2 className="font-display text-2xl md:text-3xl font-bold text-white mb-3">
-                    {liveStreams[0].title}
-                  </h2>
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src={liveStreams[0].hostAvatar} 
-                      alt={liveStreams[0].host}
-                      className="w-10 h-10 rounded-full border-2 border-white"
-                    />
-                    <div>
-                      <p className="text-white font-medium">{liveStreams[0].host}</p>
-                      {liveStreams[0].organization && (
-                        <p className="text-white/70 text-sm">{liveStreams[0].organization}</p>
-                      )}
-                    </div>
-                    <CredibilityBadge level="verified" size="sm" className="ml-auto" />
-                  </div>
-                </div>
-
-                {/* Play Button Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="w-20 h-20 rounded-full bg-accent/90 flex items-center justify-center">
-                    <Play className="h-10 w-10 text-accent-foreground ml-1" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Other Live Streams */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {liveStreams.slice(1).map((stream, index) => (
-                <motion.div
-                  key={stream.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="group rounded-xl overflow-hidden border border-border bg-card hover:shadow-lg transition-all cursor-pointer"
-                >
-                  <div className="relative aspect-video">
-                    <img 
-                      src={stream.thumbnail} 
-                      alt={stream.title}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    
-                    <div className="absolute top-3 left-3 flex items-center gap-2 px-2 py-1 rounded-full bg-destructive">
-                      <span className="w-1.5 h-1.5 rounded-full bg-destructive-foreground animate-pulse" />
-                      <span className="text-xs font-medium text-destructive-foreground">LIVE</span>
-                    </div>
-
-                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm">
-                      <Users className="h-3 w-3 text-white" />
-                      <span className="text-xs text-white">{stream.viewers.toLocaleString()}</span>
-                    </div>
-
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-14 h-14 rounded-full bg-accent/90 flex items-center justify-center">
-                        <Play className="h-7 w-7 text-accent-foreground ml-0.5" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4">
-                    <span className="text-xs font-medium text-accent">{stream.category}</span>
-                    <h3 className="font-semibold text-foreground mt-1 line-clamp-2">
-                      {stream.title}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-3">
-                      <img 
-                        src={stream.hostAvatar} 
-                        alt={stream.host}
-                        className="w-8 h-8 rounded-full"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{stream.host}</p>
-                        {stream.organization && (
-                          <p className="text-xs text-muted-foreground truncate">{stream.organization}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+              {isConnected
+                ? <><Wifi className="h-3.5 w-3.5" /> Connected</>
+                : <><WifiOff className="h-3.5 w-3.5" /> Connecting…</>}
             </div>
           </div>
-        )}
 
-        {/* Upcoming Streams */}
-        {activeTab === "upcoming" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {upcomingStreams.map((stream, index) => (
-              <motion.div
-                key={stream.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="rounded-xl overflow-hidden border border-border bg-card"
-              >
-                <div className="relative aspect-video">
-                  <img 
-                    src={stream.thumbnail} 
-                    alt={stream.title}
-                    className="w-full h-full object-cover opacity-80"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  
-                  <div className="absolute top-3 left-3 flex items-center gap-2 px-2 py-1 rounded-full bg-accent">
-                    <Calendar className="h-3 w-3 text-accent-foreground" />
-                    <span className="text-xs font-medium text-accent-foreground">UPCOMING</span>
-                  </div>
-                </div>
+          {/* Journalist controls */}
+          {isJournalist && (
+            <div className="mt-6 p-4 rounded-xl border border-border bg-card flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {myLiveId ? "You are currently live" : "Start a live session"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {myLiveId
+                    ? "End the session when you're done."
+                    : "Go live so your followers can watch in real-time."}
+                </p>
+              </div>
 
-                <div className="p-4">
-                  <span className="text-xs font-medium text-accent">{stream.category}</span>
-                  <h3 className="font-semibold text-foreground mt-1 line-clamp-2">
-                    {stream.title}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-3">
-                    <img 
-                      src={stream.hostAvatar} 
-                      alt={stream.host}
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">{stream.host}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {stream.scheduledFor}
-                      </p>
+              {myLiveId ? (
+                <Button
+                  variant="destructive"
+                  onClick={handleEndLive}
+                  disabled={isTogglingLive}
+                  className="gap-2"
+                >
+                  {isTogglingLive
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <StopCircle className="h-4 w-4" />}
+                  End Live
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleStartLive}
+                  disabled={isTogglingLive}
+                  className="gap-2"
+                >
+                  {isTogglingLive
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Radio className="h-4 w-4" />}
+                  Go Live
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Error banner */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-6 flex items-center gap-3 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+            >
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              {error}
+              <button onClick={() => setError(null)} className="ml-auto">✕</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Sessions grid */}
+        {isLoadingSessions ? (
+          // Loading skeleton
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border border-border bg-card overflow-hidden animate-pulse">
+                <div className="aspect-video bg-muted" />
+                <div className="p-4 space-y-3">
+                  <div className="h-3 w-24 bg-muted rounded" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-32 bg-muted rounded" />
+                      <div className="h-2 w-20 bg-muted rounded" />
                     </div>
-                    <Button size="sm" variant="outline">
-                      Remind Me
-                    </Button>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
-        )}
-
-        {/* Past Streams */}
-        {activeTab === "past" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {pastStreams.map((stream, index) => (
-              <motion.div
-                key={stream.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="group rounded-xl overflow-hidden border border-border bg-card hover:shadow-lg transition-all cursor-pointer"
-              >
-                <div className="relative aspect-video">
-                  <img 
-                    src={stream.thumbnail} 
-                    alt={stream.title}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  
-                  <div className="absolute bottom-3 right-3 px-2 py-1 rounded bg-black/70 text-white text-xs">
-                    {stream.duration}
-                  </div>
-
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-14 h-14 rounded-full bg-accent/90 flex items-center justify-center">
-                      <Play className="h-7 w-7 text-accent-foreground ml-0.5" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <span className="text-xs font-medium text-accent">{stream.category}</span>
-                  <h3 className="font-semibold text-foreground mt-1 line-clamp-2">
-                    {stream.title}
-                  </h3>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={stream.hostAvatar} 
-                        alt={stream.host}
-                        className="w-8 h-8 rounded-full"
-                      />
-                      <p className="text-sm font-medium text-foreground">{stream.host}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {stream.viewers.toLocaleString()} views
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+        ) : liveSessions.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-24 text-center"
+          >
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Radio className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              No live sessions right now
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Sessions appear automatically when journalists go live.
+            </p>
+          </motion.div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {liveSessions.map((card) => (
+                <LiveStreamCard key={card.liveId} card={card} onWatch={handleWatch} />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </main>

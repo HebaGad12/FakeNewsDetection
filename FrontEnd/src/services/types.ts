@@ -1,9 +1,12 @@
 /**
- * Type definitions for API requests and responses
- * These should match your backend DTOs
+ * Type definitions for API requests and responses.
+ * These match the backend DTOs and SignalR event payloads.
  */
 
-// Common Types
+// ============================================================================
+// Common
+// ============================================================================
+
 export enum Role {
   Regular = 0,
   Journalist = 1,
@@ -12,12 +15,9 @@ export enum Role {
 }
 
 // ============================================================================
-// Authentication Types
+// Auth
 // ============================================================================
 
-/**
- * Registration request payload
- */
 export interface RegisterRequest {
   name: string;
   email: string;
@@ -27,17 +27,11 @@ export interface RegisterRequest {
   journalistId?: string;
 }
 
-/**
- * Login request payload
- */
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
-/**
- * Authentication response
- */
 export interface AuthResponse {
   token: string;
   userId: string;
@@ -46,17 +40,11 @@ export interface AuthResponse {
   role: string;
 }
 
-/**
- * Change password request payload
- */
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
 
-/**
- * User profile response (from /me endpoint)
- */
 export interface UserProfile {
   userId: string;
   name: string;
@@ -65,12 +53,9 @@ export interface UserProfile {
 }
 
 // ============================================================================
-// User Types
+// User
 // ============================================================================
 
-/**
- * Extended user profile with social stats
- */
 export interface UserProfileExtended {
   id: string;
   name: string;
@@ -80,9 +65,6 @@ export interface UserProfileExtended {
   followingCount: number;
 }
 
-/**
- * Edit user profile request
- */
 export interface EditProfileRequest {
   name: string;
   email: string;
@@ -96,9 +78,6 @@ export interface EditProfileResponse {
   profile?: string | null;
 }
 
-/**
- * User overview statistics
- */
 export interface UserOverview {
   likes: number;
   comments: number;
@@ -107,9 +86,6 @@ export interface UserOverview {
   followingJournalists: number;
 }
 
-/**
- * Following user item
- */
 export interface FollowingUser {
   id: string;
   name: string;
@@ -120,9 +96,6 @@ export interface FollowingUser {
   memberSince: string;
 }
 
-/**
- * Report post request
- */
 export interface ReportPostRequest {
   reason: string;
 }
@@ -135,12 +108,107 @@ export interface ReportPostResponse {
   reports: number;
 }
 
-/**
- * User activity item
- */
 export interface UserActivity {
   postId: string;
   actionType: string;
   target: string;
   timestamp: string;
+}
+
+// ============================================================================
+// Live — REST API types
+// ============================================================================
+
+/**
+ * Response from POST /api/Live/start-live
+ */
+export interface StartLiveResponse {
+  message: string;
+  liveId: string;
+}
+
+/**
+ * Response from GET /api/Live/join-live/{journalistId}
+ */
+export interface JoinLiveResponse {
+  liveId: string;
+  journalistId: string;
+}
+
+/**
+ * Response from POST /api/Live/end-live/{liveId}
+ */
+export interface EndLiveResponse {
+  message: string;
+}
+
+// ============================================================================
+// Live — UI display type
+// ============================================================================
+
+/**
+ * A live session card shown in the sessions list grid.
+ * journalistName / journalistAvatar come from the journalist's profile
+ * (fetched separately) or are enriched by the backend in the future.
+ */
+export interface LiveCard {
+  /** Live session GUID — used as the WebRTC / SignalR group channel name */
+  liveId: string;
+  /** Journalist's user GUID */
+  journalistId: string;
+  /** Display name */
+  journalistName: string;
+  /** Avatar URL or placeholder */
+  journalistAvatar: string;
+  /** UTC ISO when the session started */
+  startedAt: string;
+}
+
+// ============================================================================
+// Live — SignalR event payloads
+// ============================================================================
+
+/**
+ * Fired by the backend (LiveController) when a journalist starts a session.
+ * SignalR event name: "LiveStarted"
+ * Payload: liveId (Guid → string)
+ */
+export interface LiveStartedEvent {
+  liveId: string;
+}
+
+/**
+ * Fired by the backend (LiveController) when a journalist ends a session.
+ * SignalR event name: "LiveEnded"
+ * Payload: liveId (Guid → string)
+ */
+export interface LiveEndedEvent {
+  liveId: string;
+}
+
+// ============================================================================
+// Live — WebRTC state
+// ============================================================================
+
+/**
+ * Possible states of the WebRTC peer connection.
+ */
+export type WebRTCState =
+  | "idle"          // No connection attempted yet
+  | "connecting"    // Setting up the peer connection
+  | "connected"     // Media is flowing
+  | "disconnected"  // Connection dropped
+  | "error";        // Unrecoverable error
+
+/**
+ * A chat message received during a live session.
+ * Sent via SignalR hub method SendComment / event ReceiveComment.
+ */
+export interface LiveChatMessage {
+  /** Display name of the sender */
+  senderName: string;
+  /** Message text */
+  text: string;
+  /** Client-side timestamp */
+  timestamp: Date;
 }

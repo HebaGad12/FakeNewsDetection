@@ -13,6 +13,8 @@ const Index = lazy(() => import("./pages/Index"));
 const FeedPage = lazy(() => import("./pages/FeedPage"));
 const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
 const LivePage = lazy(() => import("./pages/LivePage"));
+const LiveBroadcastPage = lazy(() => import("./pages/LiveBroadcastPage"));
+const LiveWatchPage = lazy(() => import("./pages/LiveWatchPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -37,7 +39,14 @@ function AppRoutes() {
       <Route path="/feed" element={<FeedPage />} />
       <Route path="/article/:id" element={<PostDetailPage />} />
       <Route path="/communities" element={<CommunitiesPage />} />
+
+      {/* Live routes */}
       <Route path="/live" element={<LivePage />} />
+      {/* Journalist broadcast page — navigated to after startLive() succeeds */}
+      <Route path="/live/broadcast" element={<LiveBroadcastPage />} />
+      {/* Viewer watch page — :journalistId is the journalist's user GUID */}
+      <Route path="/live/watch/:journalistId" element={<LiveWatchPage />} />
+
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />

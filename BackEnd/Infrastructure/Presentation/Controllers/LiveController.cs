@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 
 namespace Presentation.Controllers
 {
-
     [ApiController]
     [Route("api/[controller]")]
     public class LiveController : ControllerBase
@@ -86,7 +85,29 @@ namespace Presentation.Controllers
             return Ok(new { Message = "Live ended" });
         }
 
+        /// <summary>
+        /// Get all currently active live sessions with journalist info.
+        /// Called by the frontend when LivePage first loads to populate
+        /// the sessions grid — covers users who open the page after
+        /// a session has already started (SignalR only catches new events).
+        /// </summary>
+        [HttpGet("active-sessions")]
+        [Authorize]
+        public async Task<ActionResult> GetActiveSessions()
+        {
+            var sessions = await _context.LiveSessions
+                .Where(l => l.IsActive)
+                .Include(l => l.Journalist)
+                .Select(l => new
+                {
+                    LiveId = l.Id,
+                    JournalistId = l.JournalistId,
+                    JournalistName = l.Journalist.Name,
+                    StartedAt = l.StartedAt
+                })
+                .ToListAsync();
+
+            return Ok(sessions);
+        }
     }
-
-
 }

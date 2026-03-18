@@ -1,3 +1,6 @@
+
+
+
 // App Configuration
 export const APP_NAME = "TruthTrack";
 export const APP_DESCRIPTION = "AI-Powered News Verification Platform";
@@ -83,3 +86,19 @@ export const BREAKPOINTS = {
   xl: 1280,
   "2xl": 1536,
 } as const;
+  
+// ============================================================================
+// ADD THESE TWO LINES to your existing src/lib/constants.ts file
+// ============================================================================
+
+// SignalR hub URL — matches app.MapHub<LiveHub>("/livehub") in Program.cs
+export const SIGNALR_HUB_URL = "http://localhost:5173/livehub";
+// Change the base to your actual backend URL in production, e.g.:
+// export const SIGNALR_HUB_URL = "https://yourapi.com/livehub";
+
+// WebRTC STUN server — used for peer discovery across networks
+// You can use Google's free STUN server for development
+export const STUN_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+];

@@ -143,9 +143,11 @@ class PostsService {
    */
   async hasUserLikedPost(postId: string): Promise<boolean> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await apiClient.get<any[]>("/user/activity");
       if (!Array.isArray(response)) return false;
       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return response.some((activity: any) => 
         activity.actionType === "Like" && activity.postId === postId
       );
