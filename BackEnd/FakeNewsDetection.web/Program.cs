@@ -33,7 +33,7 @@ namespace FakeNewsDetection.web
             });
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("kaarem")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("Ezzat")));
 
             builder.Services.AddAuthentication(options =>
             {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -456,36 +456,77 @@ function ReportModal({
 // ─── Create Post Form ─────────────────────────────────────────────────────────
 
 function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
+  type SelectedMedia = {
+    id: string;
+    file: File;
+    preview: string;
+    isCopyrighted: boolean;
+  };
+
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ postId: string; moderationStatus: string } | null>(null);
   const [error, setError] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isImageCopyrighted, setIsImageCopyrighted] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
+  const selectedMediaRef = useRef<SelectedMedia[]>([]);
   const [dragActive, setDragActive] = useState(false);
 
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_MEDIA_ITEMS = 10;
 
-  const handleImageSelect = (file: File) => {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      toast.error("Please upload a valid image (JPEG, PNG, WebP, or GIF)");
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("Image size must be less than 5MB");
-      return;
+  const handleImageSelect = (incomingFiles: FileList | File[]) => {
+    const files = Array.from(incomingFiles);
+    if (files.length === 0) return;
+
+    const additions: SelectedMedia[] = [];
+
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        toast.error(`Unsupported file type: ${file.name}`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} exceeds 5MB`);
+        continue;
+      }
+
+      const duplicateExists = [...selectedMedia, ...additions].some(
+        (m) =>
+          m.file.name === file.name &&
+          m.file.size === file.size &&
+          m.file.lastModified === file.lastModified
+      );
+
+      if (duplicateExists) continue;
+
+      additions.push({
+        id: crypto.randomUUID(),
+        file,
+        preview: URL.createObjectURL(file),
+        isCopyrighted: false,
+      });
     }
 
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (additions.length === 0) return;
+
+    setSelectedMedia((prev) => {
+      const remainingSlots = Math.max(0, MAX_MEDIA_ITEMS - prev.length);
+      if (remainingSlots === 0) {
+        additions.forEach((item) => URL.revokeObjectURL(item.preview));
+        toast.error(`You can upload up to ${MAX_MEDIA_ITEMS} images per post`);
+        return prev;
+      }
+
+      if (additions.length > remainingSlots) {
+        additions.slice(remainingSlots).forEach((item) => URL.revokeObjectURL(item.preview));
+        toast.warning(`Only ${remainingSlots} more image(s) can be added`);
+      }
+
+      return [...prev, ...additions.slice(0, remainingSlots)];
+    });
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -503,48 +544,70 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageSelect(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleImageSelect(e.dataTransfer.files);
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageSelect(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleImageSelect(e.target.files);
     }
+    e.target.value = "";
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    setIsImageCopyrighted(false);
+  const removeImage = (id: string) => {
+    setSelectedMedia((prev) => {
+      const item = prev.find((m) => m.id === id);
+      if (item) URL.revokeObjectURL(item.preview);
+      return prev.filter((m) => m.id !== id);
+    });
   };
+
+  const toggleImageCopyright = (id: string, value: boolean) => {
+    setSelectedMedia((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, isCopyrighted: value } : item
+      )
+    );
+  };
+
+  useEffect(() => {
+    selectedMediaRef.current = selectedMedia;
+  }, [selectedMedia]);
+
+  useEffect(() => {
+    return () => {
+      selectedMediaRef.current.forEach((item) => URL.revokeObjectURL(item.preview));
+    };
+  }, []);
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) return;
     setLoading(true);
     setError("");
     try {
-      // Step 1: Upload image if one was selected
-      let media = undefined;
-      if (imageFile) {
+      // Step 1: Upload selected images
+      let media: { path: string; mediaType: "image"; isCopyrighted: boolean }[] | undefined;
+      if (selectedMedia.length > 0) {
         try {
-          const uploadResponse = await journalistService.uploadFile(imageFile);
-          media = [
-            {
+          media = [];
+          for (const item of selectedMedia) {
+            const uploadResponse = await journalistService.uploadFile(item.file);
+            media.push({
               path: uploadResponse.path,
               mediaType: "image",
-              isCopyrighted: isImageCopyrighted,
-            },
-          ];
+              isCopyrighted: item.isCopyrighted,
+            });
+          }
         } catch (uploadErr: any) {
-          console.error("Failed to upload image:", uploadErr);
+          console.error("Failed to upload media:", uploadErr);
           const uploadErrorMessage =
             uploadErr.response?.data?.message ||
             uploadErr.response?.data?.error ||
             uploadErr.message ||
-            "Failed to upload image";
-          setError(`Image upload failed: ${uploadErrorMessage}`);
+            "Failed to upload media";
+          setError(`Media upload failed: ${uploadErrorMessage}`);
           setLoading(false);
           return;
         }
@@ -594,9 +657,8 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             setTitle("");
             setContent("");
             setTags("");
-            setImageFile(null);
-            setImagePreview(null);
-            setIsImageCopyrighted(false);
+            selectedMedia.forEach((item) => URL.revokeObjectURL(item.preview));
+            setSelectedMedia([]);
             setResult(null);
           }}
           className="mt-4 text-sm text-accent hover:underline"
@@ -642,63 +704,79 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
 
       {/* Image Upload Section */}
       <div className="border-t border-border pt-4">
-        <label className="text-sm font-medium text-foreground mb-2 block">Featured Image</label>
-        {imagePreview ? (
-          <div className="relative rounded-lg overflow-hidden mb-3">
-            <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
-            <button
-              onClick={removeImage}
-              className="absolute top-2 right-2 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors"
-              type="button"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-              dragActive ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
-            }`}
-          >
-            <input
-              type="file"
-              id="image-upload-form"
-              accept={ALLOWED_IMAGE_TYPES.join(",")}
-              onChange={handleFileInputChange}
-              className="hidden"
-            />
-            <label htmlFor="image-upload-form" className="cursor-pointer block">
-              <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground mb-1">
-                Drag and drop an image or
-              </p>
-              <Button variant="outline" size="sm" type="button">
-                Browse Files
-              </Button>
-            </label>
-            <p className="text-xs text-muted-foreground mt-2">
-              Supported: JPEG, PNG, WebP, GIF (Max 5MB)
-            </p>
+        <label className="text-sm font-medium text-foreground mb-2 block">
+          Media Upload ({selectedMedia.length}/{MAX_MEDIA_ITEMS})
+        </label>
+
+        {selectedMedia.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            {selectedMedia.map((item) => (
+              <div key={item.id} className="relative rounded-lg border border-border bg-muted/30 p-2">
+                <img
+                  src={item.preview}
+                  alt={item.file.name}
+                  className="w-full h-32 object-cover rounded-md"
+                />
+                <button
+                  onClick={() => removeImage(item.id)}
+                  className="absolute top-3 right-3 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors"
+                  type="button"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground truncate" title={item.file.name}>
+                    {item.file.name}
+                  </p>
+                  <label className="mt-1 flex items-center gap-2 text-xs text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={item.isCopyrighted}
+                      onChange={(e) => toggleImageCopyright(item.id, e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-border"
+                    />
+                    Copyrighted
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
+        <div
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+            dragActive ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
+          }`}
+        >
           <input
-            type="checkbox"
-            checked={isImageCopyrighted}
-            onChange={(e) => setIsImageCopyrighted(e.target.checked)}
-            disabled={!imageFile}
-            className="h-4 w-4 rounded border-border disabled:opacity-50"
+            type="file"
+            id="image-upload-form"
+            accept={ALLOWED_IMAGE_TYPES.join(",")}
+            onChange={handleFileInputChange}
+            className="hidden"
+            multiple
           />
-          Mark this image as copyrighted (only you can reuse it)
+          <label htmlFor="image-upload-form" className="cursor-pointer block">
+            <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+            <p className="text-xs text-muted-foreground mb-1">
+              Drag and drop one or more images, or
+            </p>
+            <Button variant="outline" size="sm" type="button">
+              Browse Files
+            </Button>
+          </label>
+          <p className="text-xs text-muted-foreground mt-2">
+            Supported: JPEG, PNG, WebP, GIF (Max 5MB each, up to {MAX_MEDIA_ITEMS} files)
+          </p>
+        </div>
+
+        <label className="mt-3 block text-xs text-muted-foreground">
+          You can set copyright per image in the preview cards.
         </label>
-        {!imageFile && (
-          <p className="text-xs text-muted-foreground">Upload an image to enable this option.</p>
-        )}
       </div>
 
       {error && (
