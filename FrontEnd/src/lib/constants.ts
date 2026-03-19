@@ -91,10 +91,9 @@ export const BREAKPOINTS = {
 // ADD THESE TWO LINES to your existing src/lib/constants.ts file
 // ============================================================================
 
-// SignalR hub URL — matches app.MapHub<LiveHub>("/livehub") in Program.cs
-export const SIGNALR_HUB_URL = "http://localhost:5173/livehub";
-// Change the base to your actual backend URL in production, e.g.:
-// export const SIGNALR_HUB_URL = "https://yourapi.com/livehub";
+// SignalR hub URL — uses the API origin and maps to /livehub on backend
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+export const SIGNALR_HUB_URL = `${API_ORIGIN}/livehub`;
 
 // WebRTC STUN server — used for peer discovery across networks
 // You can use Google's free STUN server for development

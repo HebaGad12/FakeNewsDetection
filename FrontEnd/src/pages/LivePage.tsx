@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSignalR } from "@/hooks/useSignalR";
 import { liveService } from "@/services/liveService";
-import { AUTH_TOKEN_KEY } from "@/lib/constants";
+import { getAuthToken } from "@/lib/authStorage";
 import type { LiveCard } from "@/services/types";
 
 // ============================================================================
@@ -26,7 +26,7 @@ const JOURNALIST_ROLE = "Journalist";
 
 function getAuthUser(): { userId: string; role: string; name: string } | null {
   try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const token = getAuthToken();
     if (!token) return null;
     const payload = JSON.parse(atob(token.split(".")[1]));
     return {
@@ -234,8 +234,20 @@ const LivePage = () => {
   const handleWatch = async (card: LiveCard) => {
     setError(null);
     try {
+      let journalistId = card.journalistId;
+      if (!journalistId) {
+        const refreshedSessions = await liveService.getActiveSessions();
+        setLiveSessions(refreshedSessions);
+        journalistId =
+          refreshedSessions.find((s) => s.liveId === card.liveId)?.journalistId ?? "";
+      }
+
+      if (!journalistId) {
+        throw new Error("Live session metadata is unavailable.");
+      }
+
       // Verify the session is still active before navigating
-      const res = await liveService.joinLive(card.journalistId || card.liveId);
+      const res = await liveService.joinLive(journalistId);
       navigate(`/live/watch/${res.journalistId}`, {
         state: { liveId: res.liveId },
       });

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useSignalR } from "@/hooks/useSignalR";
 import { useWebRTCViewer } from "@/hooks/useWebRTCViewer";
 import { liveService } from "@/services/liveService";
-import { AUTH_TOKEN_KEY } from "@/lib/constants";
+import { getAuthToken } from "@/lib/authStorage";
 import type { LiveChatMessage } from "@/services/types";
 
 // ============================================================================
@@ -19,7 +19,7 @@ import type { LiveChatMessage } from "@/services/types";
 
 function getAuthUser(): { userId: string; name: string } | null {
   try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const token = getAuthToken();
     if (!token) return null;
     const payload = JSON.parse(atob(token.split(".")[1]));
     return {
@@ -74,6 +74,20 @@ const LiveWatchPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLeaving, setIsLeaving] = useState(false);
 
+  const appendUniqueMessage = useCallback((senderName: string, text: string) => {
+    setChatMessages((prev) => {
+      const last = prev[prev.length - 1];
+      const isDuplicate =
+        !!last
+        && last.senderName === senderName
+        && last.text === text
+        && Date.now() - new Date(last.timestamp).getTime() < 1500;
+
+      if (isDuplicate) return prev;
+      return [...prev, { senderName, text, timestamp: new Date() }];
+    });
+  }, []);
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -115,11 +129,8 @@ const LiveWatchPage = () => {
      * "ReceiveComment" — another viewer or the journalist sent a chat message.
      */
     onReceiveComment: useCallback((senderName: string, text: string) => {
-      setChatMessages((prev) => [
-        ...prev,
-        { senderName, text, timestamp: new Date() },
-      ]);
-    }, []),
+      appendUniqueMessage(senderName, text);
+    }, [appendUniqueMessage]),
 
     /**
      * "LiveEnded" — journalist ended the session while we're watching.
@@ -201,11 +212,6 @@ const LiveWatchPage = () => {
     if (!text || !liveId) return;
 
     await sendComment(liveId, text);
-
-    setChatMessages((prev) => [
-      ...prev,
-      { senderName: user?.name ?? "You", text, timestamp: new Date() },
-    ]);
     setChatInput("");
   };
 

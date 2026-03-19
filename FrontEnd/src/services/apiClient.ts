@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { API_BASE_URL, API_TIMEOUT, AUTH_TOKEN_KEY } from "@/lib/constants";
+import { API_BASE_URL, API_TIMEOUT } from "@/lib/constants";
+import { clearAuthToken, getAuthToken } from "@/lib/authStorage";
 
 /**
  * API Client - Base configuration for all API calls
@@ -19,7 +20,7 @@ class ApiClient {
     // Request interceptor - Add auth token to requests
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        const token = getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -42,7 +43,7 @@ class ApiClient {
           // Do NOT redirect if the request was to the login endpoint
           const isLoginRequest = error.config.url?.includes('/auth/login');
           if (!isLoginRequest) {
-            localStorage.removeItem(AUTH_TOKEN_KEY);
+            clearAuthToken();
             window.location.href = "/login";
           }
         }

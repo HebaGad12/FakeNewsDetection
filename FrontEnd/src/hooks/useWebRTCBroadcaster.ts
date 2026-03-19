@@ -38,6 +38,8 @@ interface UseWebRTCBroadcasterReturn {
   handleAnswer: (answer: string) => Promise<void>;
   /** Handle an ICE candidate received from a viewer via SignalR */
   handleRemoteIceCandidate: (candidate: string) => Promise<void>;
+  /** Re-send a fresh SDP offer (used when viewers join after initial offer) */
+  resendOffer: () => Promise<void>;
   /** Toggle camera track on/off */
   toggleCamera: () => void;
   /** Toggle microphone track on/off */
@@ -82,6 +84,19 @@ export function useWebRTCBroadcaster({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+
+  // --------------------------------------------------------------------------
+  // Send/re-send SDP offer
+  // --------------------------------------------------------------------------
+
+  const resendOffer = useCallback(async () => {
+    const pc = peerConnectionRef.current;
+    if (!pc) return;
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await sendOffer(liveId, JSON.stringify(offer));
+  }, [liveId, sendOffer]);
 
   // --------------------------------------------------------------------------
   // Start broadcast
@@ -136,11 +151,8 @@ export function useWebRTCBroadcaster({
       };
 
       // Step 6: Create SDP offer and set as local description
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
       // Step 7: Send the offer to all viewers via SignalR
-      await sendOffer(liveId, JSON.stringify(offer));
+      await resendOffer();
 
       setWebRTCState("connected");
     } catch (err) {
@@ -148,7 +160,7 @@ export function useWebRTCBroadcaster({
       setWebRTCState("error");
       throw err;
     }
-  }, [liveId, sendOffer, sendIceCandidate]);
+  }, [resendOffer, liveId, sendIceCandidate]);
 
   // --------------------------------------------------------------------------
   // Stop broadcast
@@ -243,6 +255,7 @@ export function useWebRTCBroadcaster({
     stopBroadcast,
     handleAnswer,
     handleRemoteIceCandidate,
+    resendOffer,
     toggleCamera,
     toggleMic,
   };

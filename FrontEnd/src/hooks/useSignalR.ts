@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
-import { AUTH_TOKEN_KEY, SIGNALR_HUB_URL } from "@/lib/constants";
-import type { LiveCard } from "@/services/types";
+import { SIGNALR_HUB_URL } from "@/lib/constants";
+import { getAuthToken } from "@/lib/authStorage";
 
 // ============================================================================
 // Types
@@ -20,6 +20,10 @@ interface UseSignalROptions {
   onReceiveIceCandidate?: (candidate: string) => void;
   /** Called when a chat comment arrives */
   onReceiveComment?: (senderName: string, text: string) => void;
+  /** Called when a viewer joins an active live session */
+  onViewerJoined?: (liveId: string) => void;
+  /** Called when live viewer count changes */
+  onViewerCountUpdated?: (liveId: string, count: number) => void;
 }
 
 interface UseSignalRReturn {
@@ -67,6 +71,7 @@ interface UseSignalRReturn {
 export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
   const [isConnected, setIsConnected] = useState(false);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const startPromiseRef = useRef<Promise<void> | null>(null);
 
   // Keep callbacks in refs so they never cause the effect to re-run
   const optionsRef = useRef(options);
@@ -79,16 +84,18 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
   // --------------------------------------------------------------------------
 
   useEffect(() => {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    let isDisposed = false;
 
     const conn = new signalR.HubConnectionBuilder()
       .withUrl(SIGNALR_HUB_URL, {
         // Pass JWT so the hub can identify the caller
-        accessTokenFactory: () => token ?? "",
+        accessTokenFactory: () => getAuthToken() ?? "",
       })
       .withAutomaticReconnect()
       .configureLogging(signalR.LogLevel.Warning)
       .build();
+
+    connectionRef.current = conn;
 
     // ── Incoming events from the backend ─────────────────────────────────────
 
@@ -140,25 +147,74 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
       optionsRef.current.onReceiveComment?.(senderName, text);
     });
 
+    /**
+     * "ViewerJoined" — fired when a viewer follows a journalist with an active live.
+     * Useful for re-sending WebRTC offers to late joiners.
+     */
+    conn.on("ViewerJoined", (liveId: string) => {
+      optionsRef.current.onViewerJoined?.(liveId);
+    });
+
+    conn.on("ViewerCountUpdated", (liveId: string, count: number) => {
+      optionsRef.current.onViewerCountUpdated?.(liveId, count);
+    });
+
     // ── Connection state handlers ─────────────────────────────────────────────
 
     conn.onreconnected(() => setIsConnected(true));
     conn.onreconnecting(() => setIsConnected(false));
     conn.onclose(() => setIsConnected(false));
 
-    conn
-      .start()
-      .then(() => {
-        setIsConnected(true);
-        connectionRef.current = conn;
-      })
-      .catch((err) => {
-        console.error("[SignalR] Connection failed:", err);
-        setIsConnected(false);
-      });
+    const shouldIgnoreStartupError = (error: unknown): boolean => {
+      if (isDisposed) return true;
+      const message =
+        error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      return message.includes("stopped during negotiation");
+    };
+
+    const startWithRetry = async (): Promise<void> => {
+      const maxAttempts = 2;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        if (isDisposed) return;
+
+        try {
+          await conn.start();
+          if (isDisposed) {
+            await conn.stop();
+            return;
+          }
+          setIsConnected(true);
+          return;
+        } catch (err) {
+          if (shouldIgnoreStartupError(err)) {
+            setIsConnected(false);
+            return;
+          }
+
+          if (attempt >= maxAttempts) {
+            console.error("[SignalR] Connection failed:", err);
+            setIsConnected(false);
+            throw err;
+          }
+
+          // Brief backoff for transient startup races/network hiccups.
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+    };
+
+    const startPromise = startWithRetry();
+
+    startPromiseRef.current = startPromise;
 
     return () => {
-      conn.stop();
+      isDisposed = true;
+      startPromiseRef.current = null;
+      connectionRef.current = null;
+      conn.stop().catch(() => {
+        // Connection can already be disposed during strict-mode remount cycles.
+      });
     };
   }, []); // Run once on mount
 
@@ -166,28 +222,56 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
   // Outgoing hub method invokers
   // --------------------------------------------------------------------------
 
-  const followJournalist = useCallback(async (journalistId: string) => {
-    await connectionRef.current?.invoke("FollowJournalist", journalistId);
-  }, []);
+  const invokeWhenConnected = useCallback(
+    async (methodName: string, ...args: string[]) => {
+      const conn = connectionRef.current;
+      if (!conn) {
+        throw new Error("SignalR connection is not initialized yet.");
+      }
 
-  const sendOffer = useCallback(async (liveId: string, offer: string) => {
-    await connectionRef.current?.invoke("SendOffer", liveId, offer);
-  }, []);
+      if (conn.state !== signalR.HubConnectionState.Connected) {
+        if (startPromiseRef.current) {
+          await startPromiseRef.current;
+        }
 
-  const sendAnswer = useCallback(async (liveId: string, answer: string) => {
-    await connectionRef.current?.invoke("SendAnswer", liveId, answer);
-  }, []);
+        if (conn.state === signalR.HubConnectionState.Disconnected) {
+          await conn.start();
+          setIsConnected(true);
+        }
+      }
 
-  const sendIceCandidate = useCallback(
-    async (liveId: string, candidate: string) => {
-      await connectionRef.current?.invoke("SendIceCandidate", liveId, candidate);
+      if (conn.state !== signalR.HubConnectionState.Connected) {
+        throw new Error(`SignalR is not connected. Current state: ${conn.state}`);
+      }
+
+      await conn.invoke(methodName, ...args);
     },
     []
   );
 
+  const followJournalist = useCallback(async (journalistId: string) => {
+    await invokeWhenConnected("FollowJournalist", journalistId);
+  }, [invokeWhenConnected]);
+
+  const sendOffer = useCallback(async (liveId: string, offer: string) => {
+    await invokeWhenConnected("SendOffer", liveId, offer);
+  }, [invokeWhenConnected]);
+
+  const sendAnswer = useCallback(async (liveId: string, answer: string) => {
+    await invokeWhenConnected("SendAnswer", liveId, answer);
+  }, [invokeWhenConnected]);
+
+  const sendIceCandidate = useCallback(
+    async (liveId: string, candidate: string) => {
+      await invokeWhenConnected("SendIceCandidate", liveId, candidate);
+    },
+    [invokeWhenConnected]
+  );
+
   const sendComment = useCallback(async (liveId: string, comment: string) => {
-    await connectionRef.current?.invoke("SendComment", liveId, comment);
-  }, []);
+    await invokeWhenConnected("SendComment", liveId, comment);
+  }, [invokeWhenConnected]);
+  
 
   return {
     isConnected,

@@ -79,6 +79,9 @@ export function useWebRTCViewer({
       setWebRTCState("connecting");
 
       try {
+        // Replace any stale peer connection before processing a new offer.
+        peerConnectionRef.current?.close();
+
         // Step 1: Create peer connection
         const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
         peerConnectionRef.current = pc;

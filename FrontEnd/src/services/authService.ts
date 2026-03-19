@@ -1,6 +1,6 @@
 import apiClient from "./apiClient";
 import { RegisterRequest, LoginRequest, AuthResponse, ChangePasswordRequest, UserProfile } from "./types";
-import { AUTH_TOKEN_KEY } from "@/lib/constants";
+import { clearAuthToken, getAuthToken, setAuthToken } from "@/lib/authStorage";
 
 /**
  * Authentication Service
@@ -15,9 +15,9 @@ class AuthService {
   async register(data: RegisterRequest): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>("/auth/register", data);
     
-    // Store token in localStorage
+    // Store token in sessionStorage so each tab can use a different user
     if (response.token) {
-      localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+      setAuthToken(response.token);
     }
     
     return response;
@@ -31,9 +31,9 @@ class AuthService {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>("/auth/login", data);
     
-    // Store token in localStorage
+    // Store token in sessionStorage so each tab can use a different user
     if (response.token) {
-      localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+      setAuthToken(response.token);
     }
     
     return response;
@@ -41,10 +41,10 @@ class AuthService {
 
   /**
    * Logout the current user
-   * Removes the authentication token from localStorage
+   * Removes the authentication token from storage
    */
   logout(): void {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    clearAuthToken();
   }
 
   /**
@@ -52,7 +52,7 @@ class AuthService {
    * @returns boolean - True if user has a valid token
    */
   isAuthenticated(): boolean {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const token = getAuthToken();
     return !!token;
   }
 
@@ -61,7 +61,7 @@ class AuthService {
    * @returns string | null - The stored token or null if not authenticated
    */
   getToken(): string | null {
-    return localStorage.getItem(AUTH_TOKEN_KEY);
+    return getAuthToken();
   }
 
   /**

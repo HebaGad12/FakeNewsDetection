@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useSignalR } from "@/hooks/useSignalR";
 import { useWebRTCBroadcaster } from "@/hooks/useWebRTCBroadcaster";
 import { liveService } from "@/services/liveService";
-import { AUTH_TOKEN_KEY } from "@/lib/constants";
+import { getAuthToken } from "@/lib/authStorage";
 import type { LiveChatMessage } from "@/services/types";
 
 // ============================================================================
@@ -20,7 +20,7 @@ import type { LiveChatMessage } from "@/services/types";
 
 function getAuthUser(): { userId: string; name: string } | null {
   try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const token = getAuthToken();
     if (!token) return null;
     const payload = JSON.parse(atob(token.split(".")[1]));
     return {
@@ -71,6 +71,20 @@ const LiveBroadcastPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEnding, setIsEnding] = useState(false);
 
+  const appendUniqueMessage = useCallback((senderName: string, text: string) => {
+    setChatMessages((prev) => {
+      const last = prev[prev.length - 1];
+      const isDuplicate =
+        !!last
+        && last.senderName === senderName
+        && last.text === text
+        && Date.now() - new Date(last.timestamp).getTime() < 1500;
+
+      if (isDuplicate) return prev;
+      return [...prev, { senderName, text, timestamp: new Date() }];
+    });
+  }, []);
+
   // --------------------------------------------------------------------------
   // SignalR — receive WebRTC signals from viewers + chat
   // --------------------------------------------------------------------------
@@ -84,7 +98,6 @@ const LiveBroadcastPage = () => {
       onReceiveAnswer: useCallback(
         (answer: string) => {
           handleAnswer(answer);
-          setViewerCount((v) => v + 1);
         },
         // handleAnswer is defined below — we use a ref trick to avoid circular deps
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,11 +116,29 @@ const LiveBroadcastPage = () => {
        * "ReceiveComment" — a viewer sent a chat message.
        */
       onReceiveComment: useCallback((senderName: string, text: string) => {
-        setChatMessages((prev) => [
-          ...prev,
-          { senderName, text, timestamp: new Date() },
-        ]);
-      }, []),
+        appendUniqueMessage(senderName, text);
+      }, [appendUniqueMessage]),
+
+      /**
+       * "ViewerJoined" — a viewer opened the watch page after we already went live.
+       * Re-send offer so they can complete WebRTC handshake.
+       */
+      onViewerJoined: useCallback(
+        (joinedLiveId: string) => {
+          if (joinedLiveId !== liveId) return;
+          resendOffer().catch((err) => {
+            console.error("[LiveBroadcast] Failed to resend offer:", err);
+          });
+        },
+        // resendOffer is declared below; callback executes later after render
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [liveId]
+      ),
+
+      onViewerCountUpdated: useCallback((updatedLiveId: string, count: number) => {
+        if (updatedLiveId !== liveId) return;
+        setViewerCount(count);
+      }, [liveId]),
     });
 
   // --------------------------------------------------------------------------
@@ -123,6 +154,7 @@ const LiveBroadcastPage = () => {
     stopBroadcast,
     handleAnswer,
     handleRemoteIceCandidate,
+    resendOffer,
     toggleCamera,
     toggleMic,
   } = useWebRTCBroadcaster({
@@ -143,18 +175,23 @@ const LiveBroadcastPage = () => {
     }
 
     // Join our own SignalR group so we receive viewer signals
-    if (user?.userId) {
-      followJournalist(user.userId);
-    }
+    const initBroadcast = async () => {
+      try {
+        if (user?.userId) {
+          await followJournalist(user.userId);
+        }
 
-    // Start broadcasting
-    startBroadcast().catch((err) => {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not access camera or microphone."
-      );
-    });
+        await startBroadcast();
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Could not access camera or microphone."
+        );
+      }
+    };
+
+    initBroadcast();
 
     // Cleanup: stop broadcast if the component unmounts (e.g., navigate away)
     return () => {
@@ -188,12 +225,6 @@ const LiveBroadcastPage = () => {
     if (!text || !liveId) return;
 
     await sendComment(liveId, text);
-
-    // Add own message to local chat
-    setChatMessages((prev) => [
-      ...prev,
-      { senderName: user?.name ?? "You", text, timestamp: new Date() },
-    ]);
     setChatInput("");
   };
 

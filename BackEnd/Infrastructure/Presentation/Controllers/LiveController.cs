@@ -51,7 +51,7 @@ namespace Presentation.Controllers
         }
 
         [HttpGet("join-live/{journalistId}")]
-        [Authorize(Roles = "User,Journalist")]
+        [Authorize(Roles = "Regular,Journalist")]
         public async Task<ActionResult> JoinLive(Guid journalistId)
         {
             var live = await _context.LiveSessions

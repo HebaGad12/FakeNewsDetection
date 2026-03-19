@@ -33,7 +33,7 @@ namespace FakeNewsDetection.web
             });
 
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("sohila")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("Ezzat")));
 
             builder.Services.AddAuthentication(options =>
             {
@@ -53,6 +53,24 @@ namespace FakeNewsDetection.web
                     ValidAudience = cfg["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(cfg["Key"]!))
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        // SignalR browsers send JWT via query string for WebSockets/SSE.
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        if (!string.IsNullOrWhiteSpace(accessToken)
+                            && path.StartsWithSegments("/livehub"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
                 };
             });
 
