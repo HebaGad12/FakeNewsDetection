@@ -3,29 +3,16 @@ using System.Collections.Generic;
 namespace Shared.DTOs
 {
     /// <summary>
-    /// Request body for adding media to an existing post.
-    /// The journalist supplies file paths (already uploaded to storage)
-    /// plus optional copyright flags for images.
+    /// Request for adding media to an existing post via multipart/form-data.
+    /// The frontend sends the actual image files, not paths.
+    /// IsCopyrightedFlags is a parallel list matching the order of uploaded files.
     /// </summary>
-    public record AddPostMediaRequest(List<MediaItemRequest> MediaItems);
-
-    /// <summary>
-    /// A single media item within the upload request.
-    /// </summary>
-    /// <param name="Path">
-    ///     Relative or absolute path of the file on the server / CDN.
-    ///     Example: "uploads/posts/abc123/photo.jpg"
-    /// </param>
-    /// <param name="MediaType">
-    ///     "image" or "video". Only "image" items may set IsCopyrighted = true.
-    /// </param>
-    /// <param name="IsCopyrighted">
-    ///     Meaningful only when MediaType is "image".
-    ///     Set to true if the journalist declares the image is copyrighted.
-    /// </param>
-    public record MediaItemRequest(
-        string Path,
-        string MediaType,
-        bool IsCopyrighted = false
-    );
+    public class AddPostMediaRequest
+    {
+        /// <summary>
+        /// Optional copyright flags for each uploaded image, in the same order as the files.
+        /// Defaults to false for any index not provided.
+        /// </summary>
+        public List<bool>? IsCopyrightedFlags { get; set; }
+    }
 }

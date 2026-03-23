@@ -8,6 +8,7 @@ using ServicesAbstraction;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -26,6 +27,27 @@ namespace Presentation.Controllers
         private readonly IToxicityService _toxicity;
         private readonly IFactCheckerService _factChecker;
         private readonly IImageCopyrightService _copyright;
+
+        // Allowed image MIME types
+        private static readonly string[] AllowedImageTypes =
+            { "image/jpeg", "image/png", "image/webp", "image/gif" };
+
+        // Allowed video MIME types
+        private static readonly string[] AllowedVideoTypes =
+            { "video/mp4", "video/webm", "video/ogg", "video/quicktime" };
+
+        // Map MIME type → file extension
+        private static readonly Dictionary<string, string> MimeToExt = new()
+        {
+            ["image/jpeg"]      = ".jpg",
+            ["image/png"]       = ".png",
+            ["image/webp"]      = ".webp",
+            ["image/gif"]       = ".gif",
+            ["video/mp4"]       = ".mp4",
+            ["video/webm"]      = ".webm",
+            ["video/ogg"]       = ".ogv",
+            ["video/quicktime"] = ".mov",
+        };
 
         public JournalistController(
             IUserRepository users,
@@ -47,7 +69,30 @@ namespace Presentation.Controllers
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        private static string ResolveServerPath(string mediaPath)
+        /// <summary>
+        /// Saves an uploaded image file to media/posts/{mediaId}{ext} and returns the
+        /// relative URL path that gets stored in the database.
+        /// </summary>
+        private async Task<(string relativePath, string absolutePath)> SaveMediaFileAsync(
+            IFormFile file, Guid mediaId)
+        {
+            var ext = MimeToExt.TryGetValue(file.ContentType.ToLower(), out var e) ? e
+                      : Path.GetExtension(file.FileName).ToLower();
+
+            var fileName    = $"{mediaId}{ext}";
+            var absoluteDir = Path.Combine(Directory.GetCurrentDirectory(), "media", "posts");
+            Directory.CreateDirectory(absoluteDir);
+
+            var absolutePath = Path.Combine(absoluteDir, fileName);
+            var relativePath = $"media/posts/{fileName}";   // stored in DB & returned to client
+
+            await using var stream = new FileStream(absolutePath, FileMode.Create);
+            await file.CopyToAsync(stream);
+
+            return (relativePath, absolutePath);
+        }
+
+        private static string ResolveAbsolutePath(string mediaPath)
         {
             var trimmed = mediaPath.Trim();
             if (Path.IsPathRooted(trimmed))
@@ -60,49 +105,7 @@ namespace Presentation.Controllers
             return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), normalized));
         }
 
-        private async Task<(List<object> CrossOwnerMatches, bool HasUnresolvedMatches)> AnalyzeCopyrightMatchesAsync(
-            CopyrightCheckResult check,
-            Guid requesterId)
-        {
-            var crossOwnerMatches = new List<object>();
-            var hasUnresolvedMatches = false;
-
-            foreach (var match in check.Matches)
-            {
-                if (!Guid.TryParse(match.Id, out var mediaId))
-                {
-                    hasUnresolvedMatches = true;
-                    continue;
-                }
-
-                var media = await _media.GetByIdAsync(mediaId);
-                if (media == null)
-                {
-                    hasUnresolvedMatches = true;
-                    continue;
-                }
-
-                var ownerPost = await _posts.GetByIdAsync(media.PostId);
-                if (ownerPost == null)
-                {
-                    hasUnresolvedMatches = true;
-                    continue;
-                }
-
-                if (ownerPost.AuthorId == requesterId)
-                    continue;
-
-                crossOwnerMatches.Add(new
-                {
-                    MediaId = media.Id,
-                    Path = media.Path,
-                    OwnerId = ownerPost.AuthorId,
-                    match.Similarity
-                });
-            }
-
-            return (crossOwnerMatches, hasUnresolvedMatches);
-        }
+        // ── Profile ────────────────────────────────────────────────────────
 
         [HttpGet("me")]
         public async Task<ActionResult<JournalistResponse>> Me()
@@ -139,110 +142,158 @@ namespace Presentation.Controllers
             return Ok(new { journalist.Id, journalist.Name, journalist.Email });
         }
 
-        // ── Posts ──
+        // ── Posts ──────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a new post. Accepts multipart/form-data with:
+        ///   - Title        (string)
+        ///   - Content      (string)
+        ///   - Tags         (comma-separated string, e.g. "politics,economy")
+        ///   - images       (one or more IFormFile — optional)
+        ///   - IsCopyrightedFlags  (list of bool, parallel to images — optional)
+        /// Images are saved to media/posts/{mediaId}.ext on disk.
+        /// The database stores the relative path (e.g. "media/posts/abc.jpg").
+        /// </summary>
         [HttpPost("posts")]
-        public async Task<ActionResult> CreatePost([FromBody] JournalistCreatePostRequest req)
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult> CreatePost(
+            [FromForm] JournalistCreatePostRequest req,
+            [FromForm] List<IFormFile>? images)
         {
             var journalist = await _users.GetByIdAsync(GetUserId());
             if (journalist is null) return NotFound("Journalist not found");
 
-            var validMedia = new List<MediaItemRequest>();
+            // ── Validate uploaded files (before doing any heavy work) ───────
+            if (images != null && images.Count > 0)
+            {
+                const long maxImageSize = 5   * 1024 * 1024; // 5 MB
+                const long maxVideoSize = 100 * 1024 * 1024; // 100 MB
+                foreach (var file in images)
+                {
+                    var ct      = file.ContentType?.ToLower() ?? "";
+                    bool isImage = AllowedImageTypes.Contains(ct);
+                    bool isVideo = AllowedVideoTypes.Contains(ct);
+
+                    if (!isImage && !isVideo)
+                        return BadRequest(
+                            $"File '{file.FileName}' has an unsupported type '{file.ContentType}'. " +
+                            "Allowed images: JPEG, PNG, WebP, GIF. Allowed videos: MP4, WebM, OGG, MOV.");
+
+                    var sizeLimit = isVideo ? maxVideoSize : maxImageSize;
+                    if (file.Length > sizeLimit)
+                        return BadRequest(
+                            $"File '{file.FileName}' exceeds the {(isVideo ? "100 MB video" : "5 MB image")} size limit.");
+                }
+            }
 
             // ── Toxicity check ──────────────────────────────────────────────
             var textToCheck = $"{req.Title} {req.Content}";
             if (await _toxicity.IsToxicAsync(textToCheck))
                 return BadRequest(new
                 {
-                    Error = "ToxicContent",
-                    Message = "Your article contains toxic language. Please revise the content before publishing."
+                    Error   = "ToxicContent",
+                    Message = "Your article contains toxic language. Please revise before publishing."
                 });
-            // ────────────────────────────────────────────────────────────────
 
             // ── Fact-check ──────────────────────────────────────────────────
             var factCheck = await _factChecker.CheckAsync($"{req.Title}\n\n{req.Content}");
-
             if (factCheck.Verdict == FactCheckVerdict.False)
                 return BadRequest(new
                 {
-                    Error = "FailedFactCheck",
-                    Message = "Your article did not pass fact-checking and cannot be published.",
+                    Error    = "FailedFactCheck",
+                    Message  = "Your article did not pass fact-checking and cannot be published.",
                     Analysis = factCheck.Analysis
                 });
 
             var verificationStatus = factCheck.Verdict == FactCheckVerdict.True
                 ? VerificationStatus.Trusted
                 : VerificationStatus.Unknown;
-            // ────────────────────────────────────────────────────────────────
+
+            // ── Build post ──────────────────────────────────────────────────
+            var tags = (req.Tags ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             var post = new Post
             {
-                Id             = Guid.NewGuid(),
-                Title          = req.Title,
-                Content        = req.Content,
-                AuthorId       = journalist.Id,
-                OrganizationId = journalist.OrganizationId,
-                CreatedAt      = DateTime.UtcNow,
-                Tags           = req.Tags.ToArray(),
+                Id                 = Guid.NewGuid(),
+                Title              = req.Title,
+                Content            = req.Content,
+                AuthorId           = journalist.Id,
+                OrganizationId     = journalist.OrganizationId,
+                CreatedAt          = DateTime.UtcNow,
+                Tags               = tags,
                 VerificationStatus = verificationStatus,
-                ModerationStatus = ModerationStatus.Approved
+                ModerationStatus   = ModerationStatus.Approved
             };
 
-            if (req.Media != null && req.Media.Count > 0)
+            // ── Save media files, build PostMedia entities ──────────────────
+            var mediaEntities = new List<PostMedia>();
+
+            if (images != null && images.Count > 0)
             {
-                validMedia = req.Media
-                    .Where(m => !string.IsNullOrWhiteSpace(m.Path)
-                             && (m.MediaType.ToLower() == "image" || m.MediaType.ToLower() == "video"))
-                    .ToList();
-
-                // Enforce ownership-aware copyright:
-                // same owner can reuse, different owners are blocked.
-                foreach (var m in validMedia.Where(m => m.MediaType.ToLower() == "image"))
+                for (int i = 0; i < images.Count; i++)
                 {
-                    var check = await _copyright.CheckAsync(ResolveServerPath(m.Path));
-                    if (check.IsDuplicate)
-                    {
-                        var (crossOwnerMatches, hasUnresolvedMatches) =
-                            await AnalyzeCopyrightMatchesAsync(check, journalist.Id);
+                    var file    = images[i];
+                    var mediaId = Guid.NewGuid();
+                    var ct      = file.ContentType?.ToLower() ?? "";
+                    bool isImage = AllowedImageTypes.Contains(ct);
 
-                        if (crossOwnerMatches.Count > 0 || hasUnresolvedMatches)
+                    var (relativePath, absolutePath) = await SaveMediaFileAsync(file, mediaId);
+
+                    if (isImage)
+                    {
+                        // Copyright check: images only.
+                        // If the image is a duplicate of any existing copyrighted image,
+                        // delete the file we just saved and reject the request immediately.
+                        var check = await _copyright.CheckAsync(absolutePath);
+                        if (check.IsDuplicate)
                         {
+                            System.IO.File.Delete(absolutePath);
                             return BadRequest(new
                             {
-                                Error = "CopyrightViolation",
-                                Message = "This image is copyrighted by another journalist and cannot be used.",
-                                Matches = crossOwnerMatches.Count > 0 ? (object)crossOwnerMatches : check.Matches
+                                Error   = "CopyrightViolation",
+                                Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
+                                Matches = check.Matches
                             });
                         }
                     }
+
+                    // Videos are never copyrighted; images use the caller-supplied flag.
+                    var isCopyrighted = isImage
+                                        && req.IsCopyrightedFlags != null
+                                        && i < req.IsCopyrightedFlags.Count
+                                        && req.IsCopyrightedFlags[i];
+
+                    mediaEntities.Add(new PostMedia
+                    {
+                        Id            = mediaId,
+                        PostId        = post.Id,
+                        Path          = relativePath,
+                        MediaType     = isImage ? "image" : "video",
+                        IsCopyrighted = isCopyrighted
+                    });
                 }
             }
 
+            // ── Persist ─────────────────────────────────────────────────────
             await _posts.AddAsync(post);
 
-            if (validMedia.Count > 0)
+            if (mediaEntities.Count > 0)
             {
-                var mediaEntities = validMedia.Select(m => new PostMedia
-                {
-                    Id            = Guid.NewGuid(),
-                    PostId        = post.Id,
-                    Path          = m.Path.Trim(),
-                    MediaType     = m.MediaType.ToLower(),
-                    IsCopyrighted = m.MediaType.ToLower() == "image" && m.IsCopyrighted
-                }).ToList();
-
                 await _media.AddRangeAsync(mediaEntities);
 
-                // Register only copyrighted images to protect against cross-author reuse.
-                foreach (var entity in mediaEntities.Where(e => e.MediaType == "image" && e.IsCopyrighted))
-                    await _copyright.StoreAsync(ResolveServerPath(entity.Path), entity.Id.ToString());
+                // Register copyrighted images in the vector store
+                foreach (var entity in mediaEntities.Where(e => e.IsCopyrighted))
+                    await _copyright.StoreAsync(
+                        ResolveAbsolutePath(entity.Path), entity.Id.ToString());
             }
 
             return Ok(new
             {
-                PostId = post.Id,
-                ModerationStatus = post.ModerationStatus.ToString(),
-                VerificationStatus = post.VerificationStatus.ToString()
+                PostId             = post.Id,
+                ModerationStatus   = post.ModerationStatus.ToString(),
+                VerificationStatus = post.VerificationStatus.ToString(),
+                MediaCount         = mediaEntities.Count
             });
         }
 
@@ -250,13 +301,22 @@ namespace Presentation.Controllers
         public async Task<ActionResult> DeletePost(Guid postId)
         {
             var userId = GetUserId();
-            var post = await _posts.GetByIdAsync(postId);
+            var post   = await _posts.GetByIdAsync(postId);
             if (post == null || post.AuthorId != userId)
                 return NotFound("Post not found or not owned by you");
 
             var mediaItems = await _media.GetByPostIdAsync(post.Id);
-            foreach (var media in mediaItems.Where(m => m.MediaType == "image" && m.IsCopyrighted))
-                await _copyright.RemoveAsync(media.Id.ToString());
+            foreach (var media in mediaItems)
+            {
+                // Remove from copyright vector store
+                if (media.MediaType == "image" && media.IsCopyrighted)
+                    await _copyright.RemoveAsync(media.Id.ToString());
+
+                // Delete file from disk
+                var absolutePath = ResolveAbsolutePath(media.Path);
+                if (System.IO.File.Exists(absolutePath))
+                    System.IO.File.Delete(absolutePath);
+            }
 
             await _posts.DeleteAsync(post.Id);
             return NoContent();
@@ -265,8 +325,8 @@ namespace Presentation.Controllers
         [HttpGet("posts")]
         public async Task<ActionResult<IEnumerable<JournalistPostResponse>>> MyPosts()
         {
-            var userId = GetUserId();
-            var posts = await _posts.GetByAuthorAsync(userId);
+            var userId   = GetUserId();
+            var posts    = await _posts.GetByAuthorAsync(userId);
             var allUsers = await _users.GetAllAsync();
 
             var result = new List<JournalistPostResponse>();
@@ -281,6 +341,7 @@ namespace Presentation.Controllers
                 }
 
                 var mediaItems = await _media.GetByPostIdAsync(p.Id);
+                // Return the stored relative path — the client constructs the full URL
                 var mediaDtos = mediaItems.Select(m => new MediaDto(
                     m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt
                 )).ToList();
@@ -299,67 +360,98 @@ namespace Presentation.Controllers
             return Ok(result);
         }
 
-        // ── Media management ──
+        // ── Media management ───────────────────────────────────────────────
 
+        /// <summary>
+        /// Adds one or more images or videos to an existing post via multipart/form-data:
+        ///   - images              (one or more IFormFile — images and/or videos)
+        ///   - IsCopyrightedFlags  (parallel list of bool for images — ignored for videos)
+        /// Videos always have IsCopyrighted = false; no copyright check is run on them.
+        /// </summary>
         [HttpPost("posts/{postId}/media")]
+        [Consumes("multipart/form-data")]
         public async Task<ActionResult<IEnumerable<MediaDto>>> AddMedia(
             Guid postId,
-            [FromBody] AddPostMediaRequest req)
+            [FromForm] AddPostMediaRequest req,
+            [FromForm] List<IFormFile>? images)
         {
-            if (req.MediaItems == null || !req.MediaItems.Any())
-                return BadRequest("At least one media item is required.");
+            if (images == null || !images.Any())
+                return BadRequest("At least one file is required.");
 
             var post = await _posts.GetByIdAsync(postId);
             if (post == null || post.AuthorId != GetUserId())
                 return NotFound("Post not found or not owned by you.");
 
-            var allowedTypes = new[] { "image", "video" };
-            var invalidTypes = req.MediaItems
-                .Where(m => !allowedTypes.Contains(m.MediaType.ToLower()))
-                .Select(m => m.MediaType).Distinct().ToList();
+            // Validate files
+            const long maxImageSize = 5   * 1024 * 1024; // 5 MB
+            const long maxVideoSize = 100 * 1024 * 1024; // 100 MB
+            foreach (var file in images)
+            {
+                var ct      = file.ContentType?.ToLower() ?? "";
+                bool isImg  = AllowedImageTypes.Contains(ct);
+                bool isVid  = AllowedVideoTypes.Contains(ct);
 
-            if (invalidTypes.Any())
-                return BadRequest($"Unsupported media type(s): {string.Join(", ", invalidTypes)}. Allowed: image, video.");
+                if (!isImg && !isVid)
+                    return BadRequest(
+                        $"File '{file.FileName}' has unsupported type '{file.ContentType}'. " +
+                        "Allowed images: JPEG, PNG, WebP, GIF. Allowed videos: MP4, WebM, OGG, MOV.");
+
+                var sizeLimit = isVid ? maxVideoSize : maxImageSize;
+                if (file.Length > sizeLimit)
+                    return BadRequest(
+                        $"File '{file.FileName}' exceeds the {(isVid ? "100 MB video" : "5 MB image")} size limit.");
+            }
 
             var requesterId = GetUserId();
+            var entities    = new List<PostMedia>();
 
-            // Enforce ownership-aware copyright:
-            // same owner can reuse, different owners are blocked.
-            foreach (var m in req.MediaItems.Where(m => m.MediaType.ToLower() == "image"))
+            for (int i = 0; i < images.Count; i++)
             {
-                var check = await _copyright.CheckAsync(ResolveServerPath(m.Path));
-                if (check.IsDuplicate)
-                {
-                    var (crossOwnerMatches, hasUnresolvedMatches) =
-                        await AnalyzeCopyrightMatchesAsync(check, requesterId);
+                var file    = images[i];
+                var mediaId = Guid.NewGuid();
+                var ct      = file.ContentType?.ToLower() ?? "";
+                bool isImage = AllowedImageTypes.Contains(ct);
 
-                    if (crossOwnerMatches.Count > 0 || hasUnresolvedMatches)
+                var (relativePath, absolutePath) = await SaveMediaFileAsync(file, mediaId);
+
+                if (isImage)
+                {
+                    // Copyright check: images only.
+                    // If the image is a duplicate of any existing copyrighted image,
+                    // delete the file we just saved and reject the request immediately.
+                    var check = await _copyright.CheckAsync(absolutePath);
+                    if (check.IsDuplicate)
                     {
+                        System.IO.File.Delete(absolutePath);
                         return BadRequest(new
                         {
-                            Error = "CopyrightViolation",
-                            Message = "This image is copyrighted by another journalist and cannot be used.",
-                            Matches = crossOwnerMatches.Count > 0 ? (object)crossOwnerMatches : check.Matches
+                            Error   = "CopyrightViolation",
+                            Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
+                            Matches = check.Matches
                         });
                     }
                 }
-            }
 
-            var entities = req.MediaItems.Select(m => new PostMedia
-            {
-                Id            = Guid.NewGuid(),
-                PostId        = postId,
-                Path          = m.Path.Trim(),
-                MediaType     = m.MediaType.ToLower(),
-                IsCopyrighted = m.MediaType.ToLower() == "image" && m.IsCopyrighted
-            }).ToList();
+                // Videos are never copyrighted; images use the caller-supplied flag.
+                var isCopyrighted = isImage
+                                    && req.IsCopyrightedFlags != null
+                                    && i < req.IsCopyrightedFlags.Count
+                                    && req.IsCopyrightedFlags[i];
+
+                entities.Add(new PostMedia
+                {
+                    Id            = mediaId,
+                    PostId        = postId,
+                    Path          = relativePath,
+                    MediaType     = isImage ? "image" : "video",
+                    IsCopyrighted = isCopyrighted
+                });
+            }
 
             await _media.AddRangeAsync(entities);
 
-            // ── Register copyrighted images in vector store ──────────────
-            foreach (var entity in entities.Where(e => e.MediaType == "image" && e.IsCopyrighted))
-                await _copyright.StoreAsync(ResolveServerPath(entity.Path), entity.Id.ToString());
-            // ────────────────────────────────────────────────────────────
+            foreach (var entity in entities.Where(e => e.IsCopyrighted))
+                await _copyright.StoreAsync(ResolveAbsolutePath(entity.Path), entity.Id.ToString());
 
             var dtos = entities.Select(m => new MediaDto(
                 m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt)).ToList();
@@ -380,6 +472,11 @@ namespace Presentation.Controllers
 
             if (item.MediaType == "image" && item.IsCopyrighted)
                 await _copyright.RemoveAsync(item.Id.ToString());
+
+            // Delete file from disk
+            var absolutePath = ResolveAbsolutePath(item.Path);
+            if (System.IO.File.Exists(absolutePath))
+                System.IO.File.Delete(absolutePath);
 
             await _media.DeleteAsync(mediaId);
             return NoContent();
@@ -404,24 +501,16 @@ namespace Presentation.Controllers
 
             if (req.IsCopyrighted && !item.IsCopyrighted)
             {
-                var check = await _copyright.CheckAsync(ResolveServerPath(item.Path));
+                var check = await _copyright.CheckAsync(ResolveAbsolutePath(item.Path));
                 if (check.IsDuplicate)
-                {
-                    var (crossOwnerMatches, hasUnresolvedMatches) =
-                        await AnalyzeCopyrightMatchesAsync(check, GetUserId());
-
-                    if (crossOwnerMatches.Count > 0 || hasUnresolvedMatches)
+                    return BadRequest(new
                     {
-                        return BadRequest(new
-                        {
-                            Error = "CopyrightViolation",
-                            Message = "This image is copyrighted by another journalist and cannot be marked as copyrighted by you.",
-                            Matches = crossOwnerMatches.Count > 0 ? (object)crossOwnerMatches : check.Matches
-                        });
-                    }
-                }
+                        Error   = "CopyrightViolation",
+                        Message = "This image is already copyrighted and cannot be marked as yours.",
+                        Matches = check.Matches
+                    });
 
-                await _copyright.StoreAsync(ResolveServerPath(item.Path), item.Id.ToString());
+                await _copyright.StoreAsync(ResolveAbsolutePath(item.Path), item.Id.ToString());
             }
             else if (!req.IsCopyrighted && item.IsCopyrighted)
             {
@@ -434,23 +523,13 @@ namespace Presentation.Controllers
             return Ok(new MediaDto(item.Id, item.Path, item.MediaType, item.IsCopyrighted, item.UploadedAt));
         }
 
-        [HttpPost("posts/{postId}/report")]
-        public async Task<ActionResult> Report(Guid postId, [FromBody] JournalistReportRequest req)
-        {
-            var post = await _posts.GetByIdAsync(postId);
-            if (post == null) return NotFound("Post not found");
-
-            return Ok(new { Message = "Use the unified endpoint POST /api/posts/{postId}/report" });
-        }
-
-        // ── Follow / Unfollow ──
+        // ── Follow / Unfollow ──────────────────────────────────────────────
 
         [HttpPost("follow/{targetId}")]
         public async Task<ActionResult> Follow(Guid targetId)
         {
             var userId = GetUserId();
 
-            // Prevent self-follow
             if (userId == targetId)
                 return BadRequest("You cannot follow yourself.");
 
@@ -462,7 +541,7 @@ namespace Presentation.Controllers
             {
                 FollowerId = userId,
                 FolloweeId = targetId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt  = DateTime.UtcNow
             });
 
             return Ok(new { Message = "Followed successfully" });
@@ -501,10 +580,12 @@ namespace Presentation.Controllers
             return Ok(dto);
         }
 
+        // ── Post report ────────────────────────────────────────────────────
+
         [HttpGet("posts/{postId}/report")]
         public async Task<ActionResult> GetPostReport(Guid postId)
         {
-            var userId = GetUserId();
+            var userId     = GetUserId();
             var journalist = await _users.GetByIdAsync(userId);
             if (journalist is null) return NotFound("Journalist not found");
 
@@ -528,51 +609,17 @@ namespace Presentation.Controllers
             ));
         }
 
-        // ── File Upload ──
-
-        [HttpPost("upload")]
-        public async Task<ActionResult> UploadFile(IFormFile file)
+        [HttpPost("posts/{postId}/report")]
+        public async Task<ActionResult> Report(Guid postId, [FromBody] JournalistReportRequest req)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded");
+            var post = await _posts.GetByIdAsync(postId);
+            if (post == null) return NotFound("Post not found");
 
-            // Validate file size (5MB limit)
-            const long maxFileSize = 5 * 1024 * 1024;
-            if (file.Length > maxFileSize)
-                return BadRequest("File size exceeds 5MB limit");
-
-            // Validate file type
-            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp", "image/gif" };
-            if (!allowedTypes.Contains(file.ContentType?.ToLower() ?? ""))
-                return BadRequest("Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed");
-
-            try
-            {
-                // Create uploads directory if it doesn't exist
-                var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "posts");
-                Directory.CreateDirectory(uploadsDir);
-
-                // Generate unique filename
-                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
-                var filePath = Path.Combine(uploadsDir, fileName);
-                var relativeFilePath = Path.Combine("uploads", "posts", fileName).Replace("\\", "/");
-
-                // Save file
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                return Ok(new { path = relativeFilePath, fileName });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Error uploading file", error = ex.Message });
-            }
+            return Ok(new { Message = "Use the unified endpoint POST /api/posts/{postId}/report" });
         }
     }
 
-    // ── Inline DTOs ──────────────────────────────────────────────────────────
+    // ── Inline DTOs ───────────────────────────────────────────────────────────
 
     public record PostReportResponse(
         Guid PostId,

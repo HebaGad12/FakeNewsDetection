@@ -362,7 +362,7 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-
+media/
 # ── Python (Machine Models directory) ───────────────────────────────────────
 
 # Secret API keys — share privately, never commit

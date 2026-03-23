@@ -7,3 +7,4 @@ __pycache__/
 venv/
 *.csv
 *.h5
+chroma_image_db/
