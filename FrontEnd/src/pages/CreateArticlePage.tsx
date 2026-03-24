@@ -125,38 +125,15 @@ const CreateArticlePage = () => {
     
     setIsPublishing(true);
     try {
-      // Step 1: Upload all media files
-      const mediaItems = [];
-      
-      if (uploadedMedia.length > 0) {
-        for (const mediaItem of uploadedMedia) {
-          try {
-            const uploadResponse = await journalistService.uploadFile(mediaItem.file);
-            mediaItems.push({
-              path: uploadResponse.path,
-              mediaType: mediaItem.mediaType,
-              isCopyrighted: mediaItem.isCopyrighted,
-            });
-          } catch (uploadErr: any) {
-            console.error("Failed to upload media:", uploadErr);
-            const uploadErrorMessage =
-              uploadErr.response?.data?.message ||
-              uploadErr.response?.data?.error ||
-              uploadErr.message ||
-              "Failed to upload media";
-            toast.error(`Media upload failed for ${mediaItem.file.name}: ${uploadErrorMessage}`);
-            setIsPublishing(false);
-            return;
-          }
-        }
-      }
-
-      // Step 2: Create post with media
+      // Create post with multipart/form-data payload
       const result = await journalistService.createPost({
         title: formData.title,
         content: formData.content,
         tags: [formData.category],
-        media: mediaItems.length > 0 ? mediaItems : undefined,
+        images: uploadedMedia.map((item) => item.file),
+        isCopyrightedFlags: uploadedMedia.map((item) =>
+          item.mediaType === "image" ? item.isCopyrighted : false
+        ),
       });
 
       if (result.moderationStatus === "Approved") {
@@ -170,14 +147,24 @@ const CreateArticlePage = () => {
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Failed to publish article:", err);
-      
-      // Extract specific error message from backend response
-      const errorMessage = err.response?.data?.message || 
-                          err.response?.data?.error ||
-                          err.message || 
-                          "Failed to publish article. Please try again.";
-      
-      toast.error(errorMessage);
+
+      const responseData = err?.response?.data;
+      const validationErrors = responseData?.errors
+        ? Object.entries(responseData.errors)
+            .map(([field, messages]) => `${field}: ${(messages as string[]).join(", ")}`)
+            .join(" | ")
+        : "";
+      const analysis = responseData?.analysis ? ` ${responseData.analysis}` : "";
+      const baseMessage =
+        validationErrors ||
+        responseData?.message ||
+        responseData?.detail ||
+        responseData?.error ||
+        responseData?.title ||
+        err?.message ||
+        "Failed to publish article. Please try again.";
+
+      toast.error(`${baseMessage}${analysis}`.trim());
     } finally {
       setIsPublishing(false);
     }

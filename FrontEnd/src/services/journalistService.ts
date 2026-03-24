@@ -29,7 +29,8 @@ export interface JournalistCreatePostRequest {
   title: string;
   content: string;
   tags: string[];
-  media?: MediaItemRequest[];
+  images?: File[];
+  isCopyrightedFlags?: boolean[];
 }
 
 export interface JournalistPostResponse {
@@ -61,7 +62,8 @@ export interface MediaDto {
 }
 
 export interface AddPostMediaRequest {
-  mediaItems: MediaItemRequest[];
+  images: File[];
+  isCopyrightedFlags?: boolean[];
 }
 
 export interface JournalistFollowerResponse {
@@ -120,7 +122,24 @@ class JournalistService {
 
   // المنشورات
   async createPost(data: JournalistCreatePostRequest): Promise<{ postId: string; moderationStatus: string }> {
-    return await apiClient.post<{ postId: string; moderationStatus: string }>("/journalist/posts", data);
+    const formData = new FormData();
+    formData.append("Title", data.title);
+    formData.append("Content", data.content);
+    formData.append("Tags", data.tags.join(","));
+
+    if (data.images) {
+      for (const image of data.images) {
+        formData.append("images", image);
+      }
+    }
+
+    if (data.isCopyrightedFlags) {
+      for (const flag of data.isCopyrightedFlags) {
+        formData.append("IsCopyrightedFlags", String(flag));
+      }
+    }
+
+    return await apiClient.post<{ postId: string; moderationStatus: string }>("/journalist/posts", formData);
   }
 
   async deletePost(postId: string): Promise<void> {
@@ -133,7 +152,19 @@ class JournalistService {
   }
 
   async addMediaToPost(postId: string, data: AddPostMediaRequest): Promise<MediaDto[]> {
-    return await apiClient.post<MediaDto[]>(`/journalist/posts/${postId}/media`, data);
+    const formData = new FormData();
+
+    for (const image of data.images) {
+      formData.append("images", image);
+    }
+
+    if (data.isCopyrightedFlags) {
+      for (const flag of data.isCopyrightedFlags) {
+        formData.append("IsCopyrightedFlags", String(flag));
+      }
+    }
+
+    return await apiClient.post<MediaDto[]>(`/journalist/posts/${postId}/media`, formData);
   }
 
   async deleteMediaFromPost(postId: string, mediaId: string): Promise<void> {

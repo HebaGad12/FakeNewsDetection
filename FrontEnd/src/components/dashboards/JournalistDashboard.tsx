@@ -587,49 +587,34 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     setLoading(true);
     setError("");
     try {
-      // Step 1: Upload selected images
-      let media: { path: string; mediaType: "image"; isCopyrighted: boolean }[] | undefined;
-      if (selectedMedia.length > 0) {
-        try {
-          media = [];
-          for (const item of selectedMedia) {
-            const uploadResponse = await journalistService.uploadFile(item.file);
-            media.push({
-              path: uploadResponse.path,
-              mediaType: "image",
-              isCopyrighted: item.isCopyrighted,
-            });
-          }
-        } catch (uploadErr: any) {
-          console.error("Failed to upload media:", uploadErr);
-          const uploadErrorMessage =
-            uploadErr.response?.data?.message ||
-            uploadErr.response?.data?.error ||
-            uploadErr.message ||
-            "Failed to upload media";
-          setError(`Media upload failed: ${uploadErrorMessage}`);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Step 2: Create post with media
+      // Create post with multipart/form-data payload
       const res = await journalistService.createPost({
         title: title.trim(),
         content: content.trim(),
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-        media,
+        images: selectedMedia.map((item) => item.file),
+        isCopyrightedFlags: selectedMedia.map((item) => item.isCopyrighted),
       });
       setResult(res);
       onSuccess();
     } catch (err: any) {
       console.error("Failed to create post:", err);
-      // Extract specific error message from backend response
-      const errorMessage = err?.response?.data?.message || 
-                          err?.response?.data?.error ||
-                          err?.message || 
-                          "Failed to create post. Please try again.";
-      setError(errorMessage);
+      const responseData = err?.response?.data;
+      const validationErrors = responseData?.errors
+        ? Object.entries(responseData.errors)
+            .map(([field, messages]) => `${field}: ${(messages as string[]).join(", ")}`)
+            .join(" | ")
+        : "";
+      const analysis = responseData?.analysis ? ` ${responseData.analysis}` : "";
+      const baseMessage =
+        validationErrors ||
+        responseData?.message ||
+        responseData?.detail ||
+        responseData?.error ||
+        responseData?.title ||
+        err?.message ||
+        "Failed to create post. Please try again.";
+      setError(`${baseMessage}${analysis}`.trim());
     } finally {
       setLoading(false);
     }

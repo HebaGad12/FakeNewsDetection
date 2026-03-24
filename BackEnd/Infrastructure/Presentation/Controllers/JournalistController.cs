@@ -252,7 +252,7 @@ namespace Presentation.Controllers
                             return BadRequest(new
                             {
                                 Error   = "CopyrightViolation",
-                                Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
+                                Message = "Image is copyrighted and cannot be used",
                                 Matches = check.Matches
                             });
                         }
@@ -426,7 +426,7 @@ namespace Presentation.Controllers
                         return BadRequest(new
                         {
                             Error   = "CopyrightViolation",
-                            Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
+                            Message = "Image is copyrighted and cannot be used",
                             Matches = check.Matches
                         });
                     }
