@@ -213,6 +213,12 @@ namespace Presentation.Controllers
             var tags = (req.Tags ?? "")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+            // Organisation journalists need approval before going public;
+            // independent journalists publish immediately.
+            var moderationStatus = journalist.OrganizationId.HasValue
+                ? ModerationStatus.Pending
+                : ModerationStatus.Approved;
+
             var post = new Post
             {
                 Id                 = Guid.NewGuid(),
@@ -223,7 +229,7 @@ namespace Presentation.Controllers
                 CreatedAt          = DateTime.UtcNow,
                 Tags               = tags,
                 VerificationStatus = verificationStatus,
-                ModerationStatus   = ModerationStatus.Approved
+                ModerationStatus   = moderationStatus
             };
 
             // ── Save media files, build PostMedia entities ──────────────────
@@ -252,7 +258,7 @@ namespace Presentation.Controllers
                             return BadRequest(new
                             {
                                 Error   = "CopyrightViolation",
-                                Message = "Image is copyrighted and cannot be used",
+                                Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
                                 Matches = check.Matches
                             });
                         }
@@ -426,7 +432,7 @@ namespace Presentation.Controllers
                         return BadRequest(new
                         {
                             Error   = "CopyrightViolation",
-                            Message = "Image is copyrighted and cannot be used",
+                            Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
                             Matches = check.Matches
                         });
                     }

@@ -36,7 +36,7 @@ namespace FakeNewsDetection.web
 
             // ── Database ─────────────────────────────────────────────────────
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("Ezzat")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
 
             // ── Authentication ───────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
@@ -101,7 +101,7 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<IDonationRepository, DonationRepository>();
 
             // ── Python AI Services ───────────────────────────────────────────
-            var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8001";
+            var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8000";
 
             builder.Services.AddHttpClient<IToxicityService, ToxicityService>(client =>
             {
