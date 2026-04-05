@@ -105,6 +105,57 @@ namespace Presentation.Controllers
             return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), normalized));
         }
 
+        /// <summary>
+        /// Checks whether an image at <paramref name="absolutePath"/> violates copyright,
+        /// but ignores any matches that are already owned by <paramref name="requesterId"/>.
+        ///
+        /// This prevents the image owner from being blocked when they re-upload or reuse
+        /// one of their own previously copyrighted images.
+        /// </summary>
+        private async Task<CopyrightCheckResult> CheckCopyrightExcludingOwnerAsync(
+            string absolutePath, Guid requesterId)
+        {
+            var result = await _copyright.CheckAsync(absolutePath);
+
+            if (!result.IsDuplicate)
+                return result;
+
+            // Filter out matches that belong to the current user.
+            // CopyrightMatch.Id is the PostMedia.Id (Guid stored as string) of the
+            // registered image.  We resolve each match to its owner via the media
+            // repository and the post it belongs to.
+            var thirdPartyMatches = new List<CopyrightMatch>();
+
+            foreach (var match in result.Matches)
+            {
+                if (!Guid.TryParse(match.Id, out var matchedMediaId))
+                {
+                    // Unrecognised ID format — treat as third-party to stay safe.
+                    thirdPartyMatches.Add(match);
+                    continue;
+                }
+
+                var matchedMedia = await _media.GetByIdAsync(matchedMediaId);
+                if (matchedMedia is null)
+                {
+                    // The entry is in the vector store but no longer in the DB
+                    // (e.g. the original post was deleted but cleanup failed).
+                    // Safe to ignore — it cannot be enforced.
+                    continue;
+                }
+
+                var matchedPost = await _posts.GetByIdAsync(matchedMedia.PostId);
+                if (matchedPost is null || matchedPost.AuthorId != requesterId)
+                {
+                    // Belongs to a different journalist → real violation.
+                    thirdPartyMatches.Add(match);
+                }
+                // else: same journalist owns the matching entry → skip (not a violation).
+            }
+
+            return new CopyrightCheckResult(thirdPartyMatches.Count > 0, thirdPartyMatches);
+        }
+
         // ── Profile ────────────────────────────────────────────────────────
 
         [HttpGet("me")]
@@ -249,16 +300,16 @@ namespace Presentation.Controllers
                     if (isImage)
                     {
                         // Copyright check: images only.
-                        // If the image is a duplicate of any existing copyrighted image,
-                        // delete the file we just saved and reject the request immediately.
-                        var check = await _copyright.CheckAsync(absolutePath);
+                        // Ownership-aware: matches owned by this journalist are excluded
+                        // so that an author is never blocked from reusing their own images.
+                        var check = await CheckCopyrightExcludingOwnerAsync(absolutePath, journalist.Id);
                         if (check.IsDuplicate)
                         {
                             System.IO.File.Delete(absolutePath);
                             return BadRequest(new
                             {
                                 Error   = "CopyrightViolation",
-                                Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
+                                Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
                                 Matches = check.Matches
                             });
                         }
@@ -423,16 +474,16 @@ namespace Presentation.Controllers
                 if (isImage)
                 {
                     // Copyright check: images only.
-                    // If the image is a duplicate of any existing copyrighted image,
-                    // delete the file we just saved and reject the request immediately.
-                    var check = await _copyright.CheckAsync(absolutePath);
+                    // Ownership-aware: matches owned by this journalist are excluded
+                    // so that an author is never blocked from reusing their own images.
+                    var check = await CheckCopyrightExcludingOwnerAsync(absolutePath, requesterId);
                     if (check.IsDuplicate)
                     {
                         System.IO.File.Delete(absolutePath);
                         return BadRequest(new
                         {
                             Error   = "CopyrightViolation",
-                            Message = $"Image '{file.FileName}' is copyrighted and cannot be used.",
+                            Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
                             Matches = check.Matches
                         });
                     }
@@ -507,12 +558,15 @@ namespace Presentation.Controllers
 
             if (req.IsCopyrighted && !item.IsCopyrighted)
             {
-                var check = await _copyright.CheckAsync(ResolveAbsolutePath(item.Path));
+                // Ownership-aware check: the journalist should not be blocked by their
+                // own previously registered copies of this image.
+                var check = await CheckCopyrightExcludingOwnerAsync(
+                    ResolveAbsolutePath(item.Path), GetUserId());
                 if (check.IsDuplicate)
                     return BadRequest(new
                     {
                         Error   = "CopyrightViolation",
-                        Message = "This image is already copyrighted and cannot be marked as yours.",
+                        Message = "This image is already copyrighted by another user and cannot be marked as yours.",
                         Matches = check.Matches
                     });
 

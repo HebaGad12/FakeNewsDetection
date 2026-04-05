@@ -189,13 +189,15 @@ namespace Persistence
                 .HasOne(d => d.Sender)
                 .WithMany()
                 .HasForeignKey(d => d.SenderId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
 
             b.Entity<Donation>()
                 .HasOne(d => d.Recipient)
                 .WithMany()
                 .HasForeignKey(d => d.RecipientId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
 
             b.Entity<Donation>()
                 .Property(d => d.Amount)

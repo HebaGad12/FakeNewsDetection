@@ -168,9 +168,9 @@ namespace Presentation.Controllers
         private static DonationResponse MapDonation(Donation d) => new(
             d.Id,
             d.SenderId,
-            d.Sender?.Name ?? "Unknown",
+            d.Sender?.Name ?? "Deleted User",
             d.RecipientId,
-            d.Recipient?.Name ?? "Unknown",
+            d.Recipient?.Name ?? "Deleted User",
             d.Amount,
             d.Message,
             d.CreatedAt

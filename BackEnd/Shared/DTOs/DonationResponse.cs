@@ -8,9 +8,9 @@ namespace Shared.DTOs
 {
     public record DonationResponse(
         Guid Id,
-        Guid SenderId,
+        Guid? SenderId,
         string SenderName,
-        Guid RecipientId,
+        Guid? RecipientId,
         string RecipientName,
         decimal Amount,
         string? Message,
