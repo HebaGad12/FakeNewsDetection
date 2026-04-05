@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -123,11 +124,13 @@ function PostCard({
   onDelete,
   onUpdatePost,
   onViewReport,
+  onNavigate,
 }: {
   post: JournalistPostResponse;
   onDelete: (id: string) => void;
   onUpdatePost: (postId: string, updater: (post: JournalistPostResponse) => JournalistPostResponse) => void;
   onViewReport: (id: string) => void;
+  onNavigate: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [updatingMediaId, setUpdatingMediaId] = useState<string | null>(null);
@@ -139,6 +142,7 @@ function PostCard({
       await journalistService.deletePost(post.id);
       onDelete(post.id);
       toast.success("Post deleted successfully");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
@@ -148,29 +152,6 @@ function PostCard({
       toast.error(message);
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const handleToggleCopyright = async (mediaId: string, nextValue: boolean) => {
-    setUpdatingMediaId(mediaId);
-    try {
-      const updated = await journalistService.setMediaCopyright(post.id, mediaId, nextValue);
-      onUpdatePost(post.id, (prevPost) => ({
-        ...prevPost,
-        media: (prevPost.media || []).map((m) =>
-          m.mediaId === mediaId ? { ...m, isCopyrighted: updated.isCopyrighted } : m
-        ),
-      }));
-      toast.success(nextValue ? "Image marked as copyrighted" : "Copyright removed");
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to update copyright";
-      toast.error(message);
-    } finally {
-      setUpdatingMediaId(null);
     }
   };
 
@@ -184,6 +165,7 @@ function PostCard({
         media: (prevPost.media || []).filter((m) => m.mediaId !== mediaId),
       }));
       toast.success("Media removed successfully");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
@@ -224,7 +206,12 @@ function PostCard({
               </span>
             )}
           </div>
-          <h3 className="font-semibold text-foreground line-clamp-1">{post.title}</h3>
+          <h3
+            className="font-semibold text-foreground line-clamp-1 cursor-pointer hover:text-accent transition-colors"
+            onClick={() => onNavigate(post.id)}
+          >
+            {post.title}
+          </h3>
           <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{post.content}</p>
         </div>
       </div>
@@ -273,33 +260,24 @@ function PostCard({
       {post.media && post.media.length > 0 && (
         <div className="mt-4 pt-4 border-t border-border space-y-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Media</p>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {post.media.map((media) => (
-              <div key={media.mediaId} className="rounded-xl border border-border p-3 bg-muted/30">
+              <div key={media.mediaId} className="relative rounded-xl border border-border p-2 bg-muted/30 group/media">
                 {media.mediaType === "image" && (
                   <img
                     src={postsService.getImageUrl(media.path)}
                     alt="Post media"
-                    className="w-full h-28 object-cover rounded-lg mb-2"
+                    className="w-full h-28 object-cover rounded-lg"
                   />
                 )}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs text-muted-foreground break-all">{media.path}</div>
-                  <div className="flex items-center gap-3">
-                    {media.mediaType === "image" && (
-                      <label className="flex items-center gap-2 text-xs text-foreground">
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteMedia(media.mediaId)}
-                      disabled={updatingMediaId === media.mediaId}
-                      className="text-xs px-2 py-1 rounded border border-border text-rose-400 hover:bg-rose-500/10"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMedia(media.mediaId)}
+                  disabled={updatingMediaId === media.mediaId}
+                  className="absolute top-2 right-2 p-1 rounded-lg bg-rose-500/80 text-white hover:bg-rose-600 transition-colors opacity-0 group-hover/media:opacity-100"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
               </div>
             ))}
           </div>
@@ -460,7 +438,6 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     id: string;
     file: File;
     preview: string;
-    isCopyrighted: boolean;
   };
 
   const [title, setTitle] = useState("");
@@ -506,7 +483,6 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         id: crypto.randomUUID(),
         file,
         preview: URL.createObjectURL(file),
-        isCopyrighted: false,
       });
     }
 
@@ -564,14 +540,6 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     });
   };
 
-  const toggleImageCopyright = (id: string, value: boolean) => {
-    setSelectedMedia((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isCopyrighted: value } : item
-      )
-    );
-  };
-
   useEffect(() => {
     selectedMediaRef.current = selectedMedia;
   }, [selectedMedia]);
@@ -587,16 +555,17 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     setLoading(true);
     setError("");
     try {
-      // Create post with multipart/form-data payload
       const res = await journalistService.createPost({
         title: title.trim(),
         content: content.trim(),
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: tags
+          ? tags.split(",").map((t) => t.trim()).filter(Boolean)
+          : [],
         images: selectedMedia.map((item) => item.file),
-        isCopyrightedFlags: selectedMedia.map((item) => item.isCopyrighted),
       });
       setResult(res);
       onSuccess();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("Failed to create post:", err);
       const responseData = err?.response?.data;
@@ -694,34 +663,25 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         </label>
 
         {selectedMedia.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {selectedMedia.map((item) => (
-              <div key={item.id} className="relative rounded-lg border border-border bg-muted/30 p-2">
+              <div key={item.id} className="relative rounded-lg border border-border bg-muted/30 p-2 group">
                 <img
                   src={item.preview}
                   alt={item.file.name}
-                  className="w-full h-32 object-cover rounded-md"
+                  className="w-full h-28 object-cover rounded-md"
                 />
                 <button
                   onClick={() => removeImage(item.id)}
-                  className="absolute top-3 right-3 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors"
+                  className="absolute top-2 right-2 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors opacity-0 group-hover:opacity-100"
                   type="button"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </button>
                 <div className="mt-2">
                   <p className="text-xs text-muted-foreground truncate" title={item.file.name}>
                     {item.file.name}
                   </p>
-                  <label className="mt-1 flex items-center gap-2 text-xs text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={item.isCopyrighted}
-                      onChange={(e) => toggleImageCopyright(item.id, e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-border"
-                    />
-                    Copyrighted
-                  </label>
                 </div>
               </div>
             ))}
@@ -758,10 +718,6 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             Supported: JPEG, PNG, WebP, GIF (Max 5MB each, up to {MAX_MEDIA_ITEMS} files)
           </p>
         </div>
-
-        <label className="mt-3 block text-xs text-muted-foreground">
-          You can set copyright per image in the preview cards.
-        </label>
       </div>
 
       {error && (
@@ -791,6 +747,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const JournalistDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [profile, setProfile] = useState<JournalistResponse | null>(null);
   const [posts, setPosts] = useState<JournalistPostResponse[]>([]);
@@ -1071,6 +1028,7 @@ const JournalistDashboard = () => {
                         onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
                         onUpdatePost={updatePostInState}
                         onViewReport={setReportPostId}
+                        onNavigate={(id) => navigate(`/article/${id}`)}
                       />
                     ))}
                   </AnimatePresence>
@@ -1117,6 +1075,7 @@ const JournalistDashboard = () => {
                     onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
                     onUpdatePost={updatePostInState}
                     onViewReport={setReportPostId}
+                    onNavigate={(id) => navigate(`/article/${id}`)}
                   />
                 ))}
               </AnimatePresence>

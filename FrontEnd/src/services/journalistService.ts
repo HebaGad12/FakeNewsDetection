@@ -125,7 +125,10 @@ class JournalistService {
     const formData = new FormData();
     formData.append("Title", data.title);
     formData.append("Content", data.content);
-    formData.append("Tags", data.tags.join(","));
+     if (data.tags && data.tags.length > 0) {
+  formData.append("Tags", data.tags.join(","));
+}
+
 
     if (data.images) {
       for (const image of data.images) {

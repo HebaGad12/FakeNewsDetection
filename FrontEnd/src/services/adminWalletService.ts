@@ -14,7 +14,7 @@ export interface WalletTransaction {
   id: string;
   amount: number;
   type: string;
-  description: string;
+  description?: string;
   actorName: string;
   createdAt: string;
 }
@@ -22,7 +22,7 @@ export interface WalletTransaction {
 export interface AdjustBalanceRequest {
   userId: string;
   amount: number;
-  description: string;
+  description?: string; 
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ class AdminWalletService {
 
   /** Adjust a user's wallet balance */
   async adjustBalance(data: AdjustBalanceRequest): Promise<void> {
-    await apiClient.post<void>("/admin/wallets/adjust", data);
+    await apiClient.post<void>("/admin/wallets/adjust",{...data, description: data.description || undefined});
   }
 }
 

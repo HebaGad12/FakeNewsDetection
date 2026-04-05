@@ -1300,17 +1300,15 @@ const WalletsTab = () => {
       toast.error("Please enter a valid non-zero amount");
       return;
     }
-    if (!adjustDescription.trim()) {
-      toast.error("Please provide a reason/description for the adjustment");
-      return;
-    }
+    
     setAdjusting(true);
     try {
       await adminWalletService.adjustBalance({
-        userId: adjustDialog.userId,
-        amount,
-        description: adjustDescription,
-      });
+  userId: adjustDialog.userId,
+  amount,
+  ...(adjustDescription.trim() && { description: adjustDescription })
+});
+
       toast.success("Balance adjusted successfully");
       setAdjustDialog(null);
       setAdjustAmount("");

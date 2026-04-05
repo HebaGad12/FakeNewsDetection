@@ -95,9 +95,13 @@ const FeedPage = () => {
 
   // Transform posts to NewsCard props and apply filters/sorting
   const filteredAndSortedNews = allPosts
-    .map((post) => ({
-      ...postsService.postToNewsCardProps(post),
-    }))
+    .map((post) => {
+      const props = postsService.postToNewsCardProps(post);
+      return {
+        ...props,
+        image: Array.isArray(props.image) ? props.image : [props.image],
+      };
+    })
     .filter((article) => {
       const matchesCategory = activeCategory === "All" || article.category === activeCategory;
       const matchesCredibility = activeCredibility === "all" || article.credibility === activeCredibility;

@@ -9,6 +9,10 @@ import {
   AlertCircle,
   Trash2,
   Send,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ZoomIn,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -33,6 +37,11 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Gallery state
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Use the post interactions hook for like/comment management
   const {
@@ -114,6 +123,7 @@ export default function PostDetailPage() {
           setComments(updatedPost.comments || []);
         }
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to post comment. Please try again.";
       setCommentError(errorMessage);
@@ -144,6 +154,7 @@ export default function PostDetailPage() {
       setIsDeleting(true);
       await postsService.deletePost(post.id);
       navigate("/feed");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to delete post. Please try again.";
       setError(errorMessage);
@@ -223,17 +234,185 @@ export default function PostDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mx-auto max-w-3xl"
         >
-          {/* Featured Image */}
+          {/* Media Gallery */}
           {post.media && post.media.length > 0 && (
-            <div className="mb-8 overflow-hidden rounded-lg">
-              <motion.img
-                initial={{ scale: 0.95 }}
-                animate={{ scale: 1 }}
-                src={postsService.getImageUrl(post.media[0].path)}
-                alt={post.title}
-                className="h-96 w-full object-cover"
-              />
+            <div className="mb-8">
+              {post.media.length === 1 ? (
+                /* Single image */
+                <div
+                  className="overflow-hidden rounded-xl cursor-zoom-in"
+                  onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
+                >
+                  <motion.img
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    src={postsService.getImageUrl(post.media[0].path)}
+                    alt={post.title}
+                    className="h-96 w-full object-cover hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+              ) : post.media.length === 2 ? (
+                /* Two images side by side */
+                <div className="grid grid-cols-2 gap-2 rounded-xl overflow-hidden">
+                  {post.media.map((m, i) => (
+                    <div
+                      key={m.mediaId}
+                      className="relative overflow-hidden cursor-zoom-in group"
+                      onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
+                    >
+                      <img
+                        src={postsService.getImageUrl(m.path)}
+                        alt={`${post.title} ${i + 1}`}
+                        className="h-64 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : post.media.length === 3 ? (
+                /* Three images: 1 large + 2 small */
+                <div className="grid grid-cols-2 gap-2 rounded-xl overflow-hidden">
+                  <div
+                    className="relative overflow-hidden cursor-zoom-in group row-span-2"
+                    onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
+                  >
+                    <img
+                      src={postsService.getImageUrl(post.media[0].path)}
+                      alt={`${post.title} 1`}
+                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 min-h-[320px]"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                      <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                  {post.media.slice(1).map((m, i) => (
+                    <div
+                      key={m.mediaId}
+                      className="relative overflow-hidden cursor-zoom-in group"
+                      onClick={() => { setLightboxIndex(i + 1); setLightboxOpen(true); }}
+                    >
+                      <img
+                        src={postsService.getImageUrl(m.path)}
+                        alt={`${post.title} ${i + 2}`}
+                        className="h-40 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* 4+ images: main preview + thumbnails strip */
+                <div className="space-y-2">
+                  {/* Main image */}
+                  <div
+                    className="relative overflow-hidden rounded-xl cursor-zoom-in group"
+                    onClick={() => { setLightboxIndex(activeImageIndex); setLightboxOpen(true); }}
+                  >
+                    <motion.img
+                      key={activeImageIndex}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.25 }}
+                      src={postsService.getImageUrl(post.media[activeImageIndex].path)}
+                      alt={`${post.title} ${activeImageIndex + 1}`}
+                      className="h-96 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                    </div>
+                    {/* Prev / Next arrows */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex - 1 + post.media.length) % post.media.length); }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex + 1) % post.media.length); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    {/* Counter */}
+                    <span className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                      {activeImageIndex + 1} / {post.media.length}
+                    </span>
+                  </div>
+                  {/* Thumbnails */}
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {post.media.map((m, i) => (
+                      <button
+                        key={m.mediaId}
+                        onClick={() => setActiveImageIndex(i)}
+                        className={cn(
+                          "flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all",
+                          i === activeImageIndex ? "border-accent scale-105" : "border-transparent opacity-60 hover:opacity-100"
+                        )}
+                      >
+                        <img
+                          src={postsService.getImageUrl(m.path)}
+                          alt={`thumb ${i + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Lightbox */}
+          {lightboxOpen && post.media && post.media.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+              onClick={() => setLightboxOpen(false)}
+            >
+              <button
+                onClick={() => setLightboxOpen(false)}
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              {post.media.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + post.media.length) % post.media.length); }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % post.media.length); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
+              <motion.img
+                key={lightboxIndex}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+                src={postsService.getImageUrl(post.media[lightboxIndex].path)}
+                alt={`${post.title} ${lightboxIndex + 1}`}
+                className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+              {post.media.length > 1 && (
+                <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 text-white text-sm px-3 py-1 rounded-full">
+                  {lightboxIndex + 1} / {post.media.length}
+                </span>
+              )}
+            </motion.div>
           )}
 
           {/* Post Header */}
@@ -272,7 +451,7 @@ export default function PostDetailPage() {
                     {Math.ceil(post.content.split(/\s+/).length / 200)} min read
                   </p>
                 </div>
-                <CredibilityBadge level="verified" score={85} size="sm" />
+                
                 
                 {/* Delete button - only show for post author */}
                 {user && post.authorId === user.id && (

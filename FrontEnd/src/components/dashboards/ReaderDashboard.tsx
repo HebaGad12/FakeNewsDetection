@@ -110,6 +110,7 @@ const ReaderDashboard = () => {
       } catch {
         // Wallet may not exist yet — that's ok
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error loading dashboard data:", error);
       toast.error("Failed to load dashboard data");

@@ -61,23 +61,7 @@ export function CredibilityBadge({
   const sizes = sizeConfig[size];
   const Icon = config.icon;
 
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-full font-medium transition-all",
-        config.bgClass,
-        config.textClass,
-        sizes.container,
-        className
-      )}
-    >
-      <Icon className={sizes.icon} />
-      {showLabel && <span>{config.label}</span>}
-      {score !== undefined && (
-        <span className="opacity-80">({score}%)</span>
-      )}
-    </div>
-  );
+  return null;
 }
 
 export function CredibilityIndicator({ level }: { level: CredibilityLevel }) {

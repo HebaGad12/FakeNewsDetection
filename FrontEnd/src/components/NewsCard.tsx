@@ -11,7 +11,7 @@ interface NewsCardProps {
   author: string;
   authorAvatar?: string;
   organization?: string;
-  image: string;
+  image?: string[];
   category: string;
   credibility: CredibilityLevel;
   credibilityScore?: number;
@@ -57,7 +57,7 @@ export function NewsCard({
       {/* Image */}
       <div className={cn("relative overflow-hidden", featured ? "h-64 md:h-80" : "h-48")}>
         <img
-          src={image}
+          src={image?.[0]}
           alt={title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
@@ -80,6 +80,24 @@ export function NewsCard({
           <Bookmark className="h-4 w-4 text-foreground" />
         </button>
       </div>
+      {/* صور إضافية مصغرة (إذا وجدت) */}
+        {image.length > 1 && (
+          <div className="flex gap-1 px-5 pt-3">
+            {image.slice(0, 3).map((img, idx) => (
+              <img
+                key={idx}
+                src={img}
+                alt=""
+                className="w-12 h-12 object-cover rounded-md border border-border"
+              />
+            ))}
+            {image.length > 3 && (
+              <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                +{image.length - 3}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Content */}
       <div className="p-5">
