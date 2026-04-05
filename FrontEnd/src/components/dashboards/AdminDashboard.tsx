@@ -715,15 +715,12 @@ const PostsTab = () => {
                   ["Organization", selectedPost.organizationName ?? "none"],
                   ["Moderation", selectedPost.moderationStatus],
                   ["Verification", selectedPost.verificationStatus],
-                  ["Confidence", `${selectedPost.confidenceScore}%`],
-                  ["Community Cred.", `${selectedPost.communityCredibilityPercent}%`],
                   ["Likes", selectedPost.likeCount],
                   ["Comments", selectedPost.commentCount],
                   ["Shares", selectedPost.shareCount],
                   ["Reports", selectedPost.reportCount],
                   ["Total Interactions", selectedPost.totalInteractions],
                   ["Created", formatDate(selectedPost.createdAt)],
-                  ["Updated", formatDate(selectedPost.updatedAt)],
                 ] as [string, string | number][]).map(([k, v]) => (
                   <div key={k}>
                     <p className="text-xs text-muted-foreground">{k}</p>
