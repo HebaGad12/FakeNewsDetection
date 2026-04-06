@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Shield,
   Users,
@@ -1395,9 +1396,9 @@ const WalletsTab = () => {
               </p>
             </div>
             <div>
-              <Label>Description <span className="text-destructive">*</span></Label>
+              <Label>Description (optional)</Label>
               <Textarea
-                placeholder="Reason for adjustment..."
+                placeholder="Reason for adjustment (optional)..."
                 value={adjustDescription}
                 onChange={(e) => setAdjustDescription(e.target.value)}
                 rows={3}
@@ -1551,6 +1552,7 @@ const DonationsTab = () => {
 // ============================================================================
 
 const ReportsTab = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [postReports, setPostReports] = useState<PostReportSummary[]>([]);
   const [selectedPostReport, setSelectedPostReport] = useState<PostReportSummary | null>(null);
@@ -1692,7 +1694,8 @@ const ReportsTab = () => {
             <Button
               onClick={() => {
                 if (!selectedPostReport) return;
-                window.open(`/article/${selectedPostReport.postId}`, "_blank", "noopener,noreferrer");
+                setDetailsOpen(false);
+                navigate(`/article/${selectedPostReport.postId}`);
               }}
               disabled={!selectedPostReport}
             >

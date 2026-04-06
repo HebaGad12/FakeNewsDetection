@@ -58,7 +58,28 @@ namespace Presentation.SignalR_Hubs
         }
         public async Task SendComment(Guid liveId, string comment)
         {
-            var senderName = Context.User?.FindFirstValue(ClaimTypes.Name) ?? "Viewer";
+            var senderName = Context.User?.FindFirstValue(ClaimTypes.Name)
+                ?? Context.User?.FindFirstValue("name")
+                ?? Context.User?.FindFirstValue("unique_name");
+
+            if (string.IsNullOrWhiteSpace(senderName))
+            {
+                var senderIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (Guid.TryParse(senderIdValue, out var senderId))
+                {
+                    senderName = await _context.Users
+                        .AsNoTracking()
+                        .Where(u => u.Id == senderId)
+                        .Select(u => u.Name)
+                        .FirstOrDefaultAsync();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(senderName))
+            {
+                senderName = "Viewer";
+            }
+
             await Clients.OthersInGroup(liveId.ToString()).SendAsync("ReceiveComment", senderName, comment);
         }
         public async Task SendOffer(Guid liveId, string offer)
