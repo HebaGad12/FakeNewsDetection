@@ -9,6 +9,7 @@ interface NewsCardProps {
   title: string;
   excerpt: string;
   author: string;
+  authorId?: string;
   authorAvatar?: string;
   organization?: string;
   image?: string[];
@@ -28,6 +29,7 @@ export function NewsCard({
   title,
   excerpt,
   author,
+  authorId,
   authorAvatar,
   organization,
   image,
@@ -42,115 +44,130 @@ export function NewsCard({
   className,
 }: NewsCardProps) {
   return (
-    <Link to={`/article/${id}`}>
-      <motion.article
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -4 }}
-        transition={{ duration: 0.3 }}
-        className={cn(
-          "group relative bg-card rounded-xl overflow-hidden border border-border shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer",
-          featured && "md:col-span-2 md:row-span-2",
-          className
-        )}
-      >
-      {/* Image */}
-      <div className={cn("relative overflow-hidden", featured ? "h-64 md:h-80" : "h-48")}>
-        <img
-          src={image?.[0]}
-          alt={title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        
-        {/* Category Badge */}
-        <div className="absolute top-4 left-4">
-          <span className="px-3 py-1 text-xs font-medium rounded-full bg-accent/90 text-accent-foreground backdrop-blur-sm">
-            {category}
-          </span>
+    <motion.article
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
+      className={cn(
+        "group relative bg-card rounded-xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-all duration-300",
+        featured && "md:col-span-2 md:row-span-2",
+        className
+      )}
+    >
+      {/* Top Header: Author Info */}
+      <div className="flex items-start justify-between p-4 pb-2 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <Link 
+            to={authorId ? `/profiles/${authorId}` : `#`} 
+            className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity flex-shrink-0"
+          >
+            {authorAvatar ? (
+              <img src={authorAvatar} alt={author} className="w-full h-full object-cover" />
+            ) : (
+              <User className="h-5 w-5 text-muted-foreground" />
+            )}
+          </Link>
+          <div className="flex flex-col min-w-0">
+            <Link 
+              to={authorId ? `/profiles/${authorId}` : `#`} 
+              className="text-sm font-semibold text-foreground truncate hover:underline"
+            >
+              {author}
+            </Link>
+            <div className="flex items-center text-xs text-muted-foreground gap-2">
+              {organization && <span className="truncate">{organization}</span>}
+              {organization && <span>•</span>}
+              <span>{publishedAt}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Credibility Badge */}
-        <div className="absolute top-4 right-4">
+        <div className="flex items-center gap-2">
           <CredibilityBadge level={credibility} score={credibilityScore} size="sm" />
         </div>
-
-        {/* Save Button */}
-        <button className="absolute bottom-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-background">
-          <Bookmark className="h-4 w-4 text-foreground" />
-        </button>
       </div>
-      {/* صور إضافية مصغرة (إذا وجدت) */}
-        {image.length > 1 && (
-          <div className="flex gap-1 px-5 pt-3">
-            {image.slice(0, 3).map((img, idx) => (
-              <img
-                key={idx}
-                src={img}
-                alt=""
-                className="w-12 h-12 object-cover rounded-md border border-border"
-              />
-            ))}
-            {image.length > 3 && (
-              <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center text-xs text-muted-foreground">
-                +{image.length - 3}
+
+      {/* Main Content (Links to detail) */}
+      <Link to={`/article/${id}`} className="block relative cursor-pointer">
+        <div className="p-4 pt-2">
+          {/* Category Badge - small */}
+          <div className="mb-2">
+            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-accent/10 text-accent uppercase tracking-wider">
+              {category}
+            </span>
+          </div>
+
+          <h3 className={cn(
+            "font-display font-semibold text-card-foreground leading-tight mb-2 group-hover:text-primary transition-colors",
+            featured ? "text-xl" : "text-lg"
+          )}>
+            {title}
+          </h3>
+          
+          <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 mb-3">
+            {excerpt}
+          </p>
+        </div>
+
+        {/* Media Section */}
+        {image && image.length > 0 && (
+          <div className="relative w-full border-y border-border/50 bg-muted/20">
+            {image.length === 1 ? (
+              <div className="relative aspect-video w-full overflow-hidden">
+                <img
+                  src={image[0]}
+                  alt={title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1 aspect-video w-full overflow-hidden">
+                {image.slice(0, 4).map((img, idx) => (
+                  <div key={idx} className="relative w-full h-full">
+                    <img
+                      src={img}
+                      alt={`${title} - image ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    {idx === 3 && image.length > 4 && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <span className="text-white font-medium text-lg">+{image.length - 4}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         )}
+      </Link>
 
-      {/* Content */}
-      <div className="p-5">
-        <h3 className={cn(
-          "font-display font-semibold text-card-foreground leading-tight mb-2 group-hover:text-accent transition-colors line-clamp-2",
-          featured ? "text-xl md:text-2xl" : "text-lg"
-        )}>
-          {title}
-        </h3>
-        
-        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 mb-4">
-          {excerpt}
-        </p>
-
-        {/* Author */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-            {authorAvatar ? (
-              <img src={authorAvatar} alt={author} className="w-full h-full object-cover" />
-            ) : (
-              <User className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{author}</p>
-            {organization && (
-              <p className="text-xs text-muted-foreground truncate">{organization}</p>
-            )}
-          </div>
+      {/* Meta bottom footer */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground p-3 bg-card px-4 border-t border-border/50">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1 hover:text-foreground transition-colors cursor-default">
+            <Clock className="h-3.5 w-3.5" />
+            {readTime}
+          </span>
+          <span className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer">
+            <Eye className="h-3.5 w-3.5" />
+            {views.toLocaleString()}
+          </span>
+          <span className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer">
+            <MessageCircle className="h-3.5 w-3.5" />
+            {comments}
+          </span>
         </div>
-
-        {/* Meta */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-4">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {readTime}
-            </span>
-            <span className="flex items-center gap-1">
-              <Eye className="h-3.5 w-3.5" />
-              {views.toLocaleString()}
-            </span>
-            <span className="flex items-center gap-1">
-              <MessageCircle className="h-3.5 w-3.5" />
-              {comments}
-            </span>
-          </div>
-          <button className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <Share2 className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1">
+          <button className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" aria-label="Bookmark">
+            <Bookmark className="h-4 w-4" />
+          </button>
+          <button className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" aria-label="Share">
+            <Share2 className="h-4 w-4" />
           </button>
         </div>
       </div>
-      </motion.article>
-    </Link>
+    </motion.article>
   );
 }

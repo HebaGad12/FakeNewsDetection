@@ -217,16 +217,17 @@ class PostsService {
       title: post.title,
       excerpt: post.content.substring(0, 150) + "...", // Truncate for preview
       author: post.authorName,
+      authorId: post.authorId,
       organization: post.organizationName,
-      image: post.media?.[0]?.path 
-        ? this.getImageUrl(post.media[0].path) 
-        : "https://images.unsplash.com/photo-1557804506-669714131143?w=800",
+      image: post.media?.length > 0
+        ? post.media.map(m => this.getImageUrl(m.path))
+        : ["https://images.unsplash.com/photo-1557804506-669714131143?w=800"], // Array of images
       category: post.tags?.[0] || "News",
       credibility: "verified" as const, // TODO: Determine based on fact-check data
       credibilityScore: 85, // TODO: Calculate from actual data
       readTime: this.estimateReadTime(post.content),
-      views: 0, // TODO: Add view count to API response
-      comments: post.comments.length,
+      views: post.likesCount || 0, // Using likes as views for now
+      comments: post.comments?.length || 0,
       publishedAt: this.formatRelativeTime(post.createdAt),
       featured: post.media && post.media.length > 0,
     };

@@ -104,7 +104,9 @@ const CommunitiesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredCommunities = communities.filter((community) => {
-    const matchesCategory = activeCategory === "All" || community.category === activeCategory;
+    const matchesCategory = 
+      activeCategory === "All" || 
+      (community.category && community.category.toLowerCase() === activeCategory.toLowerCase());
     const matchesSearch = community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          community.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;

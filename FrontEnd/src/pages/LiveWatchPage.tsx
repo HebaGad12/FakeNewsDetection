@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, AlertCircle,
-  Radio, Users, MessageSquare, Send,
+  Radio, Users, MessageSquare, Send, User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -226,30 +226,46 @@ const LiveWatchPage = () => {
     <div className="h-screen bg-black flex flex-col overflow-hidden">
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 bg-zinc-950 border-b border-white/10 flex-shrink-0">
-        {/* Back */}
-        <button
-          onClick={handleLeave}
-          disabled={isLeaving}
-          className="flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Leave
-        </button>
-
-        {/* Live badge */}
-        {isWatching ? (
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            <span className="text-sm font-semibold text-white">LIVE</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10">
-            {isConnecting && <Loader2 className="h-3.5 w-3.5 text-white/60 animate-spin" />}
-            <span className="text-sm text-white/60">
-              {isConnecting ? "Connecting…" : "Waiting…"}
+        {/* Back and Viewer Info */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleLeave}
+            disabled={isLeaving}
+            className="flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors bg-white/5 px-3 py-1.5 rounded-full"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Leave
+          </button>
+          <div className="hidden sm:flex flex-col">
+            <span className="text-xs text-white/40 uppercase tracking-wider font-semibold">Viewer</span>
+            <span className="text-sm text-white/90 font-medium">
+              {user?.name || "Anonymous Viewer"}
             </span>
           </div>
-        )}
+        </div>
+
+        {/* Live badge & Journalist Info */}
+        <div className="flex flex-col items-center">
+          {isWatching ? (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive mb-1">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="text-sm font-semibold text-white tracking-widest">LIVE</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 mb-1">
+              {isConnecting && <Loader2 className="h-3.5 w-3.5 text-white/60 animate-spin" />}
+              <span className="text-sm text-white/60">
+                {isConnecting ? "Connecting…" : "Waiting…"}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 text-white/80">
+            <User className="h-3.5 w-3.5 text-accent" />
+            <span className="text-sm font-medium">
+              Broadcaster: {location.state?.journalistName || journalistId || "Unknown Journalist"}
+            </span>
+          </div>
+        </div>
 
         {/* Chat toggle + connection dot */}
         <div className="flex items-center gap-3">
