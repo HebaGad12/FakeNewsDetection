@@ -83,18 +83,23 @@ const formatDate = (iso: string) =>
     day: "numeric",
   });
 
-const verificationColor: Record<string, string> = {
-  Trusted: "bg-green-100 text-green-700",
-  Fake: "bg-red-100 text-red-700",
-  Suspicious: "bg-yellow-100 text-yellow-700",
-  Unknown: "bg-gray-100 text-gray-600",
-};
-
 const moderationColor: Record<string, string> = {
   Pending: "bg-blue-100 text-blue-700",
   Approved: "bg-green-100 text-green-700",
   Rejected: "bg-red-100 text-red-700",
   Flagged: "bg-orange-100 text-orange-700",
+  Removed: "bg-red-100 text-red-700",
+  UnderReview: "bg-yellow-100 text-yellow-700",
+  Activated: "bg-green-100 text-green-700",
+  Deactivated: "bg-red-100 text-red-700",
+};
+
+const normalizeModerationStatus = (status: string) =>
+  status === "Removed" || status === "Deactivated" ? "Removed" : "Approved";
+
+const moderationStatusLabel = (status: string) => {
+  const normalized = normalizeModerationStatus(status);
+  return normalized === "Removed" ? "Deactivated" : "Activated";
 };
 
 // ============================================================================
@@ -226,9 +231,6 @@ const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
               { label: "Approved", value: stats.approvedPosts, color: "bg-green-400" },
               { label: "Rejected", value: stats.rejectedPosts, color: "bg-red-400" },
               { label: "Flagged", value: stats.flaggedPosts, color: "bg-orange-400" },
-              { label: "Verified", value: stats.verifiedPosts, color: "bg-emerald-400" },
-              { label: "Fake", value: stats.fakePosts, color: "bg-rose-600" },
-              { label: "Misleading", value: stats.misleadingPosts, color: "bg-yellow-400" },
             ].map((r) => (
               <div key={r.label} className="flex items-center gap-3">
                 <div className={cn("w-3 h-3 rounded-full", r.color)} />
@@ -493,23 +495,17 @@ const PostsTab = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [modFilter, setModFilter] = useState("all");
-  const [verFilter, setVerFilter] = useState("all");
   const [selectedPost, setSelectedPost] = useState<AdminPostDetail | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [moderationDialog, setModerationDialog] = useState<AdminPostListItem | null>(null);
-  const [verificationDialog, setVerificationDialog] = useState<AdminPostListItem | null>(null);
-  const [modStatus, setModStatus] = useState("");
-  const [modNotes, setModNotes] = useState("");
-  const [verStatus, setVerStatus] = useState("");
-  const [confScore, setConfScore] = useState<number>(0);
+  const [modStatus, setModStatus] = useState("Approved");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params: Parameters<typeof adminService.getPosts>[0] = { page, pageSize: 20 };
       if (modFilter !== "all") params.moderationStatus = modFilter;
-      if (verFilter !== "all") params.verificationStatus = verFilter;
       const data = await adminService.getPosts(params);
       setResult(data);
     } catch {
@@ -517,7 +513,7 @@ const PostsTab = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, modFilter, verFilter]);
+  }, [page, modFilter]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -548,28 +544,12 @@ const PostsTab = () => {
     try {
       await adminService.updatePostModeration(moderationDialog.id, {
         moderationStatus: modStatus,
-        moderationNotes: modNotes || undefined,
       });
       toast.success("Moderation status updated");
       setModerationDialog(null);
       void load();
     } catch {
       toast.error("Failed to update moderation");
-    }
-  };
-
-  const submitVerification = async () => {
-    if (!verificationDialog || !verStatus) return;
-    try {
-      await adminService.updatePostVerification(verificationDialog.id, {
-        verificationStatus: verStatus,
-        confidenceScore: confScore,
-      });
-      toast.success("Verification status updated");
-      setVerificationDialog(null);
-      void load();
-    } catch {
-      toast.error("Failed to update verification");
     }
   };
 
@@ -582,23 +562,8 @@ const PostsTab = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Moderation</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Approved">Approved</SelectItem>
-            <SelectItem value="Rejected">Rejected</SelectItem>
-            <SelectItem value="Flagged">Flagged</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={verFilter} onValueChange={(v) => { setVerFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Verification" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Verification</SelectItem>
-            <SelectItem value="Trusted">Trusted</SelectItem>
-            <SelectItem value="Fake">Fake</SelectItem>
-            <SelectItem value="Suspicious">Suspicious</SelectItem>
-            <SelectItem value="Unknown">Unknown</SelectItem>
+            <SelectItem value="Approved">Activated</SelectItem>
+            <SelectItem value="Removed">Deactivated</SelectItem>
           </SelectContent>
         </Select>
 
@@ -615,7 +580,7 @@ const PostsTab = () => {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  {["Title", "Author", "Moderation", "Verification", "Score", "Date", "Actions"].map((h) => (
+                  {["Title", "Author", "Moderation", "Date", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left font-medium text-muted-foreground">
                       {h}
                     </th>
@@ -632,20 +597,11 @@ const PostsTab = () => {
                     <td className="px-4 py-3">
                       <span className={cn(
                         "text-xs px-2 py-0.5 rounded-full font-medium",
-                        moderationColor[p.moderationStatus] ?? "bg-gray-100 text-gray-600"
+                        moderationColor[normalizeModerationStatus(p.moderationStatus)] ?? "bg-gray-100 text-gray-600"
                       )}>
-                        {p.moderationStatus}
+                        {moderationStatusLabel(p.moderationStatus)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-medium",
-                        verificationColor[p.verificationStatus] ?? "bg-gray-100 text-gray-600"
-                      )}>
-                        {p.verificationStatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{p.confidenceScore}%</td>
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(p.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
@@ -658,23 +614,10 @@ const PostsTab = () => {
                           title="Moderation"
                           onClick={() => {
                             setModerationDialog(p);
-                            setModStatus(p.moderationStatus);
-                            setModNotes("");
+                            setModStatus(normalizeModerationStatus(p.moderationStatus));
                           }}
                         >
                           <Filter className="h-4 w-4 text-blue-500" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title="Verification"
-                          onClick={() => {
-                            setVerificationDialog(p);
-                            setVerStatus(p.verificationStatus);
-                            setConfScore(p.confidenceScore);
-                          }}
-                        >
-                          <CheckCircle className="h-4 w-4 text-green-500" />
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setDeleteId(p.id)} title="Delete">
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -715,6 +658,8 @@ const PostsTab = () => {
                   ["Organization", selectedPost.organizationName ?? "none"],
                   ["Moderation", selectedPost.moderationStatus],
                   ["Verification", selectedPost.verificationStatus],
+                  ["Confidence", `${selectedPost.confidenceScore}%`],
+                  ["Community Cred.", `${selectedPost.communityCredibilityPercent}%`],
                   ["Likes", selectedPost.likeCount],
                   ["Comments", selectedPost.commentCount],
                   ["Shares", selectedPost.shareCount],
@@ -764,60 +709,15 @@ const PostsTab = () => {
               <Select value={modStatus} onValueChange={setModStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["Pending", "Approved", "Rejected", "Flagged"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
+                  <SelectItem value="Approved">Activated</SelectItem>
+                  <SelectItem value="Removed">Deactivated</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Notes (optional)</Label>
-              <Textarea
-                value={modNotes}
-                onChange={(e) => setModNotes(e.target.value)}
-                placeholder="Moderation notes..."
-                rows={3}
-              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModerationDialog(null)}>Cancel</Button>
             <Button onClick={() => void submitModeration()}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!verificationDialog} onOpenChange={() => setVerificationDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Verification Status</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Status</Label>
-              <Select value={verStatus} onValueChange={setVerStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Trusted", "Fake", "Suspicious", "Unknown"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Confidence Score (0-100)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={confScore}
-                onChange={(e) => setConfScore(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVerificationDialog(null)}>Cancel</Button>
-            <Button onClick={() => void submitVerification()}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1652,9 +1552,6 @@ const DonationsTab = () => {
 
 const ReportsTab = () => {
   const [loading, setLoading] = useState(false);
-  const [postsByModeration, setPostsByModeration] = useState<unknown>(null);
-  const [postsByVerification, setPostsByVerification] = useState<unknown>(null);
-  const [usersByRole, setUsersByRole] = useState<unknown>(null);
   const [postReports, setPostReports] = useState<PostReportSummary[]>([]);
   const [selectedPostReport, setSelectedPostReport] = useState<PostReportSummary | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -1663,15 +1560,7 @@ const ReportsTab = () => {
   const loadReports = useCallback(async () => {
     setLoading(true);
     try {
-      const [moderation, verification, roles, reports] = await Promise.all([
-        adminService.getPostsByModeration(),
-        adminService.getPostsByVerification(),
-        adminService.getUsersByRole(),
-        postReportsService.getPostReports(),
-      ]);
-      setPostsByModeration(moderation);
-      setPostsByVerification(verification);
-      setUsersByRole(roles);
+      const reports = await postReportsService.getPostReports();
       setPostReports(reports);
     } catch {
       toast.error("Failed to load reports");
@@ -1699,131 +1588,29 @@ const ReportsTab = () => {
     void loadReports();
   }, [loadReports]);
 
-  const toRows = (data: unknown): Array<{ key: string; value: string | number }> => {
-    if (!data || typeof data !== "object" || Array.isArray(data)) return [];
-
-    return Object.entries(data as Record<string, unknown>).map(([key, value]) => ({
-      key,
-      value: typeof value === "number" || typeof value === "string" ? value : String(value),
-    }));
-  };
-
-  const formatKey = (key: string) =>
-    key
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-
-  const getMetricTone = (key: string) => {
-    const k = key.toLowerCase();
-
-    if (k.includes("approved") || k.includes("trusted") || k.includes("active")) {
-      return {
-        row: "border-emerald-200/60 bg-emerald-50/40",
-        label: "text-emerald-700",
-        value: "text-emerald-800",
-      };
-    }
-
-    if (
-      k.includes("rejected") ||
-      k.includes("fake") ||
-      k.includes("flagged") ||
-      k.includes("removed") ||
-      k.includes("inactive")
-    ) {
-      return {
-        row: "border-rose-200/60 bg-rose-50/40",
-        label: "text-rose-700",
-        value: "text-rose-800",
-      };
-    }
-
-    if (k.includes("pending") || k.includes("underreview") || k.includes("suspicious") || k.includes("unknown")) {
-      return {
-        row: "border-amber-200/60 bg-amber-50/40",
-        label: "text-amber-700",
-        value: "text-amber-800",
-      };
-    }
-
-    return {
-      row: "border-border/60 bg-muted/20",
-      label: "text-muted-foreground",
-      value: "text-foreground",
-    };
-  };
-
-  const renderReport = (title: string, data: unknown) => {
-    const rows = toRows(data);
-    const total = rows.reduce((sum, row) => {
-      const numericValue = typeof row.value === "number" ? row.value : Number(row.value);
-      return Number.isFinite(numericValue) ? sum + numericValue : sum;
-    }, 0);
-
-    return (
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">{title}</h3>
-          <span className="text-xs text-muted-foreground">Total: {total}</span>
-        </div>
-
-        {rows.length === 0 ? (
-          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No data available.</div>
-        ) : (
-          <div className="space-y-2">
-            {rows.map((row) => (
-              (() => {
-                const tone = getMetricTone(row.key);
-                return (
-                  <div
-                    key={row.key}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg border px-3 py-2",
-                      tone.row
-                    )}
-                  >
-                    <span className={cn("text-sm", tone.label)}>{formatKey(row.key)}</span>
-                    <span className={cn("text-sm font-semibold", tone.value)}>{row.value}</span>
-                  </div>
-                );
-              })()
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const reportedPosts = postReports.filter(
+    (report) => report.totalReports > 0 || report.reports.length > 0
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">System reports from admin endpoints</p>
+        <p className="text-sm text-muted-foreground">Posts reported by users</p>
         <Button variant="outline" size="sm" onClick={() => void loadReports()} disabled={loading}>
           <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
-      {loading && !postsByModeration && !postsByVerification && !usersByRole ? (
-        <div className="py-16 text-center text-muted-foreground">Loading reports...</div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {renderReport("Posts by Moderation", postsByModeration)}
-          {renderReport("Posts by Verification", postsByVerification)}
-          {renderReport("Users by Role", usersByRole)}
-        </div>
-      )}
-
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-foreground">Reported Posts</h3>
-          <span className="text-xs text-muted-foreground">Total: {postReports.length}</span>
+          <span className="text-xs text-muted-foreground">Total: {reportedPosts.length}</span>
         </div>
 
-        {loading && postReports.length === 0 ? (
+        {loading && reportedPosts.length === 0 ? (
           <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">Loading reported posts...</div>
-        ) : postReports.length === 0 ? (
+        ) : reportedPosts.length === 0 ? (
           <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No reported posts found.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -1838,7 +1625,7 @@ const ReportsTab = () => {
                 </tr>
               </thead>
               <tbody>
-                {postReports.map((report) => (
+                {reportedPosts.map((report) => (
                   <tr key={report.postId} className="border-b border-border/40">
                     <td className="py-2 pr-3 font-medium text-foreground">#{report.postId}</td>
                     <td className="py-2 pr-3 text-foreground max-w-[300px] truncate" title={report.title}>
@@ -1892,7 +1679,7 @@ const ReportsTab = () => {
                     Reported at: {new Date(item.reportedAt).toLocaleString()}
                   </p>
                   <p className="text-xs text-muted-foreground mb-1">Reason</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{item.reason}</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{item.reason || "No reason provided."}</p>
                 </div>
               ))}
             </div>

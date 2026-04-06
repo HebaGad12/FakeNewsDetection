@@ -36,7 +36,7 @@ namespace FakeNewsDetection.web
 
             // ── Database ─────────────────────────────────────────────────────
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("sohila")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
 
             // ── Authentication ───────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
@@ -159,6 +159,7 @@ namespace FakeNewsDetection.web
             using (var scope = app.Services.CreateScope())
             {
                 var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await ctx.Database.MigrateAsync();
                 await DbSeeder.SeedAsync(ctx);
             }
 
