@@ -13,17 +13,50 @@ import {
   ChevronRight,
   X,
   ZoomIn,
+  Flag,
+  CheckCircle2,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { postsService, Post, PostComment } from "@/services/postsService";
+import { userService } from "@/services/userService";
 import { usePostInteractions } from "@/hooks/usePostInteractions";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { AnimatePresence } from "framer-motion";
+
+const REPORT_REASONS = [
+  { value: "misinformation", label: "Misinformation / False Information" },
+  { value: "misleading",     label: "Misleading Content" },
+  { value: "hate_speech",    label: "Hate Speech or Harassment" },
+  { value: "spam",           label: "Spam or Irrelevant Content" },
+  { value: "copyright",      label: "Copyright Violation" },
+  { value: "other",          label: "Other" },
+] as const;
+
+type ReportReason = (typeof REPORT_REASONS)[number]["value"];
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +75,13 @@ export default function PostDetailPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Report state
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason | "">("");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
 
   // Use the post interactions hook for like/comment management
   const {
@@ -161,6 +201,39 @@ export default function PostDetailPage() {
       setIsDeleting(false);
     }
   };
+
+  // Report handlers
+  const handleOpenReport = () => {
+    setReportReason("");
+    setReportDescription("");
+    setReportSuccess(false);
+    setShowReportDialog(true);
+  };
+
+  const handleCloseReport = () => {
+    setShowReportDialog(false);
+    setReportReason("");
+    setReportDescription("");
+    setReportSuccess(false);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!post || !reportReason) return;
+    const label = REPORT_REASONS.find((r) => r.value === reportReason)?.label ?? reportReason;
+    const fullReason = reportDescription.trim() ? `${label}: ${reportDescription.trim()}` : label;
+    try {
+      setIsSubmittingReport(true);
+      await userService.reportPost(post.id, { reason: fullReason });
+      setReportSuccess(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to submit report.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  const isReader = user?.role?.toLowerCase() === "reader" || user?.role?.toLowerCase() === "regularuser";
 
   // Loading state
   if (isLoading) {
@@ -469,6 +542,20 @@ export default function PostDetailPage() {
                     )}
                   </Button>
                 )}
+
+                {/* Report button - only for readers, not the post author */}
+                {isReader && user && post.authorId !== user.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleOpenReport}
+                    className="gap-1.5 text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
+                    title="Report this post"
+                  >
+                    <Flag className="h-4 w-4" />
+                    <span className="text-xs">Report</span>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -520,6 +607,19 @@ export default function PostDetailPage() {
                   <MessageCircle className="h-5 w-5" />
                   {comments.length} Comments
                 </Button>
+
+                {/* Report button - visible for any logged-in user */}
+                {user && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleOpenReport}
+                    className="gap-2 text-muted-foreground hover:text-orange-500 hover:border-orange-500/50 hover:bg-orange-500/10"
+                  >
+                    <Flag className="h-5 w-5" />
+                    Report
+                  </Button>
+                )}
               </div>
             )}
             
@@ -647,6 +747,109 @@ export default function PostDetailPage() {
       </main>
 
       <Footer />
+
+      {/* Report Dialog */}
+      <Dialog open={showReportDialog} onOpenChange={handleCloseReport}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-orange-500" />
+              Report Post
+            </DialogTitle>
+            <DialogDescription>
+              Reports are reviewed by our moderation team to keep the platform accurate and safe.
+            </DialogDescription>
+          </DialogHeader>
+
+          <AnimatePresence mode="wait">
+            {reportSuccess ? (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center gap-4 py-6 text-center"
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Report submitted</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Thank you for helping keep the platform safe. Our moderation team will review this post.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleCloseReport}>Close</Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="form"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-4"
+              >
+                {/* Post preview */}
+                <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Reporting</p>
+                  <p className="text-sm font-medium text-foreground line-clamp-2">{post.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">by {post.authorName}</p>
+                </div>
+
+                {/* Reason */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="report-reason">
+                    Reason <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={reportReason} onValueChange={(v) => setReportReason(v as ReportReason)}>
+                    <SelectTrigger id="report-reason">
+                      <SelectValue placeholder="Select a reason…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REPORT_REASONS.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="report-desc">
+                    Additional details <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id="report-desc"
+                    placeholder="Provide any additional context…"
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    rows={4}
+                    maxLength={500}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">{reportDescription.length}/500</p>
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={handleCloseReport} disabled={isSubmittingReport}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmitReport}
+                    disabled={!reportReason || isSubmittingReport}
+                    className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    {isSubmittingReport ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Flag className="h-4 w-4" />
+                    )}
+                    Submit Report
+                  </Button>
+                </DialogFooter>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
