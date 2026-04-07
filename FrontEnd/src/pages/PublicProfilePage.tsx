@@ -7,7 +7,9 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import publicProfileService, { PublicProfile } from "@/services/publicProfileService";
+import postsService from "@/services/postsService";
 import { toast } from "sonner";
+import { NewsCard } from "@/components/NewsCard";
 
 const PublicProfilePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -90,31 +92,41 @@ const PublicProfilePage = () => {
             </section>
 
             <section className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Approved Posts</h2>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Posts</h2>
               {profile.posts.length > 0 ? (
                 <div className="space-y-4">
                   {profile.posts.map((post) => (
-                    <article key={post.id} className="rounded-lg border border-border p-4">
-                      <h3 className="font-semibold text-foreground">{post.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap line-clamp-4">
-                        {post.content}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <ThumbsUp className="h-3.5 w-3.5" />
-                          {post.likes}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <MessageCircle className="h-3.5 w-3.5" />
-                          {post.comments}
-                        </span>
-                        <span>{new Date(post.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </article>
+                    <NewsCard
+                      key={post.id}
+                      id={post.id}
+                      title={post.title}
+                      excerpt={post.content ? `${post.content.substring(0, 150)}...` : ""}
+                      author={profile.name}
+                      authorId={profile.id}
+                      organization={profile.organization || undefined}
+                      image={
+                        post.media && post.media.length > 0
+                          ? post.media.map((m) => postsService.getImageUrl((m as any).url || (m as any).path))
+                          : undefined
+                      }
+                      category={post.tags && post.tags.length > 0 ? post.tags[0] : "News"}
+                      credibility={
+                        post.verificationStatus?.toLowerCase() === "fake"
+                          ? "fake"
+                          : post.verificationStatus?.toLowerCase() === "questionable"
+                          ? "questionable"
+                          : "verified"
+                      }
+                      credibilityScore={post.confidenceScore || 85}
+                      readTime={`${Math.max(1, Math.ceil((post.content || "").split(/\\s+/).length / 200))} min read`}
+                      views={post.likes || 0}
+                      comments={post.comments || 0}
+                      publishedAt={new Date(post.createdAt).toLocaleDateString()}
+                    />
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No approved posts yet.</p>
+                <p className="text-sm text-muted-foreground">No posts yet.</p>
               )}
             </section>
           </div>
