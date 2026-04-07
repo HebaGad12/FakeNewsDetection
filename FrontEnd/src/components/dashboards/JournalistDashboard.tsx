@@ -181,67 +181,36 @@ function PostCard({
   const statusClass = statusColor[post.moderationStatus] ?? "text-muted-foreground bg-muted border-border";
 
   return (
-    <motion.div
+    <motion.article
       layout
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      className="group rounded-2xl border border-border bg-card p-5 hover:shadow-md hover:border-border/80 transition-all"
+      className="group relative bg-card flex flex-col justify-between rounded-xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-all duration-300"
     >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium",
-                statusClass
-              )}
-            >
-              {statusIcon[post.moderationStatus]}
-              {post.moderationStatus}
-            </span>
-            {post.organizationName !== "Independent" && (
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {post.organizationName}
-              </span>
+      {/* Top Header: Status Info */}
+      <div className="flex items-start justify-between p-4 pb-2 border-b border-border/50">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap",
+              statusClass
             )}
-          </div>
-          <h3
-            className="font-semibold text-foreground line-clamp-1 cursor-pointer hover:text-accent transition-colors"
-            onClick={() => onNavigate(post.id)}
           >
-            {post.title}
-          </h3>
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{post.content}</p>
+            {statusIcon[post.moderationStatus]}
+            {post.moderationStatus}
+          </span>
+          {post.organizationName && post.organizationName !== "Independent" && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full truncate max-w-[120px]">
+              {post.organizationName}
+            </span>
+          )}
         </div>
-      </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Heart className="h-3.5 w-3.5 text-rose-400" />
-            {post.likes}
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageSquare className="h-3.5 w-3.5 text-blue-400" />
-            {post.comments}
-          </span>
-          <span className="flex items-center gap-1">
-            <Flag className="h-3.5 w-3.5 text-amber-400" />
-            {post.reports}
-          </span>
-          <span className="text-xs opacity-60">
-            {new Date(post.createdAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-        <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1 ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
             onClick={() => onViewReport(post.id)}
-            className="p-1.5 rounded-lg hover:bg-accent/10 hover:text-accent text-muted-foreground transition-colors"
+            className="p-1.5 rounded-md hover:bg-accent/10 hover:text-accent text-muted-foreground transition-colors"
             title="View analytics"
           >
             <BarChart2 className="h-4 w-4" />
@@ -249,7 +218,7 @@ function PostCard({
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="p-1.5 rounded-lg hover:bg-rose-500/10 hover:text-rose-400 text-muted-foreground transition-colors"
+            className="p-1.5 rounded-md hover:bg-rose-500/10 hover:text-rose-400 text-muted-foreground transition-colors disabled:opacity-50"
             title="Delete post"
           >
             <Trash2 className="h-4 w-4" />
@@ -257,33 +226,96 @@ function PostCard({
         </div>
       </div>
 
-      {post.media && post.media.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-border space-y-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Media</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {post.media.map((media) => (
-              <div key={media.mediaId} className="relative rounded-xl border border-border p-2 bg-muted/30 group/media">
-                {media.mediaType === "image" && (
-                  <img
-                    src={postsService.getImageUrl(media.path)}
-                    alt="Post media"
-                    className="w-full h-28 object-cover rounded-lg"
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleDeleteMedia(media.mediaId)}
-                  disabled={updatingMediaId === media.mediaId}
-                  className="absolute top-2 right-2 p-1 rounded-lg bg-rose-500/80 text-white hover:bg-rose-600 transition-colors opacity-0 group-hover/media:opacity-100"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
+      {/* Main Content */}
+      <div
+        className="block relative cursor-pointer flex-1"
+        onClick={() => onNavigate(post.id)}
+      >
+        <div className="p-4 pt-3">
+          <h3 className="font-display font-semibold text-card-foreground leading-tight mb-2 group-hover:text-primary transition-colors text-lg line-clamp-2">
+            {post.title}
+          </h3>
+          <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 mb-3">
+            {post.content}
+          </p>
         </div>
-      )}
-    </motion.div>
+
+        {/* Media Section */}
+        {post.media && post.media.length > 0 && (
+          <div
+            className="relative w-full border-y border-border/50 bg-muted/20"
+            onClick={(e) => e.stopPropagation()} // Prevent nav when interacting with media
+          >
+            <div className={cn("grid gap-1 w-full overflow-hidden", post.media.length === 1 ? "grid-cols-1 aspect-video" : "grid-cols-2 aspect-video")}>
+              {post.media.slice(0, 4).map((media, idx) => (
+                <div
+                  key={media.mediaId}
+                  className="relative w-full h-full group/media"
+                >
+                  {media.mediaType === "image" ? (
+                    <img
+                      src={postsService.getImageUrl(media.path)}
+                      alt="Post media"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                      <span className="text-xs text-muted-foreground">Unsupported Media</span>
+                    </div>
+                  )}
+                  
+                  {idx === 3 && post.media.length > 4 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-white font-medium text-lg">+{post.media.length - 4}</span>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteMedia(media.mediaId);
+                    }}
+                    disabled={updatingMediaId === media.mediaId}
+                    className="absolute top-2 right-2 p-1.5 rounded-md bg-rose-500/80 text-white hover:bg-rose-600 transition-colors opacity-0 group-hover/media:opacity-100 disabled:opacity-50 z-10"
+                    title="Remove Media"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Meta bottom footer */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground p-3 bg-card px-4 border-t border-border/50 mt-auto">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1 hover:text-rose-400 transition-colors cursor-default">
+            <Heart className="h-3.5 w-3.5" />
+            <span>{post.likes}</span>
+          </span>
+          <span className="flex items-center gap-1 hover:text-blue-400 transition-colors cursor-default">
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span>{post.comments}</span>
+          </span>
+          <span className="flex items-center gap-1 hover:text-amber-400 transition-colors cursor-default">
+            <Flag className="h-3.5 w-3.5" />
+            <span>{post.reports}</span>
+          </span>
+        </div>
+        <span className="flex items-center gap-1">
+          <Clock className="h-3.5 w-3.5" />
+          {new Date(post.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </span>
+      </div>
+    </motion.article>
   );
 }
 
@@ -438,11 +470,14 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     id: string;
     file: File;
     preview: string;
+    isVideo: boolean;
+    isCopyrighted: boolean;
   };
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
+  const [globalCopyright, setGlobalCopyright] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ postId: string; moderationStatus: string } | null>(null);
   const [error, setError] = useState("");
@@ -450,9 +485,14 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const selectedMediaRef = useRef<SelectedMedia[]>([]);
   const [dragActive, setDragActive] = useState(false);
 
-  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"];
+  const ALLOWED_VIDEO_EXTS = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv"];
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for videos
   const MAX_MEDIA_ITEMS = 10;
+
+  const getFileExtension = (filename: string) => {
+    return filename.slice((Math.max(0, filename.lastIndexOf(".")) || Infinity)).toLowerCase();
+  };
 
   const handleImageSelect = (incomingFiles: FileList | File[]) => {
     const files = Array.from(incomingFiles);
@@ -461,12 +501,16 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     const additions: SelectedMedia[] = [];
 
     for (const file of files) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        toast.error(`Unsupported file type: ${file.name}`);
+      const ext = getFileExtension(file.name);
+      const isImage = ALLOWED_IMAGE_EXTS.includes(ext);
+      const isVideo = ALLOWED_VIDEO_EXTS.includes(ext);
+
+      if (!isImage && !isVideo) {
+        toast.error(`Unsupported file type: ${file.name}. Allowed extensions are images (${ALLOWED_IMAGE_EXTS.join(", ")}) and videos (${ALLOWED_VIDEO_EXTS.join(", ")}).`);
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} exceeds 5MB`);
+        toast.error(`${file.name} exceeds 50MB`);
         continue;
       }
 
@@ -483,6 +527,8 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         id: crypto.randomUUID(),
         file,
         preview: URL.createObjectURL(file),
+        isVideo,
+        isCopyrighted: isVideo ? false : globalCopyright,
       });
     }
 
@@ -492,13 +538,13 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       const remainingSlots = Math.max(0, MAX_MEDIA_ITEMS - prev.length);
       if (remainingSlots === 0) {
         additions.forEach((item) => URL.revokeObjectURL(item.preview));
-        toast.error(`You can upload up to ${MAX_MEDIA_ITEMS} images per post`);
+        toast.error(`You can upload up to ${MAX_MEDIA_ITEMS} media items per post`);
         return prev;
       }
 
       if (additions.length > remainingSlots) {
         additions.slice(remainingSlots).forEach((item) => URL.revokeObjectURL(item.preview));
-        toast.warning(`Only ${remainingSlots} more image(s) can be added`);
+        toast.warning(`Only ${remainingSlots} more media item(s) can be added`);
       }
 
       return [...prev, ...additions.slice(0, remainingSlots)];
@@ -562,6 +608,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
           ? tags.split(",").map((t) => t.trim()).filter(Boolean)
           : [],
         images: selectedMedia.map((item) => item.file),
+        isCopyrightedFlags: selectedMedia.map((item) => item.isCopyrighted),
       });
       setResult(res);
       onSuccess();
@@ -611,6 +658,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             setTitle("");
             setContent("");
             setTags("");
+            setGlobalCopyright(false);
             selectedMedia.forEach((item) => URL.revokeObjectURL(item.preview));
             setSelectedMedia([]);
             setResult(null);
@@ -658,31 +706,67 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
 
       {/* Image Upload Section */}
       <div className="border-t border-border pt-4">
-        <label className="text-sm font-medium text-foreground mb-2 block">
-          Media Upload ({selectedMedia.length}/{MAX_MEDIA_ITEMS})
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-foreground block">
+            Media Upload ({selectedMedia.length}/{MAX_MEDIA_ITEMS})
+          </label>
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              className="accent-accent"
+              checked={globalCopyright}
+              onChange={(e) => {
+                setGlobalCopyright(e.target.checked);
+                setSelectedMedia(prev => prev.map(m => (!m.isVideo ? { ...m, isCopyrighted: e.target.checked } : m)));
+              }}
+            />
+            Global Copyright (Images only)
+          </label>
+        </div>
 
         {selectedMedia.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             {selectedMedia.map((item) => (
-              <div key={item.id} className="relative rounded-lg border border-border bg-muted/30 p-2 group">
-                <img
-                  src={item.preview}
-                  alt={item.file.name}
-                  className="w-full h-28 object-cover rounded-md"
-                />
+              <div key={item.id} className="relative rounded-lg border border-border bg-muted/30 p-2 group flex flex-col">
+                <div className="relative w-full h-32 mb-2 bg-black/5 rounded-md overflow-hidden flex items-center justify-center">
+                  {item.isVideo ? (
+                    <video
+                      src={item.preview}
+                      className="w-full h-full object-cover"
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                    />
+                  ) : (
+                    <img
+                      src={item.preview}
+                      alt={item.file.name}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+                <label className="flex items-center gap-2 mt-auto text-xs text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="accent-accent disabled:opacity-50"
+                    checked={item.isCopyrighted}
+                    disabled={item.isVideo}
+                    onChange={(e) => {
+                      if (item.isVideo) return;
+                      setSelectedMedia(prev => prev.map(m => m.id === item.id ? { ...m, isCopyrighted: e.target.checked } : m));
+                    }}
+                  />
+                  Copyright this media {item.isVideo && '(Videos cannot be copyrighted)'}
+                </label>
                 <button
                   onClick={() => removeImage(item.id)}
-                  className="absolute top-2 right-2 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-3 right-3 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors opacity-0 group-hover:opacity-100 z-10 shadow-md"
                   type="button"
+                  title="Remove Media"
                 >
                   <X className="h-3 w-3" />
                 </button>
-                <div className="mt-2">
-                  <p className="text-xs text-muted-foreground truncate" title={item.file.name}>
-                    {item.file.name}
-                  </p>
-                </div>
               </div>
             ))}
           </div>
@@ -699,23 +783,25 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         >
           <input
             type="file"
-            id="image-upload-form"
-            accept={ALLOWED_IMAGE_TYPES.join(",")}
+            id="media-upload-form"
+            accept={[...ALLOWED_IMAGE_EXTS, ...ALLOWED_VIDEO_EXTS].join(",")}
             onChange={handleFileInputChange}
             className="hidden"
             multiple
           />
-          <label htmlFor="image-upload-form" className="cursor-pointer block">
+          <label htmlFor="media-upload-form" className="cursor-pointer block">
             <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
             <p className="text-xs text-muted-foreground mb-1">
-              Drag and drop one or more images, or
+              Drag and drop media files, or
             </p>
-            <Button variant="outline" size="sm" type="button">
+            <Button variant="outline" size="sm" type="button" onClick={() => document.getElementById("media-upload-form")?.click()}>
               Browse Files
             </Button>
           </label>
           <p className="text-xs text-muted-foreground mt-2">
-            Supported: JPEG, PNG, WebP, GIF (Max 5MB each, up to {MAX_MEDIA_ITEMS} files)
+            Supported Images: {ALLOWED_IMAGE_EXTS.join(", ")}<br/>
+            Supported Videos: {ALLOWED_VIDEO_EXTS.join(", ")}<br/>
+            (Max 50MB each, up to {MAX_MEDIA_ITEMS} files)
           </p>
         </div>
       </div>
