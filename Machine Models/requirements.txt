@@ -22,3 +22,4 @@ chromadb
 # ── Fact-checking (FactChecker.py) ──────────────────────────────────────────
 google-genai
 python-dotenv
+scikit-learn

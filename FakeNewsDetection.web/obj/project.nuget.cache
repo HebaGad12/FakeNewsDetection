@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "JNz5djX/FNg=",
+  "success": true,
+  "projectFilePath": "D:\\FakeNewsDetection\\FakeNewsDetection\\FakeNewsDetection.web\\FakeNewsDetection.web.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\myass\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.11\\microsoft.aspnetcore.openapi.9.0.11.nupkg.sha512",
+    "C:\\Users\\myass\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
