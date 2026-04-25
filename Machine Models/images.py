@@ -1,4 +1,5 @@
 import os
+import io
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,7 +9,7 @@ import chromadb
 
 
 # ─────────────────────────────────────────────
-#  1.  Model 
+#  1.  Model
 # ─────────────────────────────────────────────
 
 class EmbeddingNet(nn.Module):
@@ -75,7 +76,16 @@ class ImageDuplicateStore:
     # ── internal helpers ─────────────────────────────────────────
 
     def _embed(self, image_path: str) -> list:
+        """Embed an image from a file path."""
         img = Image.open(image_path).convert("RGB")
+        tensor = self.TRANSFORM(img).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            emb = self.model(tensor)
+        return emb.squeeze(0).cpu().tolist()
+
+    def _embed_from_bytes(self, image_bytes: bytes) -> list:
+        """Embed an image from raw bytes (used for web image comparison)."""
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         tensor = self.TRANSFORM(img).unsqueeze(0).to(self.device)
         with torch.no_grad():
             emb = self.model(tensor)
@@ -125,10 +135,6 @@ class ImageDuplicateStore:
     # ── public API ───────────────────────────────────────────────
 
     def store(self) -> None:
-        """
-        Prompt user for image path and ID.
-        Runs a copyright check first — only stores if no violation found.
-        """
         print("\n── Store Image ─────────────────────────────────────────")
         image_path = self._prompt_image_path("  Enter image path : ")
         image_id   = input("  Enter image ID   : ").strip()
@@ -143,7 +149,6 @@ class ImageDuplicateStore:
                   "Use Delete to remove it first.")
             return
 
-        # ── copyright check before storing ───────────────────────
         print("  Checking for copyright violations before storing...")
         embedding = self._embed(image_path)
         is_duplicate, matches = self._check_copyright(embedding)
@@ -156,9 +161,8 @@ class ImageDuplicateStore:
                       f"similarity={m['similarity']:.4f}  "
                       f"path='{m['path']}'")
             print("═" * 60)
-            return  # block storing
+            return
 
-        # ── safe to store ─────────────────────────────────────────
         self.collection.add(
             ids=[image_id],
             embeddings=[embedding],
@@ -168,7 +172,6 @@ class ImageDuplicateStore:
         print("═" * 60)
 
     def check(self) -> dict:
-        """Prompt user for an image path and check for copyright duplicates."""
         print("\n── Check Image ─────────────────────────────────────────")
         image_path = self._prompt_image_path("  Enter image path to check : ")
 
@@ -195,7 +198,6 @@ class ImageDuplicateStore:
         return {"is_duplicate": is_duplicate, "matches": matches}
 
     def list_all(self) -> None:
-        """Print every image currently stored."""
         print("\n── Stored Images ───────────────────────────────────────")
         data = self.collection.get()
         if not data["ids"]:
@@ -206,7 +208,6 @@ class ImageDuplicateStore:
             print(f"  • id='{img_id}'  path='{meta.get('path')}'")
 
     def delete(self) -> None:
-        """Prompt user for an image ID and remove it."""
         print("\n── Delete Image ────────────────────────────────────────")
         image_id = input("  Enter image ID to delete : ").strip()
         if not image_id:

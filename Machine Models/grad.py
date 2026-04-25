@@ -1,14 +1,14 @@
 import os
-from urllib.parse import unquote, urlparse
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
-# Import your model code
 from toxic import predict_toxicity
 from FactChecker import FactChecker
 from images import ImageDuplicateStore
+from searchimages import search_similar_images, check_web_similarity
+from chat import ChatAnalyzer          # ← NEW
 
 
 # ── Request / Response schemas ──────────────────────────────────────────────
@@ -26,7 +26,7 @@ class PredictResponse(BaseModel):
     confidence_non_toxic: float | None = None
     confidence_toxic: float | None = None
 
-# -- Fact Checker --
+# -- Fact Checker (original — untouched) --
 from dotenv import load_dotenv
 load_dotenv()
 FACT_CHECK_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -41,34 +41,45 @@ class FactCheckResponse(BaseModel):
     analysis: str
     verdict: str
 
+# -- Chat Analysis (NEW) --
+class ChatRequest(BaseModel):
+    text: str
+    mode: str  # "grammar" or "factcheck"
+
+class ChatResponse(BaseModel):
+    text: str
+    mode: str
+    analysis: str
+
 # -- Images --
-class ImageStoreRequest(BaseModel):
-    image_path: str
-    image_id: str
-
-class ImageCheckRequest(BaseModel):
-    image_path: str
-
-class ImageDeleteRequest(BaseModel):
-    image_id: str
-
 class ImageStoreResponse(BaseModel):
     status: str
     image_id: str
     message: str
-    matches: list = []
+    local_matches: list = []
+    web_matches: list = []
 
 class ImageCheckResponse(BaseModel):
     is_duplicate: bool
-    matches: list = []
+    checked_web: bool
+    local_matches: list = []
+    web_matches: list = []
 
 class ImageListResponse(BaseModel):
     count: int
     images: list = []
 
+class ImageDeleteRequest(BaseModel):
+    image_id: str
+
 class ImageDeleteResponse(BaseModel):
     status: str
     image_id: str
+
+# -- Web Search --
+class WebSearchResponse(BaseModel):
+    count: int
+    results: list[dict]
 
 
 # ── Shared resources ────────────────────────────────────────────────────────
@@ -79,37 +90,21 @@ image_store = ImageDuplicateStore(
     threshold=0.876,
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-def resolve_image_path(image_path: str) -> str:
-    path = image_path.strip()
-    if path.startswith("file://"):
-        parsed = urlparse(path)
-        path = unquote(parsed.path)
-
-    path = os.path.expanduser(path)
-    if os.path.isabs(path):
-        return os.path.abspath(path)
-
-    return os.path.abspath(os.path.join(BASE_DIR, path))
+chat_analyzer = ChatAnalyzer(api_key=FACT_CHECK_API_KEY)   # ← NEW
 
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Graduation Project API",
-    description="Toxicity detection, fact checking, and image copyright detection.",
-    version="2.0.0",
+    description="Toxicity detection, fact checking, image copyright detection, and chat analysis.",
+    version="2.1.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://localhost:7044",
-        "http://localhost:5263",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -126,109 +121,212 @@ def health():
 def predict(req: PredictRequest):
     if not req.text.strip():
         raise HTTPException(status_code=422, detail="Text must not be empty.")
-
-    result = predict_toxicity(req.text, return_probabilities=req.return_probabilities)
-    return result
+    return predict_toxicity(req.text, return_probabilities=req.return_probabilities)
 
 
-# ── Fact-checking endpoints ─────────────────────────────────────────────────
+# ── Fact-checking endpoints (original — untouched) ──────────────────────────
 
 @app.post("/fact-check", response_model=FactCheckResponse)
 def fact_check(req: FactCheckRequest):
     if not req.article.strip():
         raise HTTPException(status_code=422, detail="Article must not be empty.")
-
     try:
         checker = FactChecker(api_key=FACT_CHECK_API_KEY)
         result = checker.check(req.article)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fact-check failed: {e}")
 
-    # Parse verdict from last line
     lines = result.strip().splitlines()
     verdict = lines[-1].strip().upper() if lines else "UNKNOWN"
     analysis = "\n".join(lines[:-1]).strip() if len(lines) > 1 else result.strip()
-
     return FactCheckResponse(article=req.article, analysis=analysis, verdict=verdict)
 
 
-# ── Image copyright endpoints ──────────────────────────────────────────────
+# ── Chat analysis endpoint (NEW) ─────────────────────────────────────────────
 
-@app.post("/images/store", response_model=ImageStoreResponse)
-def store_image(req: ImageStoreRequest):
-    if not req.image_id.strip():
-        raise HTTPException(status_code=422, detail="image_id must not be empty.")
-    if not req.image_path.strip():
-        raise HTTPException(status_code=422, detail="image_path must not be empty.")
-    resolved_path = resolve_image_path(req.image_path)
-    if not os.path.isfile(resolved_path):
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    """
+    Analyse text with one of two modes:
+
+    - **grammar**   – detailed grammar, spelling, punctuation, and style review.
+    - **factcheck** – deep fact-check report with per-claim verdicts and
+                      an overall accuracy label (uses Google Search grounding).
+
+    Both modes return a rich, human-readable analysis — not a simple true/false.
+    """
+    if not req.text.strip():
+        raise HTTPException(status_code=422, detail="text must not be empty.")
+
+    mode = req.mode.strip().lower()
+    if mode not in ChatAnalyzer.MODES:
         raise HTTPException(
-            status_code=404,
-            detail=(
-                f"File not found on server filesystem: '{req.image_path}' "
-                f"(resolved to '{resolved_path}')."
-            ),
+            status_code=422,
+            detail=f"Invalid mode '{req.mode}'. Allowed values: {list(ChatAnalyzer.MODES)}",
         )
 
-    # Check if ID already exists
-    existing = image_store.collection.get(ids=[req.image_id])
+    try:
+        analysis = chat_analyzer.analyse(req.text, mode=mode)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {e}")
+
+    return ChatResponse(text=req.text, mode=mode, analysis=analysis)
+
+
+# ── Image copyright endpoints ───────────────────────────────────────────────
+
+@app.post("/images/store", response_model=ImageStoreResponse)
+async def store_image(
+    image: UploadFile = File(..., description="Image file to store (JPEG, PNG, WEBP, etc.)"),
+    image_id: str = Form(..., description="Unique ID to assign to this image"),
+    check_web: bool = Query(
+        default=False,
+        description=(
+            "If true: after passing the local DB check, also search the web for "
+            "3 similar images and compare against the uploaded image. "
+            "Rejects if similarity >= threshold."
+        ),
+    ),
+):
+    """
+    Store an image in the copyright DB after running duplicate checks.
+
+    - check_web=false (default): local DB check only before storing.
+    - check_web=true: local DB check + web similarity check before storing.
+      Rejected if either check finds a duplicate.
+    """
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image.")
+
+    if not image_id.strip():
+        raise HTTPException(status_code=422, detail="image_id must not be empty.")
+
+    image_bytes = await image.read()
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large. Max 20 MB.")
+
+    # ── Check ID uniqueness ─────────────────────────────────────
+    existing = image_store.collection.get(ids=[image_id])
     if existing["ids"]:
         raise HTTPException(
             status_code=409,
-            detail=f"ID '{req.image_id}' already exists. Delete it first.",
+            detail=f"ID '{image_id}' already exists. Delete it first.",
         )
 
-    embedding = image_store._embed(resolved_path)
-    is_duplicate, matches = image_store._check_copyright(embedding)
+    # ── Step 1: local DB check ──────────────────────────────────
+    embedding = image_store._embed_from_bytes(image_bytes)
+    local_duplicate, local_matches = image_store._check_copyright(embedding)
 
-    if is_duplicate:
-        return ImageStoreResponse(
-            status="rejected",
-            image_id=req.image_id,
-            message="Copyright violation detected — image NOT stored.",
-            matches=matches,
+    if local_duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "status": "rejected",
+                "reason": "local_db",
+                "message": "Copyright violation detected in local DB — image NOT stored.",
+                "local_matches": local_matches,
+                "web_matches": [],
+            },
         )
 
+    # ── Step 2: web check (only if requested and local passed) ──
+    if check_web:
+        web_duplicate, web_matches = await check_web_similarity(
+            image_bytes=image_bytes,
+            embed_fn=image_store._embed_from_bytes,
+            threshold=image_store.threshold,
+            web_limit=3,
+        )
+        if web_duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "status": "rejected",
+                    "reason": "web",
+                    "message": "Copyright violation detected on the web — image NOT stored.",
+                    "local_matches": [],
+                    "web_matches": web_matches,
+                },
+            )
+
+    # ── All checks passed: store ────────────────────────────────
     image_store.collection.add(
-        ids=[req.image_id],
+        ids=[image_id],
         embeddings=[embedding],
-        metadatas=[{"path": resolved_path}],
+        metadatas=[{"id": image_id}],
     )
     return ImageStoreResponse(
         status="stored",
-        image_id=req.image_id,
-        message=f"Image stored with id='{req.image_id}'.",
+        image_id=image_id,
+        message=f"Image stored with id='{image_id}'.",
     )
 
 
 @app.post("/images/check", response_model=ImageCheckResponse)
-def check_image(req: ImageCheckRequest):
-    if not req.image_path.strip():
-        raise HTTPException(status_code=422, detail="image_path must not be empty.")
-    resolved_path = resolve_image_path(req.image_path)
-    if not os.path.isfile(resolved_path):
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"File not found on server filesystem: '{req.image_path}' "
-                f"(resolved to '{resolved_path}')."
-            ),
+async def check_image(
+    image: UploadFile = File(..., description="Image file to check (JPEG, PNG, WEBP, etc.)"),
+    check_web: bool = Query(
+        default=False,
+        description=(
+            "If true: after passing the local DB check, also search the web for "
+            "3 similar images and compare against the uploaded image. "
+            "Flags as duplicate if similarity >= threshold."
+        ),
+    ),
+):
+    """
+    Check whether an uploaded image is a copyright duplicate.
+
+    - check_web=false (default): local vector DB check only.
+    - check_web=true: local DB check first. If no local match,
+      fetch 3 web images via SerpAPI, embed and compare each.
+    """
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image.")
+
+    image_bytes = await image.read()
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large. Max 20 MB.")
+
+    # ── Step 1: local DB check ──────────────────────────────────
+    if image_store.collection.count() == 0:
+        local_duplicate, local_matches = False, []
+    else:
+        embedding = image_store._embed_from_bytes(image_bytes)
+        local_duplicate, local_matches = image_store._check_copyright(embedding)
+
+    if local_duplicate:
+        return ImageCheckResponse(
+            is_duplicate=True,
+            checked_web=False,
+            local_matches=local_matches,
         )
 
-    if image_store.collection.count() == 0:
-        return ImageCheckResponse(is_duplicate=False, matches=[])
+    # ── Step 2: web check (only if requested and local passed) ──
+    if not check_web:
+        return ImageCheckResponse(
+            is_duplicate=False,
+            checked_web=False,
+        )
 
-    embedding = image_store._embed(resolved_path)
-    is_duplicate, matches = image_store._check_copyright(embedding)
-    return ImageCheckResponse(is_duplicate=is_duplicate, matches=matches)
+    web_duplicate, web_matches = await check_web_similarity(
+        image_bytes=image_bytes,
+        embed_fn=image_store._embed_from_bytes,
+        threshold=image_store.threshold,
+        web_limit=3,
+    )
+
+    return ImageCheckResponse(
+        is_duplicate=web_duplicate,
+        checked_web=True,
+        web_matches=web_matches,
+    )
 
 
 @app.get("/images/list", response_model=ImageListResponse)
 def list_images():
     data = image_store.collection.get()
-    images = []
-    for img_id, meta in zip(data["ids"], data["metadatas"]):
-        images.append({"id": img_id, "path": meta.get("path", "")})
+    images = [{"id": img_id} for img_id in data["ids"]]
     return ImageListResponse(count=len(images), images=images)
 
 
@@ -243,6 +341,28 @@ def delete_image(req: ImageDeleteRequest):
 
     image_store.collection.delete(ids=[req.image_id])
     return ImageDeleteResponse(status="deleted", image_id=req.image_id)
+
+
+# ── Web image search endpoint ───────────────────────────────────────────────
+
+@app.post("/images/search-web", response_model=WebSearchResponse)
+async def search_web(
+    image: UploadFile = File(..., description="Image file to search (JPEG, PNG, WEBP, etc.)"),
+    limit: int = Query(default=10, ge=1, le=50, description="Max results to return"),
+):
+    """
+    Upload an image and find visually similar images from the web via SerpAPI Google Lens.
+    Requires SERPAPI_KEY in your .env file.
+    """
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image.")
+
+    image_bytes = await image.read()
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large. Max 20 MB.")
+
+    results = await search_similar_images(image_bytes, limit=limit)
+    return WebSearchResponse(count=len(results), results=results)
 
 
 if __name__ == "__main__":

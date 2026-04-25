@@ -78,11 +78,10 @@ namespace Presentation.Controllers
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         /// <summary>
-        /// Saves an uploaded image file to media/posts/{mediaId}{ext} and returns the
-        /// relative URL path that gets stored in the database.
+        /// Saves an uploaded file to media/posts/{mediaId}{ext} and returns
+        /// the relative URL path stored in the database.
         /// </summary>
-        private async Task<(string relativePath, string absolutePath)> SaveMediaFileAsync(
-            IFormFile file, Guid mediaId)
+        private async Task<string> SaveMediaFileAsync(IFormFile file, Guid mediaId)
         {
             var ext = MimeToExt.TryGetValue(file.ContentType.ToLower(), out var e) ? e
                       : Path.GetExtension(file.FileName).ToLower();
@@ -92,76 +91,79 @@ namespace Presentation.Controllers
             Directory.CreateDirectory(absoluteDir);
 
             var absolutePath = Path.Combine(absoluteDir, fileName);
-            var relativePath = $"media/posts/{fileName}";   // stored in DB & returned to client
+            var relativePath = $"media/posts/{fileName}";
 
             await using var stream = new FileStream(absolutePath, FileMode.Create);
             await file.CopyToAsync(stream);
 
-            return (relativePath, absolutePath);
-        }
-
-        private static string ResolveAbsolutePath(string mediaPath)
-        {
-            var trimmed = mediaPath.Trim();
-            if (Path.IsPathRooted(trimmed))
-                return Path.GetFullPath(trimmed);
-
-            var normalized = trimmed
-                .Replace("/", Path.DirectorySeparatorChar.ToString())
-                .TrimStart(Path.DirectorySeparatorChar);
-
-            return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), normalized));
+            return relativePath;
         }
 
         /// <summary>
-        /// Checks whether an image at <paramref name="absolutePath"/> violates copyright,
-        /// but ignores any matches that are already owned by <paramref name="requesterId"/>.
-        ///
-        /// This prevents the image owner from being blocked when they re-upload or reuse
-        /// one of their own previously copyrighted images.
+        /// Checks whether the image bytes violate copyright, but ignores any matches
+        /// already owned by <paramref name="requesterId"/> (so journalists can reuse
+        /// their own previously registered images without being blocked).
+        /// Returns third-party matches enriched with the post that owns each matched image.
         /// </summary>
-        private async Task<CopyrightCheckResult> CheckCopyrightExcludingOwnerAsync(
-            string absolutePath, Guid requesterId)
+        private async Task<LocalCopyrightCheckResult> CheckCopyrightExcludingOwnerAsync(
+            byte[] imageBytes, string fileName, Guid requesterId)
         {
-            var result = await _copyright.CheckAsync(absolutePath);
+            var result = await _copyright.CheckAsync(imageBytes, fileName);
 
             if (!result.IsDuplicate)
-                return result;
+                return new LocalCopyrightCheckResult(false, new List<LocalCopyrightMatch>());
 
-            // Filter out matches that belong to the current user.
-            // CopyrightMatch.Id is the PostMedia.Id (Guid stored as string) of the
-            // registered image.  We resolve each match to its owner via the media
-            // repository and the post it belongs to.
-            var thirdPartyMatches = new List<CopyrightMatch>();
+            var thirdPartyMatches = new List<LocalCopyrightMatch>();
 
             foreach (var match in result.Matches)
             {
-                if (!Guid.TryParse(match.Id, out var matchedMediaId))
+                if (!Guid.TryParse(match.Source, out var matchedMediaId))
                 {
-                    // Unrecognised ID format — treat as third-party to stay safe.
-                    thirdPartyMatches.Add(match);
+                    // Unrecognised ID — treat as third-party, no post data available
+                    thirdPartyMatches.Add(new LocalCopyrightMatch(match.Similarity, null));
                     continue;
                 }
 
                 var matchedMedia = await _media.GetByIdAsync(matchedMediaId);
                 if (matchedMedia is null)
-                {
-                    // The entry is in the vector store but no longer in the DB
-                    // (e.g. the original post was deleted but cleanup failed).
-                    // Safe to ignore — it cannot be enforced.
-                    continue;
-                }
+                    continue; // orphaned entry — safe to ignore
 
                 var matchedPost = await _posts.GetByIdAsync(matchedMedia.PostId);
                 if (matchedPost is null || matchedPost.AuthorId != requesterId)
                 {
-                    // Belongs to a different journalist → real violation.
-                    thirdPartyMatches.Add(match);
+                    // Different journalist → real violation — attach post data
+                    var allUsers  = await _users.GetAllAsync();
+                    var author    = allUsers.FirstOrDefault(u => u.Id == matchedPost?.AuthorId);
+                    var mediaItems = await _media.GetByPostIdAsync(matchedPost!.Id);
+                    var mediaDtos  = mediaItems.Select(m => new MediaDto(
+                        m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt)).ToList();
+
+                    string orgName = "Independent";
+                    if (matchedPost.OrganizationId.HasValue)
+                    {
+                        var org = allUsers.FirstOrDefault(u => u.Id == matchedPost.OrganizationId.Value);
+                        orgName = org?.Name ?? "Unknown";
+                    }
+
+                    var postDto = new JournalistPostResponse(
+                        matchedPost.Id,
+                        matchedPost.Title,
+                        matchedPost.Content,
+                        matchedPost.CreatedAt,
+                        matchedPost.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                        matchedPost.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
+                        matchedPost.Interactions?.Count(i => i.Type == InteractionType.Report) ?? 0,
+                        orgName,
+                        matchedPost.ModerationStatus.ToString(),
+                        mediaDtos
+                    );
+
+                    thirdPartyMatches.Add(new LocalCopyrightMatch(match.Similarity, postDto));
                 }
-                // else: same journalist owns the matching entry → skip (not a violation).
+                // else: same journalist owns it → skip
             }
 
-            return new CopyrightCheckResult(thirdPartyMatches.Count > 0, thirdPartyMatches);
+            return new LocalCopyrightCheckResult(thirdPartyMatches.Count > 0, thirdPartyMatches);
         }
 
         // ── Profile ────────────────────────────────────────────────────────
@@ -205,13 +207,17 @@ namespace Presentation.Controllers
 
         /// <summary>
         /// Creates a new post. Accepts multipart/form-data with:
-        ///   - Title        (string)
-        ///   - Content      (string)
-        ///   - Tags         (comma-separated string, e.g. "politics,economy")
-        ///   - images       (one or more IFormFile — optional)
+        ///   - Title               (string)
+        ///   - Content             (string)
+        ///   - Tags                (comma-separated string, e.g. "politics,economy")
+        ///   - images              (one or more IFormFile — optional)
         ///   - IsCopyrightedFlags  (list of bool, parallel to images — optional)
-        /// Images are saved to media/posts/{mediaId}.ext on disk.
-        /// The database stores the relative path (e.g. "media/posts/abc.jpg").
+        ///
+        /// For each image:
+        ///   - Always checked against the local DB (regardless of IsCopyrighted flag).
+        ///   - If IsCopyrighted=true: also checked against the web before being stored
+        ///     in the copyright vector DB.
+        ///   - If IsCopyrighted=false: only the local DB check is performed.
         /// </summary>
         [HttpPost("posts")]
         [Consumes("multipart/form-data")]
@@ -222,7 +228,7 @@ namespace Presentation.Controllers
             var journalist = await _users.GetByIdAsync(GetUserId());
             if (journalist is null) return NotFound("Journalist not found");
 
-            // ── Validate uploaded files (before doing any heavy work) ───────
+            // ── Validate uploaded files ─────────────────────────────────────
             if (images != null && images.Count > 0)
             {
                 const long maxImageSize = 5 * 1024 * 1024; // 5 MB
@@ -272,8 +278,6 @@ namespace Presentation.Controllers
             var tags = (req.Tags ?? "")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-            // Organisation journalists need approval before going public;
-            // independent journalists publish immediately.
             var moderationStatus = journalist.OrganizationId.HasValue
                 ? ModerationStatus.Pending
                 : ModerationStatus.Approved;
@@ -291,43 +295,53 @@ namespace Presentation.Controllers
                 ModerationStatus = moderationStatus
             };
 
-            // ── Save media files, build PostMedia entities ──────────────────
+            // ── Process media files ─────────────────────────────────────────
             var mediaEntities = new List<PostMedia>();
 
             if (images != null && images.Count > 0)
             {
                 for (int i = 0; i < images.Count; i++)
                 {
-                    var file = images[i];
+                    var file    = images[i];
                     var mediaId = Guid.NewGuid();
-                    var ct = file.ContentType?.ToLower() ?? "";
+                    var ct      = file.ContentType?.ToLower() ?? "";
                     bool isImage = AllowedImageTypes.Contains(ct);
 
-                    var (relativePath, absolutePath) = await SaveMediaFileAsync(file, mediaId);
+                    // Read bytes once — needed for copyright checks before saving
+                    byte[] imageBytes = Array.Empty<byte>();
+                    if (isImage)
+                    {
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        imageBytes = ms.ToArray();
+                    }
 
                     if (isImage)
                     {
-                        // Copyright check: images only.
-                        // Ownership-aware: matches owned by this journalist are excluded
-                        // so that an author is never blocked from reusing their own images.
-                        var check = await CheckCopyrightExcludingOwnerAsync(absolutePath, journalist.Id);
+                        // Always check local DB first (check_web=false).
+                        // Ownership-aware: journalist's own registered images are excluded.
+                        var check = await CheckCopyrightExcludingOwnerAsync(
+                            imageBytes, file.FileName, journalist.Id);
+
                         if (check.IsDuplicate)
-                        {
-                            System.IO.File.Delete(absolutePath);
                             return BadRequest(new
                             {
-                                Error = "CopyrightViolation",
+                                Error   = "CopyrightViolation",
                                 Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
                                 Matches = check.Matches
                             });
-                        }
                     }
 
-                    // Videos are never copyrighted; images use the caller-supplied flag.
+                    // Determine IsCopyrighted flag for this image
                     var isCopyrighted = isImage
                                         && req.IsCopyrightedFlags != null
                                         && i < req.IsCopyrightedFlags.Count
                                         && req.IsCopyrightedFlags[i];
+
+                    // Save file to disk
+                    var relativePath = isImage
+                        ? await SaveBytesAsync(imageBytes, file.FileName, mediaId)
+                        : await SaveMediaFileAsync(file, mediaId);
 
                     mediaEntities.Add(new PostMedia
                     {
@@ -337,6 +351,20 @@ namespace Presentation.Controllers
                         MediaType = isImage ? "image" : "video",
                         IsCopyrighted = isCopyrighted
                     });
+
+                    // If copyrighted: store in vector DB with web check (check_web=true).
+                    // Returns IsDuplicate=true if the web check finds a match — block the post.
+                    if (isCopyrighted)
+                    {
+                        var storeResult = await _copyright.StoreAsync(imageBytes, file.FileName, mediaId.ToString());
+                        if (storeResult.IsDuplicate)
+                            return BadRequest(new
+                            {
+                                Error   = "CopyrightViolation",
+                                Message = $"Image '{file.FileName}' was found on the internet and cannot be claimed as yours.",
+                                Matches = storeResult.Matches
+                            });
+                    }
                 }
             }
 
@@ -371,14 +399,7 @@ namespace Presentation.Controllers
             }
 
             if (mediaEntities.Count > 0)
-            {
                 await _media.AddRangeAsync(mediaEntities);
-
-                // Register copyrighted images in the vector store
-                foreach (var entity in mediaEntities.Where(e => e.IsCopyrighted))
-                    await _copyright.StoreAsync(
-                        ResolveAbsolutePath(entity.Path), entity.Id.ToString());
-            }
 
             return Ok(new
             {
@@ -400,12 +421,13 @@ namespace Presentation.Controllers
             var mediaItems = await _media.GetByPostIdAsync(post.Id);
             foreach (var media in mediaItems)
             {
-                // Remove from copyright vector store
                 if (media.MediaType == "image" && media.IsCopyrighted)
                     await _copyright.RemoveAsync(media.Id.ToString());
 
-                // Delete file from disk
-                var absolutePath = ResolveAbsolutePath(media.Path);
+                var absolutePath = Path.GetFullPath(
+                    Path.Combine(Directory.GetCurrentDirectory(),
+                        media.Path.Replace("/", Path.DirectorySeparatorChar.ToString()).TrimStart(Path.DirectorySeparatorChar)));
+
                 if (System.IO.File.Exists(absolutePath))
                     System.IO.File.Delete(absolutePath);
             }
@@ -433,7 +455,6 @@ namespace Presentation.Controllers
                 }
 
                 var mediaItems = await _media.GetByPostIdAsync(p.Id);
-                // Return the stored relative path — the client constructs the full URL
                 var mediaDtos = mediaItems.Select(m => new MediaDto(
                     m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt
                 )).ToList();
@@ -455,10 +476,10 @@ namespace Presentation.Controllers
         // ── Media management ───────────────────────────────────────────────
 
         /// <summary>
-        /// Adds one or more images or videos to an existing post via multipart/form-data:
-        ///   - images              (one or more IFormFile — images and/or videos)
-        ///   - IsCopyrightedFlags  (parallel list of bool for images — ignored for videos)
-        /// Videos always have IsCopyrighted = false; no copyright check is run on them.
+        /// Adds one or more images or videos to an existing post via multipart/form-data.
+        /// For each image:
+        ///   - Always checked against local DB (check_web=false).
+        ///   - If IsCopyrighted=true: also stored with web check (check_web=true).
         /// </summary>
         [HttpPost("posts/{postId}/media")]
         [Consumes("multipart/form-data")]
@@ -475,13 +496,13 @@ namespace Presentation.Controllers
                 return NotFound("Post not found or not owned by you.");
 
             // Validate files
-            const long maxImageSize = 5 * 1024 * 1024; // 5 MB
+            const long maxImageSize = 5   * 1024 * 1024; // 5 MB
             const long maxVideoSize = 100 * 1024 * 1024; // 100 MB
             foreach (var file in images)
             {
-                var ct = file.ContentType?.ToLower() ?? "";
-                bool isImg = AllowedImageTypes.Contains(ct);
-                bool isVid = AllowedVideoTypes.Contains(ct);
+                var ct      = file.ContentType?.ToLower() ?? "";
+                bool isImg  = AllowedImageTypes.Contains(ct);
+                bool isVid  = AllowedVideoTypes.Contains(ct);
 
                 if (!isImg && !isVid)
                     return BadRequest(
@@ -499,36 +520,41 @@ namespace Presentation.Controllers
 
             for (int i = 0; i < images.Count; i++)
             {
-                var file = images[i];
+                var file    = images[i];
                 var mediaId = Guid.NewGuid();
-                var ct = file.ContentType?.ToLower() ?? "";
+                var ct      = file.ContentType?.ToLower() ?? "";
                 bool isImage = AllowedImageTypes.Contains(ct);
 
-                var (relativePath, absolutePath) = await SaveMediaFileAsync(file, mediaId);
+                byte[] imageBytes = Array.Empty<byte>();
+                if (isImage)
+                {
+                    using var ms = new MemoryStream();
+                    await file.CopyToAsync(ms);
+                    imageBytes = ms.ToArray();
+                }
 
                 if (isImage)
                 {
-                    // Copyright check: images only.
-                    // Ownership-aware: matches owned by this journalist are excluded
-                    // so that an author is never blocked from reusing their own images.
-                    var check = await CheckCopyrightExcludingOwnerAsync(absolutePath, requesterId);
+                    var check = await CheckCopyrightExcludingOwnerAsync(
+                        imageBytes, file.FileName, requesterId);
+
                     if (check.IsDuplicate)
-                    {
-                        System.IO.File.Delete(absolutePath);
                         return BadRequest(new
                         {
-                            Error = "CopyrightViolation",
+                            Error   = "CopyrightViolation",
                             Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
                             Matches = check.Matches
                         });
-                    }
                 }
 
-                // Videos are never copyrighted; images use the caller-supplied flag.
                 var isCopyrighted = isImage
                                     && req.IsCopyrightedFlags != null
                                     && i < req.IsCopyrightedFlags.Count
                                     && req.IsCopyrightedFlags[i];
+
+                var relativePath = isImage
+                    ? await SaveBytesAsync(imageBytes, file.FileName, mediaId)
+                    : await SaveMediaFileAsync(file, mediaId);
 
                 entities.Add(new PostMedia
                 {
@@ -538,12 +564,21 @@ namespace Presentation.Controllers
                     MediaType = isImage ? "image" : "video",
                     IsCopyrighted = isCopyrighted
                 });
+
+                if (isCopyrighted)
+                {
+                    var storeResult = await _copyright.StoreAsync(imageBytes, file.FileName, mediaId.ToString());
+                    if (storeResult.IsDuplicate)
+                        return BadRequest(new
+                        {
+                            Error   = "CopyrightViolation",
+                            Message = $"Image '{file.FileName}' was found on the internet and cannot be claimed as yours.",
+                            Matches = storeResult.Matches
+                        });
+                }
             }
 
             await _media.AddRangeAsync(entities);
-
-            foreach (var entity in entities.Where(e => e.IsCopyrighted))
-                await _copyright.StoreAsync(ResolveAbsolutePath(entity.Path), entity.Id.ToString());
 
             var dtos = entities.Select(m => new MediaDto(
                 m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt)).ToList();
@@ -565,8 +600,10 @@ namespace Presentation.Controllers
             if (item.MediaType == "image" && item.IsCopyrighted)
                 await _copyright.RemoveAsync(item.Id.ToString());
 
-            // Delete file from disk
-            var absolutePath = ResolveAbsolutePath(item.Path);
+            var absolutePath = Path.GetFullPath(
+                Path.Combine(Directory.GetCurrentDirectory(),
+                    item.Path.Replace("/", Path.DirectorySeparatorChar.ToString()).TrimStart(Path.DirectorySeparatorChar)));
+
             if (System.IO.File.Exists(absolutePath))
                 System.IO.File.Delete(absolutePath);
 
@@ -593,19 +630,35 @@ namespace Presentation.Controllers
 
             if (req.IsCopyrighted && !item.IsCopyrighted)
             {
-                // Ownership-aware check: the journalist should not be blocked by their
-                // own previously registered copies of this image.
+                // Read the saved image from disk to run the copyright checks
+                var absolutePath = Path.GetFullPath(
+                    Path.Combine(Directory.GetCurrentDirectory(),
+                        item.Path.Replace("/", Path.DirectorySeparatorChar.ToString()).TrimStart(Path.DirectorySeparatorChar)));
+
+                var imageBytes = await System.IO.File.ReadAllBytesAsync(absolutePath);
+                var fileName   = Path.GetFileName(absolutePath);
+
+                // Ownership-aware local check first
                 var check = await CheckCopyrightExcludingOwnerAsync(
-                    ResolveAbsolutePath(item.Path), GetUserId());
+                    imageBytes, fileName, GetUserId());
+
                 if (check.IsDuplicate)
                     return BadRequest(new
                     {
-                        Error = "CopyrightViolation",
+                        Error   = "CopyrightViolation",
                         Message = "This image is already copyrighted by another user and cannot be marked as yours.",
                         Matches = check.Matches
                     });
 
-                await _copyright.StoreAsync(ResolveAbsolutePath(item.Path), item.Id.ToString());
+                // Store with web check (check_web=true)
+                var storeResult = await _copyright.StoreAsync(imageBytes, fileName, item.Id.ToString());
+                if (storeResult.IsDuplicate)
+                    return BadRequest(new
+                    {
+                        Error   = "CopyrightViolation",
+                        Message = "This image was found on the internet and cannot be claimed as yours.",
+                        Matches = storeResult.Matches
+                    });
             }
             else if (!req.IsCopyrighted && item.IsCopyrighted)
             {
@@ -745,7 +798,33 @@ namespace Presentation.Controllers
 
             return Ok(new { Message = "Use the unified endpoint POST /api/posts/{postId}/report" });
         }
+
+        // ── Private helpers ────────────────────────────────────────────────
+
+        /// <summary>Saves pre-read image bytes to disk (used when bytes were read for copyright check).</summary>
+        private static async Task<string> SaveBytesAsync(byte[] bytes, string originalFileName, Guid mediaId)
+        {
+            var ext = Path.GetExtension(originalFileName).ToLower();
+            if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+
+            var fileName    = $"{mediaId}{ext}";
+            var absoluteDir = Path.Combine(Directory.GetCurrentDirectory(), "media", "posts");
+            Directory.CreateDirectory(absoluteDir);
+
+            var absolutePath = Path.Combine(absoluteDir, fileName);
+            await System.IO.File.WriteAllBytesAsync(absolutePath, bytes);
+
+            return $"media/posts/{fileName}";
+        }
     }
+
+    // ── Local copyright check result types ───────────────────────────────────
+
+    /// <summary>A single local DB match with the post that owns the registered image.</summary>
+    public record LocalCopyrightMatch(double Similarity, JournalistPostResponse? Post);
+
+    /// <summary>Result of the ownership-aware local copyright check.</summary>
+    public record LocalCopyrightCheckResult(bool IsDuplicate, List<LocalCopyrightMatch> Matches);
 
     // ── Inline DTOs ───────────────────────────────────────────────────────────
 
