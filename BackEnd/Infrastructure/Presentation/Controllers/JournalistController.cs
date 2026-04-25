@@ -4,6 +4,8 @@ using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Presentation.SignalR_Hubs;
 using ServicesAbstraction;
 using Shared.DTOs;
 using System;
@@ -27,6 +29,8 @@ namespace Presentation.Controllers
         private readonly IToxicityService _toxicity;
         private readonly IFactCheckerService _factChecker;
         private readonly IImageCopyrightService _copyright;
+        private readonly INotificationRepository _notifications; // ← NEW
+        private readonly IHubContext<NotificationHub> _hub;      // ← NEW
 
         // Allowed image MIME types
         private static readonly string[] AllowedImageTypes =
@@ -39,13 +43,13 @@ namespace Presentation.Controllers
         // Map MIME type → file extension
         private static readonly Dictionary<string, string> MimeToExt = new()
         {
-            ["image/jpeg"]      = ".jpg",
-            ["image/png"]       = ".png",
-            ["image/webp"]      = ".webp",
-            ["image/gif"]       = ".gif",
-            ["video/mp4"]       = ".mp4",
-            ["video/webm"]      = ".webm",
-            ["video/ogg"]       = ".ogv",
+            ["image/jpeg"] = ".jpg",
+            ["image/png"] = ".png",
+            ["image/webp"] = ".webp",
+            ["image/gif"] = ".gif",
+            ["video/mp4"] = ".mp4",
+            ["video/webm"] = ".webm",
+            ["video/ogg"] = ".ogv",
             ["video/quicktime"] = ".mov",
         };
 
@@ -56,7 +60,9 @@ namespace Presentation.Controllers
             IPostMediaRepository media,
             IToxicityService toxicity,
             IFactCheckerService factChecker,
-            IImageCopyrightService copyright)
+            IImageCopyrightService copyright,
+            INotificationRepository notifications, // ← NEW
+            IHubContext<NotificationHub> hub)       // ← NEW
         {
             _users = users;
             _posts = posts;
@@ -65,6 +71,8 @@ namespace Presentation.Controllers
             _toxicity = toxicity;
             _factChecker = factChecker;
             _copyright = copyright;
+            _notifications = notifications; // ← NEW
+            _hub = hub;           // ← NEW
         }
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -79,7 +87,7 @@ namespace Presentation.Controllers
             var ext = MimeToExt.TryGetValue(file.ContentType.ToLower(), out var e) ? e
                       : Path.GetExtension(file.FileName).ToLower();
 
-            var fileName    = $"{mediaId}{ext}";
+            var fileName = $"{mediaId}{ext}";
             var absoluteDir = Path.Combine(Directory.GetCurrentDirectory(), "media", "posts");
             Directory.CreateDirectory(absoluteDir);
 
@@ -186,7 +194,7 @@ namespace Presentation.Controllers
             var journalist = await _users.GetByIdAsync(GetUserId());
             if (journalist is null) return NotFound("Journalist not found");
 
-            if (req.Name  != null) journalist.Name  = req.Name;
+            if (req.Name != null) journalist.Name = req.Name;
             if (req.Email != null) journalist.Email = req.Email;
 
             await _users.UpdateAsync(journalist);
@@ -217,11 +225,11 @@ namespace Presentation.Controllers
             // ── Validate uploaded files (before doing any heavy work) ───────
             if (images != null && images.Count > 0)
             {
-                const long maxImageSize = 5   * 1024 * 1024; // 5 MB
+                const long maxImageSize = 5 * 1024 * 1024; // 5 MB
                 const long maxVideoSize = 100 * 1024 * 1024; // 100 MB
                 foreach (var file in images)
                 {
-                    var ct      = file.ContentType?.ToLower() ?? "";
+                    var ct = file.ContentType?.ToLower() ?? "";
                     bool isImage = AllowedImageTypes.Contains(ct);
                     bool isVideo = AllowedVideoTypes.Contains(ct);
 
@@ -242,7 +250,7 @@ namespace Presentation.Controllers
             if (await _toxicity.IsToxicAsync(textToCheck))
                 return BadRequest(new
                 {
-                    Error   = "ToxicContent",
+                    Error = "ToxicContent",
                     Message = "Your article contains toxic language. Please revise before publishing."
                 });
 
@@ -251,8 +259,8 @@ namespace Presentation.Controllers
             if (factCheck.Verdict == FactCheckVerdict.False)
                 return BadRequest(new
                 {
-                    Error    = "FailedFactCheck",
-                    Message  = "Your article did not pass fact-checking and cannot be published.",
+                    Error = "FailedFactCheck",
+                    Message = "Your article did not pass fact-checking and cannot be published.",
                     Analysis = factCheck.Analysis
                 });
 
@@ -272,15 +280,15 @@ namespace Presentation.Controllers
 
             var post = new Post
             {
-                Id                 = Guid.NewGuid(),
-                Title              = req.Title,
-                Content            = req.Content,
-                AuthorId           = journalist.Id,
-                OrganizationId     = journalist.OrganizationId,
-                CreatedAt          = DateTime.UtcNow,
-                Tags               = tags,
+                Id = Guid.NewGuid(),
+                Title = req.Title,
+                Content = req.Content,
+                AuthorId = journalist.Id,
+                OrganizationId = journalist.OrganizationId,
+                CreatedAt = DateTime.UtcNow,
+                Tags = tags,
                 VerificationStatus = verificationStatus,
-                ModerationStatus   = moderationStatus
+                ModerationStatus = moderationStatus
             };
 
             // ── Save media files, build PostMedia entities ──────────────────
@@ -290,9 +298,9 @@ namespace Presentation.Controllers
             {
                 for (int i = 0; i < images.Count; i++)
                 {
-                    var file    = images[i];
+                    var file = images[i];
                     var mediaId = Guid.NewGuid();
-                    var ct      = file.ContentType?.ToLower() ?? "";
+                    var ct = file.ContentType?.ToLower() ?? "";
                     bool isImage = AllowedImageTypes.Contains(ct);
 
                     var (relativePath, absolutePath) = await SaveMediaFileAsync(file, mediaId);
@@ -308,7 +316,7 @@ namespace Presentation.Controllers
                             System.IO.File.Delete(absolutePath);
                             return BadRequest(new
                             {
-                                Error   = "CopyrightViolation",
+                                Error = "CopyrightViolation",
                                 Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
                                 Matches = check.Matches
                             });
@@ -323,10 +331,10 @@ namespace Presentation.Controllers
 
                     mediaEntities.Add(new PostMedia
                     {
-                        Id            = mediaId,
-                        PostId        = post.Id,
-                        Path          = relativePath,
-                        MediaType     = isImage ? "image" : "video",
+                        Id = mediaId,
+                        PostId = post.Id,
+                        Path = relativePath,
+                        MediaType = isImage ? "image" : "video",
                         IsCopyrighted = isCopyrighted
                     });
                 }
@@ -334,6 +342,33 @@ namespace Presentation.Controllers
 
             // ── Persist ─────────────────────────────────────────────────────
             await _posts.AddAsync(post);
+
+            // -- Notify org: new post pending review
+            if (journalist.OrganizationId.HasValue)
+            {
+                var orgId = journalist.OrganizationId.Value;
+                var nOrg = new Notification
+                {
+                    UserId = orgId,
+                    ActorId = journalist.Id,
+                    Type = "post_pending_review",
+                    Title = "New post pending review",
+                    Message = $"{journalist.Name} submitted \"{post.Title}\" for review."
+                };
+                await _notifications.AddAsync(nOrg);
+                await _hub.Clients.Group($"user:{orgId}")
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        nOrg.Id,
+                        nOrg.Title,
+                        nOrg.Message,
+                        nOrg.Type,
+                        nOrg.IsRead,
+                        nOrg.CreatedAt,
+                        ActorId = journalist.Id,
+                        ActorName = journalist.Name
+                    });
+            }
 
             if (mediaEntities.Count > 0)
             {
@@ -347,10 +382,10 @@ namespace Presentation.Controllers
 
             return Ok(new
             {
-                PostId             = post.Id,
-                ModerationStatus   = post.ModerationStatus.ToString(),
+                PostId = post.Id,
+                ModerationStatus = post.ModerationStatus.ToString(),
                 VerificationStatus = post.VerificationStatus.ToString(),
-                MediaCount         = mediaEntities.Count
+                MediaCount = mediaEntities.Count
             });
         }
 
@@ -358,7 +393,7 @@ namespace Presentation.Controllers
         public async Task<ActionResult> DeletePost(Guid postId)
         {
             var userId = GetUserId();
-            var post   = await _posts.GetByIdAsync(postId);
+            var post = await _posts.GetByIdAsync(postId);
             if (post == null || post.AuthorId != userId)
                 return NotFound("Post not found or not owned by you");
 
@@ -382,8 +417,8 @@ namespace Presentation.Controllers
         [HttpGet("posts")]
         public async Task<ActionResult<IEnumerable<JournalistPostResponse>>> MyPosts()
         {
-            var userId   = GetUserId();
-            var posts    = await _posts.GetByAuthorAsync(userId);
+            var userId = GetUserId();
+            var posts = await _posts.GetByAuthorAsync(userId);
             var allUsers = await _users.GetAllAsync();
 
             var result = new List<JournalistPostResponse>();
@@ -440,13 +475,13 @@ namespace Presentation.Controllers
                 return NotFound("Post not found or not owned by you.");
 
             // Validate files
-            const long maxImageSize = 5   * 1024 * 1024; // 5 MB
+            const long maxImageSize = 5 * 1024 * 1024; // 5 MB
             const long maxVideoSize = 100 * 1024 * 1024; // 100 MB
             foreach (var file in images)
             {
-                var ct      = file.ContentType?.ToLower() ?? "";
-                bool isImg  = AllowedImageTypes.Contains(ct);
-                bool isVid  = AllowedVideoTypes.Contains(ct);
+                var ct = file.ContentType?.ToLower() ?? "";
+                bool isImg = AllowedImageTypes.Contains(ct);
+                bool isVid = AllowedVideoTypes.Contains(ct);
 
                 if (!isImg && !isVid)
                     return BadRequest(
@@ -460,13 +495,13 @@ namespace Presentation.Controllers
             }
 
             var requesterId = GetUserId();
-            var entities    = new List<PostMedia>();
+            var entities = new List<PostMedia>();
 
             for (int i = 0; i < images.Count; i++)
             {
-                var file    = images[i];
+                var file = images[i];
                 var mediaId = Guid.NewGuid();
-                var ct      = file.ContentType?.ToLower() ?? "";
+                var ct = file.ContentType?.ToLower() ?? "";
                 bool isImage = AllowedImageTypes.Contains(ct);
 
                 var (relativePath, absolutePath) = await SaveMediaFileAsync(file, mediaId);
@@ -482,7 +517,7 @@ namespace Presentation.Controllers
                         System.IO.File.Delete(absolutePath);
                         return BadRequest(new
                         {
-                            Error   = "CopyrightViolation",
+                            Error = "CopyrightViolation",
                             Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
                             Matches = check.Matches
                         });
@@ -497,10 +532,10 @@ namespace Presentation.Controllers
 
                 entities.Add(new PostMedia
                 {
-                    Id            = mediaId,
-                    PostId        = postId,
-                    Path          = relativePath,
-                    MediaType     = isImage ? "image" : "video",
+                    Id = mediaId,
+                    PostId = postId,
+                    Path = relativePath,
+                    MediaType = isImage ? "image" : "video",
                     IsCopyrighted = isCopyrighted
                 });
             }
@@ -565,7 +600,7 @@ namespace Presentation.Controllers
                 if (check.IsDuplicate)
                     return BadRequest(new
                     {
-                        Error   = "CopyrightViolation",
+                        Error = "CopyrightViolation",
                         Message = "This image is already copyrighted by another user and cannot be marked as yours.",
                         Matches = check.Matches
                     });
@@ -601,8 +636,41 @@ namespace Presentation.Controllers
             {
                 FollowerId = userId,
                 FolloweeId = targetId,
-                CreatedAt  = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow
             });
+
+            // ── Notify the journalist being followed ──────────────────────────
+            var followerName = User.FindFirstValue(ClaimTypes.Name)
+                            ?? User.FindFirstValue("name")
+                            ?? User.FindFirstValue("unique_name")
+                            ?? "Someone";
+
+            var notification = new Notification
+            {
+                UserId = targetId,   // journalist receives it
+                ActorId = userId,     // the follower is the actor
+                Type = "follow",
+                Title = "New Follower",
+                Message = $"{followerName} started following you."
+            };
+
+            await _notifications.AddAsync(notification);
+
+            // Real-time push to the journalist's personal SignalR group
+            await _hub.Clients
+                .Group($"user:{targetId}")
+                .SendAsync("ReceiveNotification", new
+                {
+                    notification.Id,
+                    notification.Title,
+                    notification.Message,
+                    notification.Type,
+                    notification.IsRead,
+                    notification.CreatedAt,
+                    ActorId = userId,
+                    ActorName = followerName
+                });
+            // ─────────────────────────────────────────────────────────────────
 
             return Ok(new { Message = "Followed successfully" });
         }
@@ -645,7 +713,7 @@ namespace Presentation.Controllers
         [HttpGet("posts/{postId}/report")]
         public async Task<ActionResult> GetPostReport(Guid postId)
         {
-            var userId     = GetUserId();
+            var userId = GetUserId();
             var journalist = await _users.GetByIdAsync(userId);
             if (journalist is null) return NotFound("Journalist not found");
 

@@ -36,26 +36,26 @@ namespace FakeNewsDetection.web
 
             // ── Database ─────────────────────────────────────────────────────
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
 
             // ── Authentication ───────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme    = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             })
             .AddJwtBearer(options =>
             {
                 var cfg = builder.Configuration.GetSection("Jwt");
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer           = true,
-                    ValidateAudience         = true,
-                    ValidateLifetime         = true,
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer              = cfg["Issuer"],
-                    ValidAudience            = cfg["Audience"],
-                    IssuerSigningKey         = new SymmetricSecurityKey(
+                    ValidIssuer = cfg["Issuer"],
+                    ValidAudience = cfg["Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(cfg["Key"]!))
                 };
 
@@ -63,12 +63,13 @@ namespace FakeNewsDetection.web
                 {
                     OnMessageReceived = context =>
                     {
-                        // SignalR sends JWT via query string for WebSockets/SSE
                         var accessToken = context.Request.Query["access_token"];
-                        var path        = context.HttpContext.Request.Path;
+                        var path = context.HttpContext.Request.Path;
 
+                        // Allow JWT via query-string for BOTH hubs
                         if (!string.IsNullOrWhiteSpace(accessToken)
-                            && path.StartsWithSegments("/livehub"))
+                            && (path.StartsWithSegments("/livehub")
+                                || path.StartsWithSegments("/notificationhub"))) // ← NEW
                         {
                             context.Token = accessToken;
                         }
@@ -84,9 +85,9 @@ namespace FakeNewsDetection.web
 
             builder.Services.AddAuthorization(options =>
             {
-                options.AddPolicy("AdminOnly",      p => p.RequireRole("Admin"));
+                options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
                 options.AddPolicy("JournalistOnly", p => p.RequireRole("Journalist"));
-                options.AddPolicy("OrgOnly",        p => p.RequireRole("Organization"));
+                options.AddPolicy("OrgOnly", p => p.RequireRole("Organization"));
             });
 
             // ── Repositories ─────────────────────────────────────────────────
@@ -99,6 +100,7 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
             builder.Services.AddScoped<IWalletRepository, WalletRepository>();
             builder.Services.AddScoped<IDonationRepository, DonationRepository>();
+            builder.Services.AddScoped<INotificationRepository, NotificationRepository>(); // ← NEW
 
             // ── Python AI Services ───────────────────────────────────────────
             var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8000";
@@ -106,19 +108,19 @@ namespace FakeNewsDetection.web
             builder.Services.AddHttpClient<IToxicityService, ToxicityService>(client =>
             {
                 client.BaseAddress = new Uri(pythonUrl);
-                client.Timeout     = TimeSpan.FromSeconds(10);
+                client.Timeout = TimeSpan.FromSeconds(10);
             });
 
             builder.Services.AddHttpClient<IFactCheckerService, FactCheckerService>(client =>
             {
                 client.BaseAddress = new Uri(pythonUrl);
-                client.Timeout     = TimeSpan.FromSeconds(30);
+                client.Timeout = TimeSpan.FromSeconds(30);
             });
 
             builder.Services.AddHttpClient<IImageCopyrightService, ImageCopyrightService>(client =>
             {
                 client.BaseAddress = new Uri(pythonUrl);
-                client.Timeout     = TimeSpan.FromSeconds(15);
+                client.Timeout = TimeSpan.FromSeconds(15);
             });
 
             // ── Swagger ──────────────────────────────────────────────────────
@@ -127,12 +129,12 @@ namespace FakeNewsDetection.web
             {
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
-                    In          = ParameterLocation.Header,
+                    In = ParameterLocation.Header,
                     Description = "Please enter JWT with Bearer into field",
-                    Name        = "Authorization",
-                    Type        = SecuritySchemeType.Http,
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
                     BearerFormat = "JWT",
-                    Scheme      = "Bearer",
+                    Scheme = "Bearer",
                 });
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
@@ -171,16 +173,18 @@ namespace FakeNewsDetection.web
 
             app.UseCors("AllowFrontend");
 
+            // ── Serve wwwroot (test page lives here) ─────────────────────────
+            app.UseDefaultFiles();
+            app.UseStaticFiles();                                               // ← NEW
+
             // ── Serve uploaded media files ────────────────────────────────────
-            // Images are stored at:  <wwwroot>/media/posts/{id}.ext
-            // Accessible via URL:    /media/posts/{id}.ext
             var mediaDir = Path.Combine(Directory.GetCurrentDirectory(), "media");
-            Directory.CreateDirectory(mediaDir); // ensure root exists on first run
+            Directory.CreateDirectory(mediaDir);
 
             app.UseStaticFiles(new StaticFileOptions
             {
                 FileProvider = new PhysicalFileProvider(mediaDir),
-                RequestPath  = "/media"
+                RequestPath = "/media"
             });
 
             app.UseHttpsRedirection();
@@ -189,6 +193,7 @@ namespace FakeNewsDetection.web
 
             app.MapControllers();
             app.MapHub<LiveHub>("/livehub");
+            app.MapHub<NotificationHub>("/notificationhub");                   // ← NEW
             app.Run();
         }
     }
