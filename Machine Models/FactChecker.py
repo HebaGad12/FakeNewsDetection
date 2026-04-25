@@ -70,7 +70,7 @@ Article:
 
 
 if __name__ == "__main__":
-    key = "key"
+    key = os.getenv("GEMINI_API_KEY")
     article = """iran is bombing gulf countries"""
 
     checker = FactChecker(api_key=key)

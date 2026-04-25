@@ -8,6 +8,7 @@ from toxic import predict_toxicity
 from FactChecker import FactChecker
 from images import ImageDuplicateStore
 from searchimages import search_similar_images, check_web_similarity
+from chat import ChatAnalyzer          # ← NEW
 
 
 # ── Request / Response schemas ──────────────────────────────────────────────
@@ -25,7 +26,7 @@ class PredictResponse(BaseModel):
     confidence_non_toxic: float | None = None
     confidence_toxic: float | None = None
 
-# -- Fact Checker --
+# -- Fact Checker (original — untouched) --
 from dotenv import load_dotenv
 load_dotenv()
 FACT_CHECK_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -39,6 +40,16 @@ class FactCheckResponse(BaseModel):
     article: str
     analysis: str
     verdict: str
+
+# -- Chat Analysis (NEW) --
+class ChatRequest(BaseModel):
+    text: str
+    mode: str  # "grammar" or "factcheck"
+
+class ChatResponse(BaseModel):
+    text: str
+    mode: str
+    analysis: str
 
 # -- Images --
 class ImageStoreResponse(BaseModel):
@@ -79,22 +90,21 @@ image_store = ImageDuplicateStore(
     threshold=0.876,
 )
 
+chat_analyzer = ChatAnalyzer(api_key=FACT_CHECK_API_KEY)   # ← NEW
+
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Graduation Project API",
-    description="Toxicity detection, fact checking, and image copyright detection.",
-    version="2.0.0",
+    description="Toxicity detection, fact checking, image copyright detection, and chat analysis.",
+    version="2.1.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://localhost:7044",
-        "http://localhost:5263",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -114,7 +124,7 @@ def predict(req: PredictRequest):
     return predict_toxicity(req.text, return_probabilities=req.return_probabilities)
 
 
-# ── Fact-checking endpoints ─────────────────────────────────────────────────
+# ── Fact-checking endpoints (original — untouched) ──────────────────────────
 
 @app.post("/fact-check", response_model=FactCheckResponse)
 def fact_check(req: FactCheckRequest):
@@ -130,6 +140,37 @@ def fact_check(req: FactCheckRequest):
     verdict = lines[-1].strip().upper() if lines else "UNKNOWN"
     analysis = "\n".join(lines[:-1]).strip() if len(lines) > 1 else result.strip()
     return FactCheckResponse(article=req.article, analysis=analysis, verdict=verdict)
+
+
+# ── Chat analysis endpoint (NEW) ─────────────────────────────────────────────
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    """
+    Analyse text with one of two modes:
+
+    - **grammar**   – detailed grammar, spelling, punctuation, and style review.
+    - **factcheck** – deep fact-check report with per-claim verdicts and
+                      an overall accuracy label (uses Google Search grounding).
+
+    Both modes return a rich, human-readable analysis — not a simple true/false.
+    """
+    if not req.text.strip():
+        raise HTTPException(status_code=422, detail="text must not be empty.")
+
+    mode = req.mode.strip().lower()
+    if mode not in ChatAnalyzer.MODES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid mode '{req.mode}'. Allowed values: {list(ChatAnalyzer.MODES)}",
+        )
+
+    try:
+        analysis = chat_analyzer.analyse(req.text, mode=mode)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {e}")
+
+    return ChatResponse(text=req.text, mode=mode, analysis=analysis)
 
 
 # ── Image copyright endpoints ───────────────────────────────────────────────
