@@ -177,11 +177,15 @@ async def store_image(
     local_duplicate, local_matches = image_store._check_copyright(embedding)
 
     if local_duplicate:
-        return ImageStoreResponse(
-            status="rejected",
-            image_id=image_id,
-            message="Copyright violation detected in local DB — image NOT stored.",
-            local_matches=local_matches,
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "status": "rejected",
+                "reason": "local_db",
+                "message": "Copyright violation detected in local DB — image NOT stored.",
+                "local_matches": local_matches,
+                "web_matches": [],
+            },
         )
 
     # ── Step 2: web check (only if requested and local passed) ──
@@ -193,11 +197,15 @@ async def store_image(
             web_limit=3,
         )
         if web_duplicate:
-            return ImageStoreResponse(
-                status="rejected",
-                image_id=image_id,
-                message="Copyright violation detected on the web — image NOT stored.",
-                web_matches=web_matches,
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "status": "rejected",
+                    "reason": "web",
+                    "message": "Copyright violation detected on the web — image NOT stored.",
+                    "local_matches": [],
+                    "web_matches": web_matches,
+                },
             )
 
     # ── All checks passed: store ────────────────────────────────
