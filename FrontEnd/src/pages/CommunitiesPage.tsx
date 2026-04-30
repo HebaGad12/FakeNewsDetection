@@ -99,6 +99,15 @@ const communities: Community[] = [
 
 const categories = ["All", "Environment", "Technology", "Politics", "Health", "Economy", "Professional"];
 
+const borderColors = [
+    "border-l-primary",
+    "border-l-accent",
+    "border-l-foreground",
+    "border-l-blue-500",
+    "border-l-purple-500",
+    "border-l-emerald-500"
+];
+
 const CommunitiesPage = () => {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,167 +124,190 @@ const CommunitiesPage = () => {
   const trendingCommunities = communities.filter(c => c.trending);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background/50 text-foreground font-sans selection:bg-accent/20">
       <Header />
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-primary mb-2">
-              Communities
-            </h1>
-            <p className="text-muted-foreground">
-              Join discussions and connect with like-minded readers
+      <main className="max-w-[1440px] mx-auto px-6 py-12 flex flex-col lg:flex-row gap-12">
+        {/* Main Content Area: Intelligence Hubs */}
+        <div className="flex-1">
+          <header className="mb-12">
+            <div className="flex justify-between flex-wrap gap-4 items-start mb-4">
+              <div>
+                <p className="font-sans text-xs text-accent font-semibold tracking-widest uppercase mb-2">Network Expansion</p>
+                <h1 className="font-display text-4xl md:text-5xl text-foreground font-light tracking-tight leading-tight">Intelligence Hubs</h1>
+              </div>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-10 px-6 rounded-md">
+                <Plus className="h-4 w-4" />
+                Create Hub
+              </Button>
+            </div>
+            <p className="font-sans text-lg text-muted-foreground max-w-2xl leading-relaxed">
+              Connect with investigative leads, verified contributors, and specialized research communities shaping the global discourse.
             </p>
-          </div>
-          <Button className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2 w-fit">
-            <Plus className="h-4 w-4" />
-            Create Community
-          </Button>
-        </div>
+            
+            {/* Search and Filters */}
+            <div className="mt-8 space-y-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search intelligence hubs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-11 h-11 bg-card border-border shadow-sm text-sm"
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setActiveCategory(category)}
+                    className={cn(
+                      "px-4 py-2 rounded-sm text-xs font-medium uppercase tracking-wider whitespace-nowrap transition-all border snap-start",
+                      activeCategory === category
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-transparent text-muted-foreground border-border hover:bg-muted"
+                    )}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </header>
 
-        {/* Trending Section */}
-        <section className="mb-12">
-          <div className="flex items-center gap-2 mb-6">
-            <TrendingUp className="h-5 w-5 text-accent" />
-            <h2 className="font-display text-xl font-semibold text-foreground">
-              Trending Communities
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {trendingCommunities.map((community, index) => (
+          {/* Bento-style Hub Grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            {filteredCommunities.map((community, index) => (
               <motion.div
                 key={community.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="group relative overflow-hidden rounded-xl border border-border bg-card hover:shadow-lg transition-all cursor-pointer"
+                transition={{ delay: index * 0.05 }}
+                className={cn(
+                  "bg-card p-8 flex flex-col gap-6 group hover:shadow-xl transition-all duration-300 border-l-[3px] border-t border-r border-b border-border rounded-r-lg",
+                  borderColors[index % borderColors.length]
+                )}
               >
-                <div className="h-24 overflow-hidden">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">
+                      {community.category} Network
+                    </span>
+                    <h2 className="font-display text-2xl text-foreground flex items-center gap-2 leading-tight">
+                        {community.name}
+                        {!community.isPublic && <Lock className="h-4 w-4 text-muted-foreground" />}
+                    </h2>
+                  </div>
+                  <button className="bg-primary/10 text-primary whitespace-nowrap text-xs font-sans font-semibold px-4 py-2 rounded-sm hover:bg-primary hover:text-primary-foreground transition-all">
+                    Join Hub
+                  </button>
+                </div>
+                
+                <div className="relative h-48 w-full overflow-hidden rounded-md bg-muted">
                   <img 
                     src={community.image} 
                     alt={community.name}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
+                  <div className="absolute bottom-0 left-0 bg-primary/95 backdrop-blur-sm px-3 py-1.5 rounded-tr-md flex items-center gap-2">
+                    <span className="font-sans text-[10px] text-primary-foreground font-bold uppercase tracking-wider">
+                      {community.members.toLocaleString()} Active Leads
+                    </span>
+                  </div>
                 </div>
-                <div className="relative p-4 -mt-8">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-foreground line-clamp-1">
-                      {community.name}
-                    </h3>
-                    {community.isPublic ? (
-                      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                
+                <div className="space-y-4 flex-1">
+                  <h3 className="font-sans text-xs font-bold uppercase text-muted-foreground tracking-wider border-b border-border pb-2">
+                    Mission Brief
+                  </h3>
+                  <p className="text-sm font-medium leading-relaxed line-clamp-3 text-foreground/80">
+                    {community.description}
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <div className="flex items-center gap-4 text-[10px] font-sans text-muted-foreground uppercase tracking-tighter font-semibold">
                     <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {community.members.toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      {community.posts}
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        {community.posts.toLocaleString()} Documents
                     </span>
                   </div>
+                  <button className="group/btn flex py-1 px-1 -mr-1 items-center justify-center">
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover/btn:text-primary group-hover/btn:translate-x-1 transition-transform" />
+                  </button>
                 </div>
               </motion.div>
             ))}
-          </div>
-        </section>
-
-        {/* Search and Filters */}
-        <div className="space-y-4 mb-8">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Search communities..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 text-base bg-card border-border"
-            />
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
-                  activeCategory === category
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                {category}
-              </button>
-            ))}
+            
+            {filteredCommunities.length === 0 && (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border rounded-lg bg-card/50">
+                    <Search className="w-8 h-8 mb-4 opacity-20" />
+                    <p className="font-medium text-sm">No intelligence hubs found matching your search.</p>
+                </div>
+            )}
           </div>
         </div>
 
-        {/* All Communities */}
-        <section>
-          <h2 className="font-display text-xl font-semibold text-foreground mb-6">
-            All Communities
-          </h2>
-          <div className="space-y-4">
-            {filteredCommunities.map((community, index) => (
-              <motion.div
-                key={community.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="group flex gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-md transition-all cursor-pointer"
-              >
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden flex-shrink-0">
-                  <img 
-                    src={community.image} 
-                    alt={community.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-foreground">
-                          {community.name}
-                        </h3>
-                        {!community.isPublic && (
-                          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <span className="text-xs text-accent font-medium">
-                        {community.category}
-                      </span>
-                    </div>
-                    <Button variant="outline" size="sm" className="hidden md:flex gap-1">
-                      Join
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {community.description}
+        {/* Sidebar: Trending & Leads */}
+        <aside className="w-full lg:w-80 flex flex-col gap-8 flex-shrink-0">
+          {/* Trending Discussions */}
+          <section className="bg-card border border-border p-6 rounded-lg shadow-sm">
+            <div className="flex items-center gap-2 border-b border-border pb-3 mb-6">
+                <TrendingUp className="w-4 h-4 text-accent" />
+                <h3 className="font-sans text-xs font-bold uppercase tracking-widest text-foreground">Trending Networks</h3>
+            </div>
+            
+            <div className="space-y-6">
+              {trendingCommunities.map(community => (
+                <div key={community.id} className="group cursor-pointer">
+                  <p className="text-[10px] font-sans text-accent font-bold uppercase tracking-widest mb-1">
+                    {community.category}
                   </p>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {community.members.toLocaleString()} members
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      {community.posts} posts
+                  <h4 className="font-display text-lg leading-tight group-hover:text-primary transition-colors mb-2">
+                    {community.name}
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-sans text-muted-foreground uppercase tracking-widest flex items-center gap-1 font-semibold">
+                        <Users className="w-3 h-3" /> {community.members.toLocaleString()} Participants
                     </span>
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+            
+            <button className="w-full mt-8 py-3 border border-border text-xs font-sans font-semibold uppercase tracking-widest text-muted-foreground hover:bg-muted hover:text-foreground transition-colors rounded-sm shadow-sm hover:shadow-md">
+                View All Categories
+            </button>
+          </section>
+          
+          {/* Verified Community Leads */}
+          <section className="bg-card border border-border p-6 rounded-lg shadow-sm">
+            <div className="flex items-center gap-2 border-b border-border pb-3 mb-6">
+                <Globe className="w-4 h-4 text-primary" />
+                <h3 className="font-sans text-xs font-bold uppercase tracking-widest text-foreground">Top Contributors</h3>
+            </div>
+            <div className="space-y-3">
+              {[
+                  { name: "Marcus Vane", role: "Geo-Strategic Analyst", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuD8ilyk3BHMETBbDk4SxErK6KY8b8ijJ4-wgmYs4xzZ3ZVrMR4s3oq5G8CTsofACh8iRCiXYUbX-CzVkGHZ30o5O_fVj-84s9s7TFK-XYq0-EsjFEDKPYIopZvl8GE9KL87h3IN1xe_8HHPfgxJvPmZwHM8Q7Jto-8rXp5wb1hhCy4tFAerVxhS-K86grfJEQ2ifQU0vG6FlCmVouYmUMKnYIswumOipGOo9DfYyNLDAi03QWintoiGkOogYq0CZg5Ve6ROg-k-ttSh" },
+                  { name: "Dr. Aris Thorne", role: "AI Ethics Lead", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCpgZS1nNjI9PREZ_TAy2sBhSrtVJwgcMA1Pc6mNxp0HX76dsbNDy0AAoJUcivuWHeVV8bdccn_Js2AW9eZ83lkd1FZ2pFgcq927DlXC9gYthb5FZDSki3vUbWa-sQOUt36s3FyffdvA9i3d3tB3MO1X1x3uah742kFNvNEva0E6Q5mQZiC9YlKXvLGWoKKjxnI2hHkLQ0ME2JEti8t3gqshmaHEYYrqHd9RGjTlZZ2WrdKwaYTxFdMmU3th98OR0EOOMOHmYkI_LKE" }
+              ].map((lead, i) => (
+                <div key={i} className="flex items-center justify-between p-2 -mx-2 rounded-sm hover:bg-muted transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <img 
+                      className="w-10 h-10 object-cover rounded-full grayscale group-hover:grayscale-0 transition-all border border-border shadow-sm" 
+                      src={lead.img} 
+                      alt={lead.name}
+                    />
+                    <div>
+                      <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{lead.name}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{lead.role}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
       </main>
 
       <Footer />

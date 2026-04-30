@@ -153,8 +153,7 @@ const FeedPage = () => {
               {/* Hero Featured Article */}
               {heroArticle && (
                 <section className="relative group">
-                  <Link to={`/article/${heroArticle.id}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-8 items-center">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-8 items-center relative group/hero">
                       <div className="md:col-span-7 overflow-hidden rounded-md">
                         <img 
                           className="w-full aspect-[4/3] object-cover filter grayscale hover:grayscale-0 transition-all duration-700" 
@@ -181,18 +180,22 @@ const FeedPage = () => {
                         <p className="text-muted-foreground leading-relaxed mb-6">
                           {heroArticle.excerpt}
                         </p>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-muted rounded-sm flex items-center justify-center overflow-hidden">
-                            <span className="font-bold text-muted-foreground">{heroArticle.author?.charAt(0) || "U"}</span>
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">{heroArticle.author || "Unknown"}</p>
-                            <p className="text-[10px] text-muted-foreground">Contributor</p>
-                          </div>
+                        
+                        <div className="flex items-center gap-3 relative z-20">
+                          <Link to={`/profiles/${heroArticle.authorId || '#'}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity group/author">
+                            <div className="w-10 h-10 bg-muted rounded-sm flex items-center justify-center overflow-hidden">
+                              <span className="font-bold text-muted-foreground">{heroArticle.author?.charAt(0) || "U"}</span>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold group-hover/author:underline">{heroArticle.author || "Unknown"}</p>
+                              <p className="text-[10px] text-muted-foreground">Contributor</p>
+                            </div>
+                          </Link>
                         </div>
                       </div>
+                      
+                      <Link to={`/article/${heroArticle.id}`} className="absolute inset-0 z-10" aria-label={`Read more about ${heroArticle.title}`} />
                     </div>
-                  </Link>
                 </section>
               )}
 
@@ -201,7 +204,7 @@ const FeedPage = () => {
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
                   {gridArticles.map(article => (
                     <article key={article.id} className="flex flex-col group">
-                      <Link to={`/article/${article.id}`} className="flex flex-col h-full">
+                      <div className="flex flex-col h-full relative group/card">
                         <div className="relative overflow-hidden mb-4 aspect-[16/9] rounded-md">
                           <img 
                             className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-500" 
@@ -226,11 +229,14 @@ const FeedPage = () => {
                         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                           {article.excerpt}
                         </p>
-                        <div className="mt-auto flex items-center justify-between">
-                          <span className="text-[10px] font-bold">By {article.author || "Unknown"}</span>
+                        <div className="mt-auto flex items-center justify-between relative z-20">
+                          <Link to={`/profiles/${article.authorId || '#'}`} className="text-[10px] font-bold hover:underline text-foreground">
+                            By {article.author || "Unknown"}
+                          </Link>
                           <span className="text-[10px] text-muted-foreground">{new Date(article._createdAt).toLocaleDateString()}</span>
                         </div>
-                      </Link>
+                        <Link to={`/article/${article.id}`} className="absolute inset-0 z-10" aria-label={`Read more about ${article.title}`} />
+                      </div>
                     </article>
                   ))}
                 </section>
