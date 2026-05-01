@@ -34,6 +34,8 @@ export interface JournalistCreatePostRequest {
 }
 
 export interface JournalistPostResponse {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tags: any;
   id: string;
   title: string;
   content: string;

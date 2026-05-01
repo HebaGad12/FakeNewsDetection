@@ -13,6 +13,9 @@ import {
  * Handles user profile, following, reporting, and activity operations
  */
 class UserService {
+  subscribeToNewsletter(email: string) {
+    throw new Error("Method not implemented.");
+  }
   /**
    * Get current user profile with social stats
    * @returns Promise<UserProfileExtended>

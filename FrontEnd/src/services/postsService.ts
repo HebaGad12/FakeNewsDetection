@@ -38,6 +38,10 @@ export interface PostComment {
  * Post/Article from API
  */
 export interface Post {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  verificationStatus: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  moderationStatus: any;
   id: string;
   title: string;
   content: string;
