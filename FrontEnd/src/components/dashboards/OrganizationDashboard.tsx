@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import {
-  BarChart2,
   Users,
   FileText,
   Wallet,
@@ -10,11 +8,8 @@ import {
   Check,
   X,
   Clock,
-  ChevronRight,
-  TrendingUp,
   Heart,
   MessageSquare,
-  Flag,
   ArrowUpRight,
   ArrowDownLeft,
   Search,
@@ -46,7 +41,8 @@ import organizationService, {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Tab = "overview" | "journalists" | "posts" | "followers" | "wallet";
-type PostFilter = "All" | "Pending" | "Approved" | "Rejected";
+// FIX #3: استبدال "Rejected" بـ "Removed" ليتطابق مع الـ backend
+type PostFilter = "All" | "Pending" | "Approved" | "Removed";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,17 +68,16 @@ function fmtDate(d: string): string {
   });
 }
 
+// FIX #3: إزالة "Rejected" والاعتماد على "Removed" فقط كما يرسله الـ backend
 const moderationColors: Record<string, string> = {
   Approved: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
   Pending: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  Rejected: "text-rose-400 bg-rose-400/10 border-rose-400/20",
   Removed: "text-rose-400 bg-rose-400/10 border-rose-400/20",
 };
 
 const moderationIcons: Record<string, React.ReactNode> = {
   Approved: <Check className="h-3 w-3" />,
   Pending: <Clock className="h-3 w-3" />,
-  Rejected: <X className="h-3 w-3" />,
   Removed: <X className="h-3 w-3" />,
 };
 
@@ -653,7 +648,7 @@ function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const OrganizationDashboard = () => {
-  const navigate = useNavigate();
+  // FIX #4: حذف useNavigate لأنه غير مستخدم
   const { logout } = useAuth();
   const [orgId, setOrgId] = useState<string>("");
 
@@ -668,6 +663,7 @@ const OrganizationDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // FIX #3: استخدام "Removed" بدل "Rejected" كقيمة افتراضية في الفلتر
   const [postFilter, setPostFilter] = useState<PostFilter>("All");
   const [journalistSearch, setJournalistSearch] = useState("");
   const [showAddJournalist, setShowAddJournalist] = useState(false);
@@ -711,9 +707,9 @@ const OrganizationDashboard = () => {
     loadAll();
   }, []);
 
+  // FIX #3: الفلترة تعتمد على "Removed" مباشرة بدل الـ workaround
   const filteredPosts = posts.filter((p) => {
     if (postFilter === "All") return true;
-    if (postFilter === "Rejected") return p.moderationStatus === "Rejected" || p.moderationStatus === "Removed";
     return p.moderationStatus === postFilter;
   });
 
@@ -901,21 +897,50 @@ const OrganizationDashboard = () => {
                             {j.name}
                           </h4>
                         </div>
+                        {/* FIX #1 + #2: زر Eye ينقل للـ journalists tab، وزر Toggle يحدّث الـ state */}
                         <div className="flex gap-4">
-                          <button className="w-10 h-10 border border-outline-variant/20 dark:border-stone-700 flex items-center justify-center hover:bg-white dark:hover:bg-stone-800 transition-colors rounded-sm">
+                          <button
+                            onClick={() => setActiveTab("journalists")}
+                            title="View all journalists"
+                            className="w-10 h-10 border border-outline-variant/20 dark:border-stone-700 flex items-center justify-center hover:bg-white dark:hover:bg-stone-800 transition-colors rounded-sm"
+                          >
                             <Eye className="h-4 w-4 text-on-surface dark:text-stone-300" />
                           </button>
                           <button
-                            onClick={() => organizationService.setJournalistStatus(orgId, j.id, !j.isActive)}
+                            onClick={async () => {
+                              try {
+                                await organizationService.setJournalistStatus(orgId, j.id, !j.isActive);
+                                // FIX #2: تحديث الـ state بعد نجاح الـ API call
+                                setJournalists((prev) =>
+                                  prev.map((jj) => (jj.id === j.id ? { ...jj, isActive: !jj.isActive } : jj))
+                                );
+                              } catch {
+                                // يمكن إضافة error handling هنا
+                              }
+                            }}
+                            title={j.isActive ? "Deactivate journalist" : "Activate journalist"}
                             className="w-10 h-10 bg-primary text-white flex items-center justify-center hover:bg-primary-dim transition-colors rounded-sm"
                           >
-                            <Check className="h-4 w-4" />
+                            {j.isActive ? (
+                              <ToggleRight className="h-4 w-4" />
+                            ) : (
+                              <ToggleLeft className="h-4 w-4" />
+                            )}
                           </button>
                         </div>
                       </div>
                     ))}
                     {journalists.length === 0 && (
                       <p className="text-center py-8 text-outline dark:text-stone-500 text-sm">No journalists yet.</p>
+                    )}
+                    {/* FIX #5: إضافة "View All" إذا كان عدد الصحفيين أكثر من 3 */}
+                    {journalists.length > 3 && (
+                      <button
+                        onClick={() => setActiveTab("journalists")}
+                        className="w-full py-3 text-xs text-primary hover:bg-surface-container dark:hover:bg-stone-800 transition-colors font-medium flex items-center justify-center gap-1"
+                      >
+                        View all {journalists.length} journalists →
+                      </button>
                     )}
                   </div>
                 </section>
@@ -1014,14 +1039,12 @@ const OrganizationDashboard = () => {
           {/* POSTS TAB */}
           {activeTab === "posts" && (
             <motion.div key="posts" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-              {/* Filter Pills */}
+              {/* FIX #3: الفلاتر تستخدم "Removed" بدل "Rejected" */}
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {(["All", "Pending", "Approved", "Rejected"] as PostFilter[]).map((f) => {
+                {(["All", "Pending", "Approved", "Removed"] as PostFilter[]).map((f) => {
                   const count =
                     f === "All"
                       ? posts.length
-                      : f === "Rejected"
-                      ? posts.filter((p) => p.moderationStatus === "Rejected" || p.moderationStatus === "Removed").length
                       : posts.filter((p) => p.moderationStatus === f).length;
                   return (
                     <button
