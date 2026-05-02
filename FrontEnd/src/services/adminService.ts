@@ -136,6 +136,7 @@ export interface UpdatePostVerificationRequest {
 }
 
 export interface AdminUsersParams {
+  search: string;
   role?: string;
   isActive?: boolean;
   page?: number;
@@ -186,7 +187,9 @@ class AdminService {
 
   // --- Users ---
 
-  async getUsers(params: AdminUsersParams = {}): Promise<PaginatedResult<AdminUserListItem>> {
+  async getUsers(params: AdminUsersParams = {
+    search: ""
+  }): Promise<PaginatedResult<AdminUserListItem>> {
     const { page = 1, pageSize = 20, role, isActive } = params;
     const query: Record<string, unknown> = { page, pageSize };
     if (role !== undefined) query.role = role;

@@ -87,6 +87,8 @@ export interface UserOverview {
 }
 
 export interface FollowingUser {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  avatar: any;
   id: string;
   name: string;
   role: string;

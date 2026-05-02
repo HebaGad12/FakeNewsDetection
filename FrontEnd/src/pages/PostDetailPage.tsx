@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Heart,
@@ -15,6 +15,8 @@ import {
   ZoomIn,
   Flag,
   CheckCircle2,
+  Clock,
+  User,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -45,7 +47,6 @@ import { usePostInteractions } from "@/hooks/usePostInteractions";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { AnimatePresence } from "framer-motion";
 
 const REPORT_REASONS = [
   { value: "misinformation", label: "Misinformation / False Information" },
@@ -62,7 +63,7 @@ export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const [post, setPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,151 +72,84 @@ export default function PostDetailPage() {
   const [commentError, setCommentError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Report state
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | "">("");
   const [reportDescription, setReportDescription] = useState("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
-  // Use the post interactions hook for like/comment management
   const {
-    isLiked,
-    likesCount,
-    toggleLike,
-    addComment,
-    deleteComment,
-    isLiking,
-    isCommenting,
-    error: interactionError,
-    setIsLiked,
-    setLikesCount,
-  } = usePostInteractions({
-    postId: id || "",
-    initialLiked: false,
-    initialLikesCount: 0,
-  });
+    isLiked, likesCount, toggleLike, addComment, deleteComment,
+    isLiking, isCommenting, setIsLiked, setLikesCount,
+  } = usePostInteractions({ postId: id || "", initialLiked: false, initialLikesCount: 0 });
 
-  // Load post on mount
   useEffect(() => {
     const loadPost = async () => {
-      if (!id) {
-        setError("Post ID not provided");
-        setIsLoading(false);
-        return;
-      }
-
+      if (!id) { setError("Post ID not provided"); setIsLoading(false); return; }
       try {
-        setIsLoading(true);
-        setError(null);
+        setIsLoading(true); setError(null);
         const fetchedPost = await postsService.getPostById(id);
-
         if (!fetchedPost) {
-          setError("Post not found");
-          setPost(null);
+          setError("Post not found"); setPost(null);
         } else {
           setPost(fetchedPost);
           setComments(fetchedPost.comments || []);
-          // Update the hook's like count
           setLikesCount(fetchedPost.likesCount);
-          
-          // Check if current user has already liked this post
           try {
             const userHasLiked = await postsService.hasUserLikedPost(id);
             setIsLiked(userHasLiked);
-          } catch (err) {
-            console.error("Failed to check user's like status:", err);
-            // Default to false if we can't determine
-            setIsLiked(false);
-          }
+          } catch { setIsLiked(false); }
         }
-      } catch (err) {
-        console.error("Failed to load post:", err);
-        setError("Failed to load post. Please try again later.");
-        setPost(null);
-      } finally {
-        setIsLoading(false);
-      }
+      } catch { setError("Failed to load post. Please try again later."); setPost(null); }
+      finally { setIsLoading(false); }
     };
-
-    if (id) {
-      loadPost();
-    }
+    if (id) loadPost();
   }, [id, setLikesCount, setIsLiked]);
 
-  // Handle adding a comment
   const handleAddComment = async () => {
     if (!commentInput.trim()) return;
-
     try {
       setCommentError(null);
       await addComment(commentInput);
       setCommentInput("");
-      // Refresh comments by refetching the post
       if (post) {
         const updatedPost = await postsService.getPostById(post.id);
-        if (updatedPost) {
-          setComments(updatedPost.comments || []);
-        }
+        if (updatedPost) setComments(updatedPost.comments || []);
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to post comment. Please try again.";
-      setCommentError(errorMessage);
+      setCommentError(err?.response?.data?.message || err?.message || "Failed to post comment.");
     }
   };
 
-  // Handle deleting a comment
   const handleDeleteComment = async (commentId: string) => {
     if (!post) return;
-
     try {
       await deleteComment(commentId);
       setComments(comments.filter((c) => c.id !== commentId));
-    } catch (err) {
-      console.error("Failed to delete comment:", err);
-    }
+    } catch { console.error("Failed to delete comment"); }
   };
 
-  // Handle deleting the post (only author can delete)
   const handleDeletePost = async () => {
     if (!post || !user || post.authorId !== user.id) return;
-
-    if (!window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
-      return;
-    }
-
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
       setIsDeleting(true);
       await postsService.deletePost(post.id);
       navigate("/feed");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to delete post. Please try again.";
-      setError(errorMessage);
+      setError(err?.response?.data?.message || err?.message || "Failed to delete post.");
       setIsDeleting(false);
     }
   };
 
-  // Report handlers
-  const handleOpenReport = () => {
-    setReportReason("");
-    setReportDescription("");
-    setReportSuccess(false);
-    setShowReportDialog(true);
-  };
-
-  const handleCloseReport = () => {
-    setShowReportDialog(false);
-    setReportReason("");
-    setReportDescription("");
-    setReportSuccess(false);
-  };
+  const handleOpenReport = () => { setReportReason(""); setReportDescription(""); setReportSuccess(false); setShowReportDialog(true); };
+  const handleCloseReport = () => { setShowReportDialog(false); setReportReason(""); setReportDescription(""); setReportSuccess(false); };
 
   const handleSubmitReport = async () => {
     if (!post || !reportReason) return;
@@ -228,209 +162,192 @@ export default function PostDetailPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || "Failed to submit report.");
-    } finally {
-      setIsSubmittingReport(false);
-    }
+    } finally { setIsSubmittingReport(false); }
   };
 
   const isReader = user?.role?.toLowerCase() === "reader" || user?.role?.toLowerCase() === "regularuser";
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <LoadingSpinner fullScreen message="Loading post..." />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="min-h-screen bg-white dark:bg-zinc-950"><Header /><LoadingSpinner fullScreen message="Loading article..." /></div>;
 
-  // Error state - Post not found
   if (error || !post) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-white dark:bg-zinc-950">
         <Header />
-        <main className="container mx-auto px-4 py-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/feed")}
-            className="mb-6"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Feed
-          </Button>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
-          >
-            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
-            <h2 className="mb-2 text-xl font-semibold text-foreground">
-              {error || "Post not found"}
-            </h2>
-            <p className="mb-6 text-muted-foreground">
-              The post you're looking for doesn't exist or has been deleted.
-            </p>
-            <Button onClick={() => navigate("/feed")}>Return to Feed</Button>
-          </motion.div>
+        <main className="container mx-auto px-4 py-8 max-w-4xl">
+          <button onClick={() => navigate("/feed")} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white mb-6 font-medium transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Back to Feed
+          </button>
+          <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-8">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="h-6 w-6 text-red-600 mt-0.5" />
+              <div>
+                <p className="font-bold text-lg text-zinc-900 dark:text-white mb-2">{error || "Post not found"}</p>
+                <p className="text-zinc-600 dark:text-zinc-400 mb-4">The article you're looking for doesn't exist or has been removed.</p>
+                <Button onClick={() => navigate("/feed")} className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-none">Return to Feed</Button>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     );
   }
 
-  const formattedDate = new Date(post.createdAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedDate = new Date(post.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const readTime = Math.ceil(post.content.split(/\s+/).length / 200);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white dark:bg-zinc-950">
       <Header />
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate("/feed")}
-          className="mb-6 flex items-center text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Feed
-        </motion.button>
+      {/* Article breadcrumb */}
+      <div className="border-b border-zinc-200 dark:border-zinc-800">
+        <div className="container mx-auto px-4 py-3">
+          <button onClick={() => navigate("/feed")} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Back to Feed
+          </button>
+        </div>
+      </div>
 
-        {/* Post Container */}
+      <main className="container mx-auto px-4 py-8">
         <motion.article
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           className="mx-auto max-w-3xl"
         >
+          {/* Category tag */}
+          {post.tags && post.tags.length > 0 && (
+            <div className="flex items-center gap-2 mb-5">
+              <div className="h-3 w-0.5 bg-red-600" />
+              <span className="text-xs font-bold tracking-widest uppercase text-red-600">{post.tags[0]}</span>
+            </div>
+          )}
+
+          {/* Headline */}
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-zinc-900 dark:text-white leading-tight mb-5">
+            {post.title}
+          </h1>
+
+          {/* Meta bar — author, date, credibility */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-b border-zinc-200 dark:border-zinc-800 py-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-zinc-900 dark:bg-white flex items-center justify-center flex-shrink-0">
+                <User className="h-4 w-4 text-white dark:text-zinc-900" />
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-900 dark:text-white text-sm">{post.authorName}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{post.organizationName || "Independent Journalist"}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{formattedDate}</p>
+                <p className="text-xs text-zinc-400 flex items-center gap-1 justify-end mt-0.5">
+                  <Clock className="h-3 w-3" /> {readTime} min read
+                </p>
+              </div>
+              {/* Delete / Report */}
+              {user && post.authorId === user.id && (
+                <button
+                  onClick={handleDeletePost}
+                  disabled={isDeleting}
+                  className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                  title="Delete post"
+                >
+                  {isDeleting ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                </button>
+              )}
+              {isReader && user && post.authorId !== user.id && (
+                <button
+                  onClick={handleOpenReport}
+                  className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                  title="Report post"
+                >
+                  <Flag className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Credibility badge */}
+          {post.verificationStatus && (
+            <div className="mb-8">
+              <CredibilityBadge
+                level={
+                  post.verificationStatus.toLowerCase() === "fake" ? "fake" :
+                  post.verificationStatus.toLowerCase() === "questionable" ? "questionable" : "verified"
+                }
+              />
+            </div>
+          )}
+
           {/* Media Gallery */}
           {post.media && post.media.length > 0 && (
-            <div className="mb-8">
+            <div className="mb-8 -mx-4 sm:mx-0">
               {post.media.length === 1 ? (
-                /* Single image */
-                <div
-                  className="overflow-hidden rounded-xl cursor-zoom-in"
-                  onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
-                >
-                  <motion.img
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
+                <div className="cursor-zoom-in overflow-hidden" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}>
+                  <img
                     src={postsService.getImageUrl(post.media[0].path)}
                     alt={post.title}
-                    className="h-96 w-full object-cover hover:scale-105 transition-transform duration-500"
+                    className="w-full h-80 object-cover hover:scale-[1.02] transition-transform duration-500"
                   />
+                  <p className="text-xs text-zinc-400 mt-2 px-4 sm:px-0">Click to expand</p>
                 </div>
               ) : post.media.length === 2 ? (
-                /* Two images side by side */
-                <div className="grid grid-cols-2 gap-2 rounded-xl overflow-hidden">
+                <div className="grid grid-cols-2 gap-1">
                   {post.media.map((m, i) => (
-                    <div
-                      key={m.mediaId}
-                      className="relative overflow-hidden cursor-zoom-in group"
-                      onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
-                    >
-                      <img
-                        src={postsService.getImageUrl(m.path)}
-                        alt={`${post.title} ${i + 1}`}
-                        className="h-64 w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
+                    <div key={m.mediaId} className="relative overflow-hidden cursor-zoom-in group" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
+                      <img src={postsService.getImageUrl(m.path)} alt={`${post.title} ${i + 1}`} className="h-64 w-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : post.media.length === 3 ? (
-                /* Three images: 1 large + 2 small */
-                <div className="grid grid-cols-2 gap-2 rounded-xl overflow-hidden">
-                  <div
-                    className="relative overflow-hidden cursor-zoom-in group row-span-2"
-                    onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
-                  >
-                    <img
-                      src={postsService.getImageUrl(post.media[0].path)}
-                      alt={`${post.title} 1`}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 min-h-[320px]"
-                    />
+                <div className="grid grid-cols-2 gap-1">
+                  <div className="relative overflow-hidden cursor-zoom-in group row-span-2" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}>
+                    <img src={postsService.getImageUrl(post.media[0].path)} alt={`${post.title} 1`} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 min-h-[320px]" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
                   {post.media.slice(1).map((m, i) => (
-                    <div
-                      key={m.mediaId}
-                      className="relative overflow-hidden cursor-zoom-in group"
-                      onClick={() => { setLightboxIndex(i + 1); setLightboxOpen(true); }}
-                    >
-                      <img
-                        src={postsService.getImageUrl(m.path)}
-                        alt={`${post.title} ${i + 2}`}
-                        className="h-40 w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
+                    <div key={m.mediaId} className="relative overflow-hidden cursor-zoom-in group" onClick={() => { setLightboxIndex(i + 1); setLightboxOpen(true); }}>
+                      <img src={postsService.getImageUrl(m.path)} alt={`${post.title} ${i + 2}`} className="h-40 w-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                /* 4+ images: main preview + thumbnails strip */
                 <div className="space-y-2">
-                  {/* Main image */}
-                  <div
-                    className="relative overflow-hidden rounded-xl cursor-zoom-in group"
-                    onClick={() => { setLightboxIndex(activeImageIndex); setLightboxOpen(true); }}
-                  >
+                  <div className="relative overflow-hidden cursor-zoom-in group" onClick={() => { setLightboxIndex(activeImageIndex); setLightboxOpen(true); }}>
                     <motion.img
                       key={activeImageIndex}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ duration: 0.25 }}
                       src={postsService.getImageUrl(post.media[activeImageIndex].path)}
                       alt={`${post.title} ${activeImageIndex + 1}`}
-                      className="h-96 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="h-80 w-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                      <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    {/* Prev / Next arrows */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex - 1 + post.media.length) % post.media.length); }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
+                    <button onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex - 1 + post.media.length) % post.media.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors">
+                      <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex + 1) % post.media.length); }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
-                    >
-                      <ChevronRight className="h-5 w-5" />
+                    <button onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex + 1) % post.media.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors">
+                      <ChevronRight className="h-4 w-4" />
                     </button>
-                    {/* Counter */}
-                    <span className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                      {activeImageIndex + 1} / {post.media.length}
+                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 font-mono">
+                      {activeImageIndex + 1}/{post.media.length}
                     </span>
                   </div>
-                  {/* Thumbnails */}
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex gap-1 overflow-x-auto">
                     {post.media.map((m, i) => (
-                      <button
-                        key={m.mediaId}
-                        onClick={() => setActiveImageIndex(i)}
-                        className={cn(
-                          "flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all",
-                          i === activeImageIndex ? "border-accent scale-105" : "border-transparent opacity-60 hover:opacity-100"
-                        )}
-                      >
-                        <img
-                          src={postsService.getImageUrl(m.path)}
-                          alt={`thumb ${i + 1}`}
-                          className="w-full h-full object-cover"
-                        />
+                      <button key={m.mediaId} onClick={() => setActiveImageIndex(i)} className={cn("flex-shrink-0 w-16 h-12 overflow-hidden border-2 transition-all", i === activeImageIndex ? "border-red-600" : "border-transparent opacity-50 hover:opacity-80")}>
+                        <img src={postsService.getImageUrl(m.path)} alt={`thumb ${i + 1}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
@@ -442,300 +359,161 @@ export default function PostDetailPage() {
           {/* Lightbox */}
           {lightboxOpen && post.media && post.media.length > 0 && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
               onClick={() => setLightboxOpen(false)}
             >
-              <button
-                onClick={() => setLightboxOpen(false)}
-                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-              >
+              <button onClick={() => setLightboxOpen(false)} className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
                 <X className="h-5 w-5" />
               </button>
               {post.media.length > 1 && (
                 <>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + post.media.length) % post.media.length); }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + post.media.length) % post.media.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
                     <ChevronLeft className="h-6 w-6" />
                   </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % post.media.length); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % post.media.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
                     <ChevronRight className="h-6 w-6" />
                   </button>
                 </>
               )}
               <motion.img
                 key={lightboxIndex}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                 src={postsService.getImageUrl(post.media[lightboxIndex].path)}
                 alt={`${post.title} ${lightboxIndex + 1}`}
-                className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+                className="max-h-[88vh] max-w-full object-contain shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               />
               {post.media.length > 1 && (
-                <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 text-white text-sm px-3 py-1 rounded-full">
+                <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 text-white text-xs px-3 py-1 font-mono">
                   {lightboxIndex + 1} / {post.media.length}
                 </span>
               )}
             </motion.div>
           )}
 
-          {/* Post Header */}
-          <div className="mb-8 space-y-4">
-            {post.tags && post.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {post.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-accent/20 px-3 py-1 text-sm font-medium text-accent-foreground"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <h1 className="font-display text-4xl font-bold text-foreground">
-              {post.title}
-            </h1>
-
-            {/* Post Metadata */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-b border-border py-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-accent to-accent/60" />
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">{post.authorName}</p>
-                  <p className="text-sm text-muted-foreground">{post.organizationName || "Independent"}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-muted-foreground">
-                  <p>{formattedDate}</p>
-                  <p className="text-xs">
-                    {Math.ceil(post.content.split(/\s+/).length / 200)} min read
-                  </p>
-                </div>
-                
-                
-                {/* Delete button - only show for post author */}
-                {user && post.authorId === user.id && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDeletePost}
-                    disabled={isDeleting}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    {isDeleting ? (
-                      <div className="w-4 h-4 border-2 border-destructive border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
-
-                {/* Report button - only for readers, not the post author */}
-                {isReader && user && post.authorId !== user.id && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleOpenReport}
-                    className="gap-1.5 text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
-                    title="Report this post"
-                  >
-                    <Flag className="h-4 w-4" />
-                    <span className="text-xs">Report</span>
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Post Content */}
+          {/* Article body — newspaper typography */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="prose prose-invert max-w-none space-y-6 text-foreground"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+            className="prose prose-zinc dark:prose-invert max-w-none"
           >
             {post.content.split("\n\n").map((paragraph, idx) => (
-              <p key={idx} className="text-base leading-relaxed whitespace-pre-wrap">
+              <p key={idx} className="text-base md:text-lg leading-[1.85] text-zinc-800 dark:text-zinc-200 mb-5 font-serif">
                 {paragraph}
               </p>
             ))}
           </motion.div>
 
-          {/* Interaction Bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-12 space-y-6 border-t border-border pt-8"
-          >
-            {/* Like and Comment Buttons - Hidden for admins */}
-            {user?.role !== "admin" && (
-              <div className="flex flex-wrap gap-4">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={toggleLike}
-                  disabled={isLiking || isLoading}
-                  className={cn(
-                    "gap-2",
-                    isLiked && "bg-accent/20 text-accent border-accent"
-                  )}
-                >
-                  <Heart
-                    className={cn(
-                      "h-5 w-5",
-                      isLiked && "fill-current"
-                    )}
-                  />
-                  {likesCount} Likes
-                </Button>
-
-                <Button variant="outline" size="lg" className="gap-2" disabled>
-                  <MessageCircle className="h-5 w-5" />
-                  {comments.length} Comments
-                </Button>
-
-                {/* Report button - visible for any logged-in user */}
-                {user && (
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={handleOpenReport}
-                    className="gap-2 text-muted-foreground hover:text-orange-500 hover:border-orange-500/50 hover:bg-orange-500/10"
-                  >
-                    <Flag className="h-5 w-5" />
-                    Report
-                  </Button>
+          {/* Interaction bar */}
+          {user?.role !== "admin" && (
+            <div className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-3">
+              <button
+                onClick={toggleLike}
+                disabled={isLiking || isLoading}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 border text-sm font-semibold transition-all",
+                  isLiked
+                    ? "border-red-600 bg-red-50 dark:bg-red-950/20 text-red-600"
+                    : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-900 dark:hover:border-white"
                 )}
-              </div>
-            )}
-            
-            {/* View only message for admins */}
-            {user?.role === "admin" && (
-              <div className="rounded-lg p-4 text-center">
-                
-              </div>
-            )}
-          </motion.div>
+              >
+                <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
+                {likesCount} Likes
+              </button>
 
-          {/* Comments Section */}
+              <div className="flex items-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-500 dark:text-zinc-400">
+                <MessageCircle className="h-4 w-4" />
+                {comments.length} Comments
+              </div>
+
+              {user && (
+                <button
+                  onClick={handleOpenReport}
+                  className="flex items-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-500 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-500 transition-all font-medium"
+                >
+                  <Flag className="h-4 w-4" />
+                  Report
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Comments section */}
           <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-12 space-y-6 border-t border-border pt-8"
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+            className="mt-12 pt-8 border-t border-zinc-200 dark:border-zinc-800"
           >
-            <h2 className="text-2xl font-bold text-foreground">Comments</h2>
+            <div className="flex items-center gap-2 mb-6">
+              <div className="h-4 w-0.5 bg-red-600" />
+              <h2 className="font-serif text-2xl font-bold text-zinc-900 dark:text-white">
+                Comments ({comments.length})
+              </h2>
+            </div>
 
-            {/* Add Comment Form - Not visible for admins */}
+            {/* Comment form */}
             {user?.role !== "admin" && (
-              <div className="space-y-3 rounded-lg border border-border p-4">
-                <label className="text-sm font-medium text-foreground">
-                  Add a comment
-                </label>
+              <div className="border border-zinc-200 dark:border-zinc-800 p-4 mb-6">
                 {commentError && (
-                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                    <p className="font-semibold">Unable to post comment:</p>
-                    <p>{commentError}</p>
+                  <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-3 mb-3 text-sm text-red-700 dark:text-red-400">
+                    {commentError}
                   </div>
                 )}
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <Input
-                    placeholder="Share your thoughts..."
+                    placeholder="Share your thoughts on this article..."
                     value={commentInput}
-                    onChange={(e) => {
-                      setCommentInput(e.target.value);
-                      setCommentError(null);
-                    }}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAddComment();
-                      }
-                    }}
+                    onChange={(e) => { setCommentInput(e.target.value); setCommentError(null); }}
+                    onKeyPress={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
                     disabled={isCommenting}
-                    className="flex-1"
+                    className="flex-1 rounded-none border-zinc-300 dark:border-zinc-700 focus:border-red-600 focus:ring-0"
                   />
                   <Button
                     onClick={handleAddComment}
                     disabled={!commentInput.trim() || isCommenting}
-                    className="gap-2"
+                    className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-none"
                   >
-                    {isCommenting ? (
-                      <Loader className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    Post
+                    {isCommenting ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Comments List */}
-            <div className="space-y-4">
+            {/* Comments list */}
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-200 dark:border-zinc-800">
               {comments.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No comments yet. Be the first to comment!
-                </p>
+                <div className="p-10 text-center">
+                  <MessageCircle className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">No comments yet. Be the first to share your perspective.</p>
+                </div>
               ) : (
                 comments.map((comment) => (
                   <motion.div
                     key={comment.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="rounded-lg border border-border p-4"
+                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                    className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="mb-2 flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60" />
-                            <div className="flex flex-col">
-                              <p className="font-semibold text-foreground">
-                                {comment.authorName}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {comment.authorRole}
-                              </p>
-                            </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-7 h-7 bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0">
+                            <User className="h-3.5 w-3.5 text-zinc-500" />
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(comment.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              }
-                            )}
-                          </p>
+                          <div>
+                            <span className="font-semibold text-zinc-900 dark:text-white text-sm">{comment.authorName}</span>
+                            <span className="text-zinc-400 text-xs ml-2">{comment.authorRole}</span>
+                          </div>
+                          <span className="text-xs text-zinc-400 ml-auto">
+                            {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
                         </div>
-                        <p className="text-base text-foreground">
-                          {comment.content}
-                        </p>
+                        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed pl-9">{comment.content}</p>
                       </div>
-
-                      {/* Delete button - visible on hover */}
                       <button
                         onClick={() => handleDeleteComment(comment.id)}
-                        className="rounded-lg p-2 hover:bg-destructive/10 transition-colors group"
+                        className="p-1.5 text-zinc-300 hover:text-red-600 dark:text-zinc-700 dark:hover:text-red-500 transition-colors flex-shrink-0"
                         title="Delete comment"
                       >
-                        <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </motion.div>
@@ -750,58 +528,41 @@ export default function PostDetailPage() {
 
       {/* Report Dialog */}
       <Dialog open={showReportDialog} onOpenChange={handleCloseReport}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="rounded-none sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Flag className="h-5 w-5 text-orange-500" />
-              Report Post
+            <DialogTitle className="font-serif text-xl flex items-center gap-2">
+              <Flag className="h-5 w-5 text-amber-500" />
+              Report Article
             </DialogTitle>
             <DialogDescription>
-              Reports are reviewed by our moderation team to keep the platform accurate and safe.
+              Reports are reviewed by our moderation team.
             </DialogDescription>
           </DialogHeader>
 
           <AnimatePresence mode="wait">
             {reportSuccess ? (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center gap-4 py-6 text-center"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+              <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-4 py-6 text-center">
+                <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">Report submitted</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Thank you for helping keep the platform safe. Our moderation team will review this post.
-                  </p>
+                  <p className="font-bold text-zinc-900 dark:text-white">Report submitted</p>
+                  <p className="text-sm text-zinc-500 mt-1">Thank you for helping maintain accuracy. Our team will review this.</p>
                 </div>
-                <Button variant="outline" onClick={handleCloseReport}>Close</Button>
+                <Button variant="outline" onClick={handleCloseReport} className="rounded-none">Close</Button>
               </motion.div>
             ) : (
-              <motion.div
-                key="form"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="space-y-4"
-              >
-                {/* Post preview */}
-                <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Reporting</p>
-                  <p className="text-sm font-medium text-foreground line-clamp-2">{post.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">by {post.authorName}</p>
+              <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                <div className="border-l-4 border-zinc-300 dark:border-zinc-700 pl-3 py-1">
+                  <p className="text-xs text-zinc-400 uppercase font-bold tracking-wide mb-0.5">Article</p>
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2">{post.title}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">by {post.authorName}</p>
                 </div>
-
-                {/* Reason */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="report-reason">
-                    Reason <span className="text-destructive">*</span>
-                  </Label>
+                <div>
+                  <Label className="text-xs font-bold tracking-wide uppercase text-zinc-500">Reason *</Label>
                   <Select value={reportReason} onValueChange={(v) => setReportReason(v as ReportReason)}>
-                    <SelectTrigger id="report-reason">
-                      <SelectValue placeholder="Select a reason…" />
+                    <SelectTrigger className="rounded-none border-zinc-300 dark:border-zinc-700 mt-1">
+                      <SelectValue placeholder="Select a reason..." />
                     </SelectTrigger>
                     <SelectContent>
                       {REPORT_REASONS.map((r) => (
@@ -810,38 +571,25 @@ export default function PostDetailPage() {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Description */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="report-desc">
-                    Additional details <span className="text-muted-foreground font-normal">(optional)</span>
-                  </Label>
+                <div>
+                  <Label className="text-xs font-bold tracking-wide uppercase text-zinc-500">Additional Details <span className="font-normal text-zinc-400">(optional)</span></Label>
                   <Textarea
-                    id="report-desc"
-                    placeholder="Provide any additional context…"
+                    placeholder="Provide any additional context..."
                     value={reportDescription}
                     onChange={(e) => setReportDescription(e.target.value)}
-                    rows={4}
-                    maxLength={500}
-                    className="resize-none"
+                    rows={3} maxLength={500}
+                    className="rounded-none border-zinc-300 dark:border-zinc-700 resize-none mt-1 focus:border-red-600 focus:ring-0"
                   />
-                  <p className="text-xs text-muted-foreground text-right">{reportDescription.length}/500</p>
+                  <p className="text-xs text-zinc-400 text-right mt-1">{reportDescription.length}/500</p>
                 </div>
-
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button variant="outline" onClick={handleCloseReport} disabled={isSubmittingReport}>
-                    Cancel
-                  </Button>
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseReport} disabled={isSubmittingReport} className="rounded-none">Cancel</Button>
                   <Button
                     onClick={handleSubmitReport}
                     disabled={!reportReason || isSubmittingReport}
-                    className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                    className="bg-amber-500 hover:bg-amber-600 text-white rounded-none"
                   >
-                    {isSubmittingReport ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Flag className="h-4 w-4" />
-                    )}
+                    {isSubmittingReport ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : <Flag className="h-4 w-4 mr-1" />}
                     Submit Report
                   </Button>
                 </DialogFooter>

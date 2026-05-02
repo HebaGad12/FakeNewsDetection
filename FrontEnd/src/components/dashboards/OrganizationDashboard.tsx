@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart2,
   Users,
@@ -26,9 +27,9 @@ import {
   BadgeCheck,
   Building2,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,100 @@ const moderationIcons: Record<string, React.ReactNode> = {
   Removed: <X className="h-3 w-3" />,
 };
 
+// ─── SideNavBar Component ──────────────────────────────────────────────────────
+
+interface SideNavBarProps {
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
+  profile?: OrgProfileResponse | null;
+  onLogout?: () => void;
+}
+
+const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarProps) => {
+  const navItems = [
+    { id: "overview" as Tab, icon: "dashboard", label: "Dashboard" },
+    { id: "journalists" as Tab, icon: "people", label: "Journalists" },
+    { id: "posts" as Tab, icon: "newspaper", label: "Posts" },
+    { id: "followers" as Tab, icon: "favorite", label: "Followers" },
+    { id: "wallet" as Tab, icon: "account_balance_wallet", label: "Wallet" },
+  ];
+
+  return (
+    <aside className="h-screen w-64 fixed left-0 top-0 bg-white dark:bg-stone-950 flex flex-col p-4 gap-2 z-40 border-r border-stone-200/50 dark:border-stone-800/50">
+      {/* Logo & Title */}
+      <div className="mb-8 px-2 flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-sm">
+          <Building2 className="w-6 h-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="font-headline font-bold text-lg leading-tight text-on-surface dark:text-stone-50">
+            Organization
+          </h2>
+          <p className="font-label text-[10px] uppercase tracking-widest text-outline dark:text-stone-500">
+            Management
+          </p>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-sm font-sans text-sm font-medium transition-all",
+              activeTab === item.id
+                ? "bg-stone-200 dark:bg-stone-800 text-on-surface dark:text-white scale-[0.98]"
+                : "text-primary dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-900"
+            )}
+          >
+            <span className="material-symbols-outlined text-lg" data-icon={item.icon}>
+              {item.icon === "dashboard" && "🎯"}
+              {item.icon === "people" && "👥"}
+              {item.icon === "newspaper" && "📰"}
+              {item.icon === "favorite" && "❤️"}
+              {item.icon === "account_balance_wallet" && "💳"}
+            </span>
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Bottom Section */}
+      <div className="mt-auto space-y-3 border-t border-outline-variant/10 dark:border-stone-800 pt-4">
+        {profile && (
+          <div className="px-2 flex items-center gap-3 pb-3">
+            <div className="w-8 h-8 rounded-full bg-primary/15 text-primary font-bold text-xs flex items-center justify-center flex-shrink-0">
+              {profile.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)}
+            </div>
+            <div className="overflow-hidden flex-1">
+              <p className="font-sans text-xs font-bold truncate text-on-surface dark:text-stone-50">
+                {profile.name}
+              </p>
+              <p className="font-label text-[10px] text-outline dark:text-stone-500 truncate">
+                {profile.email}
+              </p>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-primary dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-900 rounded-sm font-sans text-sm font-medium transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </button>
+      </div>
+    </aside>
+  );
+};
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({
@@ -108,23 +203,26 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}
       className={cn(
-        "relative group rounded-2xl border p-5 transition-all hover:shadow-lg",
+        "relative rounded-xl border p-6 flex flex-col justify-between transition-all min-h-[180px]",
         accent
-          ? "bg-accent border-accent/30 hover:shadow-accent/20"
-          : "bg-card border-border hover:border-accent/40 hover:shadow-accent/5"
+          ? "bg-primary text-white border-primary/50"
+          : "bg-surface-container-lowest dark:bg-stone-900 border-outline-variant/20 dark:border-stone-800"
       )}
     >
-      <div className="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-20 bg-accent" />
-      <div className="flex items-start justify-between mb-4">
-        <div className={cn("p-2.5 rounded-xl", accent ? "bg-white/15 text-white" : "bg-accent/10 text-accent")}>
-          {icon}
+      <div>
+        <p className={cn("font-label text-xs uppercase tracking-widest mb-4", accent ? "text-white/70" : "text-outline dark:text-stone-500")}>
+          {label}
+        </p>
+        <div className="flex items-baseline gap-2">
+          <span className={cn("font-headline text-4xl font-bold tracking-tighter", accent ? "text-white" : "text-on-surface dark:text-white")}>
+            {value}
+          </span>
         </div>
-        <TrendingUp className={cn("h-4 w-4 opacity-40", accent ? "text-white" : "text-muted-foreground")} />
       </div>
-      <p className={cn("text-2xl font-bold tracking-tight", accent ? "text-white" : "text-foreground")}>{value}</p>
-      <p className={cn("text-sm mt-0.5", accent ? "text-white/70" : "text-muted-foreground")}>{label}</p>
       {sub && (
-        <p className={cn("text-xs mt-1 font-medium", accent ? "text-white/50" : "text-muted-foreground/60")}>{sub}</p>
+        <p className={cn("text-xs mt-auto pt-3 border-t", accent ? "text-white/60 border-white/10" : "text-muted-foreground dark:text-stone-500 border-outline-variant/10 dark:border-stone-800")}>
+          {sub}
+        </p>
       )}
     </motion.div>
   );
@@ -175,71 +273,75 @@ function AddJournalistModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-xl p-6 w-full max-w-md shadow-2xl"
       >
         {success ? (
           <div className="text-center py-6">
-            <div className="w-12 h-12 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-fixed flex items-center justify-center mx-auto mb-4">
               <Check className="h-6 w-6" />
             </div>
-            <h3 className="font-semibold text-foreground mb-1">Journalist Added!</h3>
-            <p className="text-sm text-muted-foreground mb-4">They are now active in your organization.</p>
-            <Button onClick={onClose} className="bg-accent hover:bg-accent/90 text-accent-foreground">Done</Button>
+            <h3 className="font-semibold text-on-surface dark:text-white mb-1">Journalist Added!</h3>
+            <p className="text-sm text-outline dark:text-stone-400 mb-4">They are now active in your organization.</p>
+            <Button onClick={onClose} className="bg-primary hover:bg-primary-dim text-white">
+              Done
+            </Button>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-accent" />
+              <h3 className="font-semibold text-on-surface dark:text-white flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-primary" />
                 Add Journalist
               </h3>
-              <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+              <button onClick={onClose} className="p-1 rounded-lg hover:bg-surface-container dark:hover:bg-stone-800 text-outline dark:text-stone-500">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-3">
               {(["name", "email", "licenceNumber"] as const).map((field) => (
                 <div key={field}>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block capitalize">
+                  <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block capitalize">
                     {field === "licenceNumber" ? "Licence Number" : field}
                   </label>
                   <Input
                     value={form[field]}
                     onChange={update(field)}
                     placeholder={field === "licenceNumber" ? "e.g. LIC-2024-001" : `Enter ${field}`}
-                    className="bg-muted border-border h-10"
+                    className="bg-surface-container dark:bg-stone-800 border-outline-variant/20 dark:border-stone-700 h-10 text-on-surface dark:text-stone-50"
                   />
                 </div>
               ))}
               <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
+                <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">Password</label>
                 <div className="relative">
                   <Input
                     type={showPass ? "text" : "password"}
                     value={form.password}
                     onChange={update("password")}
                     placeholder="Set a password"
-                    className="bg-muted border-border h-10 pr-10"
+                    className="bg-surface-container dark:bg-stone-800 border-outline-variant/20 dark:border-stone-700 h-10 pr-10 text-on-surface dark:text-stone-50"
                   />
                   <button
                     onClick={() => setShowPass((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-outline dark:text-stone-500 hover:text-on-surface dark:hover:text-stone-200"
                   >
                     {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
               {error && (
-                <p className="text-rose-400 text-sm flex items-center gap-1.5">
+                <p className="text-tertiary-fixed text-sm flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5" /> {error}
                 </p>
               )}
               <div className="flex gap-3 pt-1">
-                <Button variant="outline" onClick={onClose} className="flex-1 h-10">Cancel</Button>
+                <Button variant="outline" onClick={onClose} className="flex-1 h-10">
+                  Cancel
+                </Button>
                 <Button
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="flex-1 h-10 bg-accent hover:bg-accent/90 text-accent-foreground"
+                  className="flex-1 h-10 bg-primary hover:bg-primary-dim text-white"
                 >
                   {loading ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : "Add Journalist"}
                 </Button>
@@ -289,45 +391,47 @@ function ReviewPostModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg shadow-2xl"
+        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-xl p-6 w-full max-w-lg shadow-2xl"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">Review Post</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+          <h3 className="font-semibold text-on-surface dark:text-white">Review Post</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-surface-container dark:hover:bg-stone-800 text-outline dark:text-stone-500">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="mb-4 p-4 rounded-xl bg-muted">
-          <p className="font-medium text-foreground text-sm mb-1">{post.title}</p>
-          <p className="text-xs text-muted-foreground line-clamp-3">{post.content}</p>
-          <p className="text-xs text-muted-foreground mt-2">By {post.authorName} · {fmtDate(post.createdAt)}</p>
+        <div className="mb-4 p-4 rounded-xl bg-surface-container dark:bg-stone-800">
+          <p className="font-medium text-on-surface dark:text-white text-sm mb-1">{post.title}</p>
+          <p className="text-xs text-outline dark:text-stone-400 line-clamp-3">{post.content}</p>
+          <p className="text-xs text-outline dark:text-stone-500 mt-2">
+            By {post.authorName} · {fmtDate(post.createdAt)}
+          </p>
         </div>
         <div className="mb-4">
-          <label className="text-sm font-medium text-foreground mb-1.5 block">
-            Notes <span className="text-muted-foreground font-normal">(optional)</span>
+          <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">
+            Notes <span className="text-outline dark:text-stone-500 font-normal">(optional)</span>
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add moderation notes..."
             rows={3}
-            className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 transition"
+            className="w-full rounded-xl border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-4 py-3 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
           />
         </div>
-        {error && <p className="text-rose-400 text-sm mb-3">{error}</p>}
+        {error && <p className="text-tertiary-fixed text-sm mb-3">{error}</p>}
         <div className="flex gap-3">
           <Button
             onClick={() => handleReview(false)}
             disabled={loading}
             variant="outline"
-            className="flex-1 h-10 border-rose-400/30 text-rose-400 hover:bg-rose-400/10"
+            className="flex-1 h-10 border-tertiary-fixed/30 text-tertiary-fixed hover:bg-tertiary-fixed/10"
           >
             <X className="h-4 w-4 mr-1.5" /> Reject
           </Button>
           <Button
             onClick={() => handleReview(true)}
             disabled={loading}
-            className="flex-1 h-10 bg-emerald-500 hover:bg-emerald-500/90 text-white"
+            className="flex-1 h-10 bg-secondary hover:bg-secondary-dim text-white"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -371,25 +475,29 @@ function JournalistRow({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex items-center gap-4 p-4 rounded-xl hover:bg-muted/50 border border-transparent hover:border-border transition-all"
+      className="group flex items-center gap-4 p-6 hover:bg-surface-container dark:hover:bg-stone-800/50 border-b border-outline-variant/10 dark:border-stone-800 last:border-0 transition-all"
     >
-      <div className="w-10 h-10 rounded-full bg-accent/15 text-accent font-bold text-sm flex items-center justify-center flex-shrink-0">
+      <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container font-bold text-sm flex items-center justify-center flex-shrink-0">
         {initials}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium text-foreground text-sm">{journalist.name}</p>
-          <span className={cn(
-            "text-xs px-2 py-0.5 rounded-full border",
-            journalist.isActive
-              ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
-              : "text-muted-foreground bg-muted border-border"
-          )}>
+          <p className="font-medium text-on-surface dark:text-white text-sm">{journalist.name}</p>
+          <span
+            className={cn(
+              "text-xs px-2 py-0.5 rounded-full border font-bold tracking-widest uppercase",
+              journalist.isActive
+                ? "text-secondary-container bg-secondary-fixed/10 border-secondary/20"
+                : "text-outline dark:text-stone-500 bg-surface-container dark:bg-stone-800 border-outline-variant/20 dark:border-stone-700"
+            )}
+          >
             {journalist.isActive ? "Active" : "Inactive"}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">{journalist.email}</p>
-        <p className="text-xs text-muted-foreground/60">Licence: {journalist.licenceNumber} · Joined {fmtDate(journalist.createdAt)}</p>
+        <p className="text-xs text-outline dark:text-stone-500">{journalist.email}</p>
+        <p className="text-xs text-outline/70 dark:text-stone-600">
+          Licence: {journalist.licenceNumber} · Joined {fmtDate(journalist.createdAt)}
+        </p>
       </div>
       <button
         onClick={toggle}
@@ -398,11 +506,11 @@ function JournalistRow({
         className="opacity-0 group-hover:opacity-100 transition-opacity"
       >
         {loading ? (
-          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         ) : journalist.isActive ? (
-          <ToggleRight className="h-6 w-6 text-emerald-400 hover:text-emerald-300 transition-colors" />
+          <ToggleRight className="h-6 w-6 text-secondary-fixed hover:text-secondary-dim transition-colors" />
         ) : (
-          <ToggleLeft className="h-6 w-6 text-muted-foreground hover:text-foreground transition-colors" />
+          <ToggleLeft className="h-6 w-6 text-outline dark:text-stone-500 hover:text-on-surface dark:hover:text-stone-200 transition-colors" />
         )}
       </button>
     </motion.div>
@@ -443,39 +551,44 @@ function PostCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      className="group rounded-2xl border border-border bg-card p-5 hover:shadow-md hover:border-border/80 transition-all"
+      className="group rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-low dark:bg-stone-900/50 p-6 hover:bg-surface-container dark:hover:bg-stone-800/50 hover:border-outline-variant/40 dark:hover:border-stone-700 transition-all"
     >
-      <div className="flex items-start gap-3 mb-3">
+      <div className="flex items-start gap-4 mb-4">
+        <div className="w-16 h-16 flex-shrink-0 bg-stone-300 dark:bg-stone-700 overflow-hidden rounded-sm flex-1 max-w-[60px]" />
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className={cn("inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium", statusClass)}>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className={cn("inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-bold tracking-widest uppercase", statusClass)}>
               {moderationIcons[post.moderationStatus]}
               {post.moderationStatus}
             </span>
-            {post.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                #{tag}
+            {post.tags.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="text-xs px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed border border-primary/20 font-bold tracking-widest uppercase"
+              >
+                {tag}
               </span>
             ))}
           </div>
-          <h3 className="font-semibold text-foreground line-clamp-1">{post.title}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            By <span className="text-foreground/80">{post.authorName}</span> · {fmtDate(post.createdAt)}
+          <h3 className="font-headline font-bold text-lg leading-snug text-on-surface dark:text-white group-hover:text-primary transition-colors line-clamp-1">
+            {post.title}
+          </h3>
+          <p className="text-xs text-outline dark:text-stone-500 mt-1">
+            {post.authorName} · {fmtDate(post.createdAt)}
           </p>
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{post.content}</p>
         </div>
       </div>
 
       {post.moderationNotes && (
-        <div className="text-xs text-amber-400/80 bg-amber-400/5 border border-amber-400/15 rounded-lg px-3 py-2 mb-3">
+        <div className="text-xs text-tertiary-dim dark:text-tertiary-fixed bg-tertiary-fixed/5 dark:bg-tertiary-fixed/10 border border-tertiary-fixed/15 dark:border-tertiary-fixed/20 rounded-lg px-3 py-2 mb-3">
           Note: {post.moderationNotes}
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between pt-4 border-t border-outline-variant/10 dark:border-stone-800">
+        <div className="flex items-center gap-4 text-sm text-outline dark:text-stone-500">
           <span className="flex items-center gap-1">
-            <Heart className="h-3.5 w-3.5 text-rose-400" /> {post.likes}
+            <Heart className="h-3.5 w-3.5 text-tertiary-fixed" /> {post.likes}
           </span>
           <span className="flex items-center gap-1">
             <MessageSquare className="h-3.5 w-3.5 text-blue-400" /> {post.comments}
@@ -486,7 +599,7 @@ function PostCard({
             <Button
               size="sm"
               onClick={() => onReview(post)}
-              className="h-8 bg-accent hover:bg-accent/90 text-accent-foreground text-xs gap-1.5"
+              className="h-8 bg-primary hover:bg-primary-dim text-white text-xs gap-1.5"
             >
               <BadgeCheck className="h-3.5 w-3.5" /> Review
             </Button>
@@ -497,11 +610,11 @@ function PostCard({
             title={isActivePost ? "Deactivate post" : "Activate post"}
           >
             {statusLoading ? (
-              <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             ) : isActivePost ? (
-              <ToggleRight className="h-6 w-6 text-emerald-400 hover:text-emerald-300 transition-colors" />
+              <ToggleRight className="h-6 w-6 text-secondary-fixed hover:text-secondary-dim transition-colors" />
             ) : (
-              <ToggleLeft className="h-6 w-6 text-muted-foreground hover:text-foreground transition-colors" />
+              <ToggleLeft className="h-6 w-6 text-outline dark:text-stone-500 hover:text-on-surface dark:hover:text-stone-200 transition-colors" />
             )}
           </button>
         </div>
@@ -515,20 +628,22 @@ function PostCard({
 function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
   const isCredit = tx.amount > 0;
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-      <div className={cn(
-        "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
-        isCredit ? "bg-emerald-400/10 text-emerald-400" : "bg-rose-400/10 text-rose-400"
-      )}>
+    <div className="flex items-center gap-3 py-4 border-b border-outline-variant/10 dark:border-stone-800 last:border-0">
+      <div
+        className={cn(
+          "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
+          isCredit ? "bg-secondary-fixed/15 text-secondary-fixed" : "bg-tertiary-fixed/15 text-tertiary-fixed"
+        )}
+      >
         {isCredit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{tx.description}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm font-medium text-on-surface dark:text-white truncate">{tx.description}</p>
+        <p className="text-xs text-outline dark:text-stone-500">
           {tx.type}{tx.donorName ? ` · ${tx.donorName}` : ""} · {fmtDate(tx.createdAt)}
         </p>
       </div>
-      <span className={cn("font-semibold text-sm tabular-nums", isCredit ? "text-emerald-400" : "text-rose-400")}>
+      <span className={cn("font-headline font-bold text-sm tabular-nums", isCredit ? "text-secondary-fixed" : "text-tertiary-fixed")}>
         {isCredit ? "+" : ""}{fmtCurrency(tx.amount)}
       </span>
     </div>
@@ -538,8 +653,8 @@ function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const OrganizationDashboard = () => {
-  // orgId is resolved from the /me endpoint to guarantee it matches the JWT claim
-  // that the backend uses in ResolveOrgUser(). Never rely on AuthContext id shape.
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [orgId, setOrgId] = useState<string>("");
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -562,13 +677,11 @@ const OrganizationDashboard = () => {
     setLoading(true);
     setLoadError("");
     try {
-      // Step 1: fetch profile first to get the canonical orgId from the server
       const prof = await organizationService.getMyOrganization();
       const resolvedId = prof.id;
       setOrgId(resolvedId);
       setProfile(prof);
 
-      // Step 2: fetch everything else in parallel using the verified id
       const [anal, journs, ps, fols, wal, txs] = await Promise.all([
         organizationService.getAnalytics(resolvedId),
         organizationService.getJournalists(resolvedId),
@@ -594,7 +707,9 @@ const OrganizationDashboard = () => {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const filteredPosts = posts.filter((p) => {
     if (postFilter === "All") return true;
@@ -608,23 +723,12 @@ const OrganizationDashboard = () => {
       j.email.toLowerCase().includes(journalistSearch.toLowerCase())
   );
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: "overview", label: "Overview", icon: <BarChart2 className="h-4 w-4" /> },
-    { id: "journalists", label: "Journalists", icon: <Users className="h-4 w-4" />, badge: journalists.length },
-    {
-      id: "posts", label: "Posts", icon: <FileText className="h-4 w-4" />,
-      badge: posts.filter((p) => p.moderationStatus === "Pending").length || undefined,
-    },
-    { id: "followers", label: "Followers", icon: <Heart className="h-4 w-4" />, badge: followers.length },
-    { id: "wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
-  ];
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-surface dark:bg-stone-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading organization data...</p>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-outline dark:text-stone-500 text-sm">Loading organization data...</p>
         </div>
       </div>
     );
@@ -632,13 +736,13 @@ const OrganizationDashboard = () => {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-surface dark:bg-stone-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-center p-6 max-w-sm">
-          <div className="w-12 h-12 rounded-full bg-rose-400/10 text-rose-400 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-tertiary-fixed/15 text-tertiary-fixed flex items-center justify-center">
             <AlertCircle className="h-6 w-6" />
           </div>
-          <p className="font-medium text-foreground">{loadError}</p>
-          <Button onClick={loadAll} className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2">
+          <p className="font-medium text-on-surface dark:text-white">{loadError}</p>
+          <Button onClick={loadAll} className="bg-primary hover:bg-primary-dim text-white gap-2">
             <RefreshCw className="h-4 w-4" /> Try Again
           </Button>
         </div>
@@ -646,222 +750,279 @@ const OrganizationDashboard = () => {
     );
   }
 
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="min-h-screen bg-surface dark:bg-stone-950">
+      <SideNavBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        profile={profile}
+        onLogout={logout}
+      />
 
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
-
-        {/* ── Page Header ── */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      {/* Main Content Area */}
+      <main className="ml-64 p-8 min-h-screen">
+        {/* Header */}
+        <header className="flex justify-between items-end mb-12">
           <div>
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-primary mb-2">
-              Organization Dashboard
+            <span className="font-label text-xs uppercase tracking-[0.2em] text-outline dark:text-stone-500 mb-2 block">
+              Institutional Intelligence
+            </span>
+            <h1 className="font-headline text-5xl font-bold text-on-surface dark:text-white tracking-tight">
+              {profile?.name ?? "Organization Dashboard"}
             </h1>
-            <p className="text-muted-foreground">
-              Managing{" "}
-              <span className="text-foreground font-medium">{profile?.name ?? "..."}</span>
-            </p>
           </div>
-          <button
-            onClick={loadAll}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:border-accent/50 hover:shadow-md transition-all text-sm font-medium text-foreground w-fit"
-          >
-            <RefreshCw className="h-4 w-4 text-accent" />
-            Refresh
-          </button>
-        </div>
+          <div className="flex gap-4 items-center">
+            {analytics && (
+              <>
+                <div className="text-right">
+                  <p className="font-label text-xs text-outline dark:text-stone-500">Active Posts</p>
+                  <p className="font-sans text-sm font-bold text-on-surface dark:text-white">
+                    {posts.filter((p) => p.moderationStatus === "Approved").length}
+                  </p>
+                </div>
+                <div className="w-1 h-12 bg-outline-variant/20 dark:bg-stone-800" />
+                <div className="text-right">
+                  <p className="font-label text-xs text-outline dark:text-stone-500">Pending Review</p>
+                  <p className="font-sans text-sm font-bold text-on-surface dark:text-white">
+                    {posts.filter((p) => p.moderationStatus === "Pending").length}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </header>
 
-        {/* ── Profile Card ── */}
-        {profile && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 mb-8"
-          >
-            <div className="absolute top-0 right-0 w-80 h-80 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-accent/15 text-accent font-bold text-xl flex items-center justify-center flex-shrink-0">
-                <Building2 className="h-8 w-8" />
-              </div>
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                  <h2 className="font-bold text-xl text-foreground">{profile.name}</h2>
-                  <span className={cn(
-                    "text-xs px-2.5 py-0.5 rounded-full border font-medium",
-                    profile.isActive
-                      ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
-                      : "text-rose-400 bg-rose-400/10 border-rose-400/20"
-                  )}>
-                    {profile.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">{profile.email}</p>
-                <p className="text-xs text-muted-foreground/60 mt-0.5">Member since {fmtDate(profile.createdAt)}</p>
-              </div>
-              <div className="flex gap-6 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{fmt(profile.totalFollowers)}</p>
-                  <p className="text-xs text-muted-foreground">Followers</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{fmt(profile.totalPosts)}</p>
-                  <p className="text-xs text-muted-foreground">Posts</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{fmtCurrency(profile.walletBalance)}</p>
-                  <p className="text-xs text-muted-foreground">Balance</p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Tabs ── */}
-        <div className="flex gap-1 overflow-x-auto pb-1 mb-8 scrollbar-hide">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
-                activeTab === tab.id
-                  ? "bg-accent text-accent-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-              {tab.badge !== undefined && tab.badge > 0 && (
-                <span className={cn(
-                  "text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[20px] text-center",
-                  activeTab === tab.id ? "bg-white/20 text-white" : "bg-accent text-accent-foreground"
-                )}>
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Content ── */}
         <AnimatePresence mode="wait">
-
-          {/* OVERVIEW */}
+          {/* OVERVIEW TAB */}
           {activeTab === "overview" && analytics && (
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard icon={<FileText className="h-5 w-5" />} label="Total Posts" value={analytics.totalPosts} delay={0} />
-                <StatCard icon={<Users className="h-5 w-5" />} label="Journalists" value={analytics.journalistCount}
-                  sub={`${analytics.activeJournalistCount} active`} delay={0.05} />
-                <StatCard icon={<Heart className="h-5 w-5" />} label="Total Likes" value={fmt(analytics.totalLikesReceived)} delay={0.1} />
-                <StatCard icon={<Wallet className="h-5 w-5" />} label="Wallet Balance" value={fmtCurrency(analytics.walletBalance)} delay={0.15} accent />
-              </div>
-
-              {/* Post breakdown */}
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: "Pending Review", val: analytics.pendingPosts, color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
-                  { label: "Approved", val: analytics.approvedPosts, color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20" },
-                  { label: "Rejected", val: analytics.rejectedPosts, color: "text-rose-400", bg: "bg-rose-400/10 border-rose-400/20" },
-                ].map((item, i) => (
-                  <motion.div
-                    key={item.label}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + i * 0.05 }}
-                    className={cn("rounded-2xl border p-4 text-center", item.bg)}
-                    onClick={() => { setActiveTab("posts"); setPostFilter(item.label === "Pending Review" ? "Pending" : item.label as PostFilter); }}
-                  >
-                    <p className={cn("text-3xl font-bold", item.color)}>{item.val}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{item.label}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5 flex items-center justify-center gap-1">
-                      View all <ChevronRight className="h-3 w-3" />
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Engagement */}
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <h3 className="font-semibold text-foreground mb-4">Engagement Overview</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { icon: <Heart className="h-4 w-4" />, label: "Likes", val: analytics.totalLikesReceived, color: "text-rose-400" },
-                    { icon: <MessageSquare className="h-4 w-4" />, label: "Comments", val: analytics.totalCommentsReceived, color: "text-blue-400" },
-                    { icon: <Flag className="h-4 w-4" />, label: "Reports", val: analytics.totalReportsReceived, color: "text-amber-400" },
-                  ].map((s) => (
-                    <div key={s.label} className="text-center">
-                      <div className={cn("flex justify-center mb-2", s.color)}>{s.icon}</div>
-                      <p className="text-2xl font-bold text-foreground">{fmt(s.val)}</p>
-                      <p className="text-xs text-muted-foreground">{s.label}</p>
+              {/* Bento Grid */}
+              <section className="grid grid-cols-12 gap-6 mb-12">
+                {/* Large Metric Card */}
+                <div className="col-span-12 lg:col-span-7 bg-surface-container-lowest dark:bg-stone-900 p-8 relative overflow-hidden flex flex-col justify-between min-h-[320px] rounded-lg border border-outline-variant/20 dark:border-stone-800">
+                  <div className="relative z-10">
+                    <h3 className="font-label text-xs font-bold uppercase tracking-widest text-primary mb-6">
+                      Newsroom Overview
+                    </h3>
+                    <div className="flex items-baseline gap-4">
+                      <span className="font-headline text-7xl font-bold tracking-tighter text-on-surface dark:text-white">
+                        {((analytics.approvedPosts / (analytics.totalPosts || 1)) * 100).toFixed(1)}%
+                      </span>
+                      <span className="font-label text-sm text-secondary font-bold flex items-center">
+                        ↗ {fmt(analytics.totalLikesReceived)} Engagement
+                      </span>
                     </div>
-                  ))}
+                    <p className="mt-4 font-body text-outline dark:text-stone-500 max-w-md text-sm">
+                      Verification accuracy across all published posts. Integrity maintained through continuous audit.
+                    </p>
+                  </div>
+                  <div className="relative z-10 flex gap-12 border-t border-outline-variant/10 dark:border-stone-800 pt-6">
+                    <div>
+                      <p className="font-label text-[10px] uppercase text-outline dark:text-stone-500 mb-1">Articles Verified</p>
+                      <p className="font-headline text-2xl font-bold text-on-surface dark:text-white">{analytics.totalPosts}</p>
+                    </div>
+                    <div>
+                      <p className="font-label text-[10px] uppercase text-outline dark:text-stone-500 mb-1">Active Journalists</p>
+                      <p className="font-headline text-2xl font-bold text-on-surface dark:text-white">{analytics.activeJournalistCount}</p>
+                    </div>
+                    <div>
+                      <p className="font-label text-[10px] uppercase text-outline dark:text-stone-500 mb-1">Avg. Likes</p>
+                      <p className="font-headline text-2xl font-bold text-on-surface dark:text-white">
+                        {analytics.totalPosts > 0 ? fmt(Math.round(analytics.totalLikesReceived / analytics.totalPosts)) : 0}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Subtle Gradient Background Overlay */}
+                  <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-primary-container/20 dark:from-stone-900/50 to-transparent" />
                 </div>
+
+                {/* Side Metric */}
+                <div className="col-span-12 lg:col-span-5 bg-primary dark:bg-primary-dim p-8 text-white flex flex-col justify-between rounded-lg border border-primary/50">
+                  <div>
+                    <h3 className="font-headline text-2xl font-bold mb-2">Organization Status</h3>
+                    <p className="font-body text-white/80 text-sm">
+                      {profile?.isActive ? "Your organization is active and verified." : "Your organization is currently inactive."}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-white/10 rounded-sm">
+                      <div className="flex items-center gap-3">
+                        <span>✓</span>
+                        <span className="text-xs font-label">Total Followers</span>
+                      </div>
+                      <span className="text-sm uppercase tracking-wider font-bold">{fmt(profile?.totalFollowers ?? 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-white/10 rounded-sm">
+                      <div className="flex items-center gap-3">
+                        <span>◆</span>
+                        <span className="text-xs font-label">Wallet Balance</span>
+                      </div>
+                      <span className="text-sm uppercase tracking-wider font-bold">{fmtCurrency(profile?.walletBalance ?? 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Content Grid */}
+              <div className="grid grid-cols-12 gap-8">
+                {/* Journalists Roster */}
+                <section className="col-span-12 lg:col-span-8">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white">Recent Journalists</h2>
+                    <Button
+                      onClick={() => setShowAddJournalist(true)}
+                      className="bg-primary hover:bg-primary-dim text-white text-xs gap-1.5 h-10"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Journalist
+                    </Button>
+                  </div>
+                  <div className="space-y-px rounded-lg border border-outline-variant/20 dark:border-stone-800 overflow-hidden bg-surface-container-lowest dark:bg-stone-900">
+                    {journalists.slice(0, 3).map((j) => (
+                      <div
+                        key={j.id}
+                        className="group bg-surface-container-low dark:bg-stone-900/50 hover:bg-surface-container dark:hover:bg-stone-800 p-6 transition-colors flex items-center gap-6 border-b border-outline-variant/10 dark:border-stone-800 last:border-0"
+                      >
+                        <div className="w-12 h-12 bg-primary-container text-on-primary-container rounded-sm flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          {j.name
+                            .split(" ")
+                            .map((w) => w[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="bg-secondary-fixed/10 text-on-secondary-fixed text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest uppercase border border-secondary/20">
+                              {j.isActive ? "Active" : "Inactive"}
+                            </span>
+                            <span className="font-label text-[10px] text-outline dark:text-stone-500">{j.email}</span>
+                          </div>
+                          <h4 className="font-headline text-lg font-bold leading-snug text-on-surface dark:text-white group-hover:text-primary transition-colors">
+                            {j.name}
+                          </h4>
+                        </div>
+                        <div className="flex gap-4">
+                          <button className="w-10 h-10 border border-outline-variant/20 dark:border-stone-700 flex items-center justify-center hover:bg-white dark:hover:bg-stone-800 transition-colors rounded-sm">
+                            <Eye className="h-4 w-4 text-on-surface dark:text-stone-300" />
+                          </button>
+                          <button
+                            onClick={() => organizationService.setJournalistStatus(orgId, j.id, !j.isActive)}
+                            className="w-10 h-10 bg-primary text-white flex items-center justify-center hover:bg-primary-dim transition-colors rounded-sm"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {journalists.length === 0 && (
+                      <p className="text-center py-8 text-outline dark:text-stone-500 text-sm">No journalists yet.</p>
+                    )}
+                  </div>
+                </section>
+
+                {/* Summary Stats */}
+                <section className="col-span-12 lg:col-span-4">
+                  <div className="bg-surface-container-lowest dark:bg-stone-900 p-6 rounded-lg border border-outline-variant/20 dark:border-stone-800 space-y-6">
+                    <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white">Quick Stats</h2>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-surface-container dark:bg-stone-800">
+                        <div>
+                          <p className="font-label text-xs text-outline dark:text-stone-500">Total Posts</p>
+                          <p className="font-headline text-2xl font-bold text-on-surface dark:text-white mt-1">
+                            {analytics.totalPosts}
+                          </p>
+                        </div>
+                        <FileText className="h-8 w-8 text-primary opacity-40" />
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-surface-container dark:bg-stone-800">
+                        <div>
+                          <p className="font-label text-xs text-outline dark:text-stone-500">Total Likes</p>
+                          <p className="font-headline text-2xl font-bold text-on-surface dark:text-white mt-1">
+                            {fmt(analytics.totalLikesReceived)}
+                          </p>
+                        </div>
+                        <Heart className="h-8 w-8 text-secondary-fixed opacity-40" />
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-surface-container dark:bg-stone-800">
+                        <div>
+                          <p className="font-label text-xs text-outline dark:text-stone-500">Pending Posts</p>
+                          <p className="font-headline text-2xl font-bold text-tertiary-fixed mt-1">
+                            {analytics.pendingPosts}
+                          </p>
+                        </div>
+                        <Clock className="h-8 w-8 text-tertiary-fixed opacity-40" />
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
             </motion.div>
           )}
 
-          {/* JOURNALISTS */}
+          {/* JOURNALISTS TAB */}
           {activeTab === "journalists" && (
             <motion.div key="journalists" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
               <div className="flex gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-outline dark:text-stone-500" />
                   <Input
                     placeholder="Search journalists..."
                     value={journalistSearch}
                     onChange={(e) => setJournalistSearch(e.target.value)}
-                    className="pl-11 h-11 bg-card border-border"
+                    className="pl-11 h-11 bg-surface-container dark:bg-stone-800 border-outline-variant/20 dark:border-stone-700 text-on-surface dark:text-stone-50"
                   />
                 </div>
                 <Button
                   onClick={() => setShowAddJournalist(true)}
-                  className="h-11 bg-accent hover:bg-accent/90 text-accent-foreground gap-2 whitespace-nowrap"
+                  className="h-11 bg-primary hover:bg-primary-dim text-white gap-2 whitespace-nowrap"
                 >
                   <Plus className="h-4 w-4" /> Add Journalist
                 </Button>
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-2">
-                <div className="px-3 py-2 flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
+              <div className="rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-lowest dark:bg-stone-900">
+                <div className="px-6 py-4 flex items-center justify-between border-b border-outline-variant/10 dark:border-stone-800">
+                  <p className="text-sm text-outline dark:text-stone-500">
                     {filteredJournalists.length} journalist{filteredJournalists.length !== 1 ? "s" : ""}
-                    {" · "}<span className="text-emerald-400">{journalists.filter((j) => j.isActive).length} active</span>
+                    {" · "}
+                    <span className="text-secondary-fixed">{journalists.filter((j) => j.isActive).length} active</span>
                   </p>
                 </div>
-                <AnimatePresence>
-                  {filteredJournalists.map((j) => (
-                    <JournalistRow
-                      key={j.id}
-                      journalist={j}
-                      orgId={orgId}
-                      onStatusChanged={(id, isActive) =>
-                        setJournalists((prev) => prev.map((jj) => jj.id === id ? { ...jj, isActive } : jj))
-                      }
-                    />
-                  ))}
-                </AnimatePresence>
-                {filteredJournalists.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Users className="h-10 w-10 mx-auto mb-3 opacity-25" />
-                    <p>{journalistSearch ? "No matching journalists." : "No journalists yet."}</p>
-                  </div>
-                )}
+                <div>
+                  {filteredJournalists.length > 0 ? (
+                    filteredJournalists.map((j) => (
+                      <JournalistRow
+                        key={j.id}
+                        journalist={j}
+                        orgId={orgId}
+                        onStatusChanged={(id, isActive) =>
+                          setJournalists((prev) => prev.map((jj) => (jj.id === id ? { ...jj, isActive } : jj)))
+                        }
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-12 text-outline dark:text-stone-500">
+                      <Users className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                      <p>{journalistSearch ? "No matching journalists." : "No journalists yet."}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
 
-          {/* POSTS */}
+          {/* POSTS TAB */}
           {activeTab === "posts" && (
             <motion.div key="posts" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
               {/* Filter Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 {(["All", "Pending", "Approved", "Rejected"] as PostFilter[]).map((f) => {
-                  const count = f === "All" ? posts.length
-                    : f === "Rejected" ? posts.filter((p) => p.moderationStatus === "Rejected" || p.moderationStatus === "Removed").length
-                    : posts.filter((p) => p.moderationStatus === f).length;
+                  const count =
+                    f === "All"
+                      ? posts.length
+                      : f === "Rejected"
+                      ? posts.filter((p) => p.moderationStatus === "Rejected" || p.moderationStatus === "Removed").length
+                      : posts.filter((p) => p.moderationStatus === f).length;
                   return (
                     <button
                       key={f}
@@ -869,15 +1030,17 @@ const OrganizationDashboard = () => {
                       className={cn(
                         "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                         postFilter === f
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          ? "bg-primary text-white"
+                          : "bg-surface-container dark:bg-stone-800 text-outline dark:text-stone-400 hover:bg-surface-container-high dark:hover:bg-stone-700"
                       )}
                     >
                       {f}
-                      <span className={cn(
-                        "text-xs px-1.5 rounded-full",
-                        postFilter === f ? "bg-white/20" : "bg-border text-foreground"
-                      )}>
+                      <span
+                        className={cn(
+                          "text-xs px-1.5 rounded-full",
+                          postFilter === f ? "bg-white/20 text-white" : "bg-outline-variant/20 dark:bg-stone-700 text-on-surface dark:text-stone-300"
+                        )}
+                      >
                         {count}
                       </span>
                     </button>
@@ -885,27 +1048,28 @@ const OrganizationDashboard = () => {
                 })}
               </div>
 
-              <AnimatePresence>
-                {filteredPosts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    orgId={orgId}
-                    onReview={setReviewPost}
-                    onStatusChanged={(postId, isActive) =>
-                      setPosts((prev) =>
-                        prev.map((p) =>
-                          p.id === postId
-                            ? { ...p, moderationStatus: isActive ? "Approved" : "Removed" }
-                            : p
+              {filteredPosts.length > 0 ? (
+                <div className="space-y-px">
+                  {filteredPosts.map((post) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      orgId={orgId}
+                      onReview={setReviewPost}
+                      onStatusChanged={(postId, isActive) =>
+                        setPosts((prev) =>
+                          prev.map((p) =>
+                            p.id === postId
+                              ? { ...p, moderationStatus: isActive ? "Approved" : "Removed" }
+                              : p
+                          )
                         )
-                      )
-                    }
-                  />
-                ))}
-              </AnimatePresence>
-              {filteredPosts.length === 0 && (
-                <div className="text-center py-16 text-muted-foreground">
+                      }
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-outline dark:text-stone-500">
                   <FileText className="h-12 w-12 mx-auto mb-3 opacity-25" />
                   <p>No {postFilter !== "All" ? postFilter.toLowerCase() : ""} posts found.</p>
                 </div>
@@ -913,52 +1077,66 @@ const OrganizationDashboard = () => {
             </motion.div>
           )}
 
-          {/* FOLLOWERS */}
+          {/* FOLLOWERS TAB */}
           {activeTab === "followers" && (
             <motion.div key="followers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <h2 className="font-semibold text-foreground mb-4 px-1">Your Followers ({followers.length})</h2>
+              <div className="rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-lowest dark:bg-stone-900 p-6">
+                <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white mb-6">
+                  Your Followers ({followers.length})
+                </h2>
                 <div className="space-y-1">
-                  {followers.map((f) => {
-                    const initials = f.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
-                    return (
-                      <motion.div
-                        key={f.userId}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-accent/15 text-accent font-bold text-sm flex items-center justify-center flex-shrink-0">
-                          {initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground text-sm truncate">{f.name}</p>
-                          <p className="text-xs text-muted-foreground">{f.email} · {f.role}</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground/60 flex-shrink-0">Since {fmtDate(f.followedAt)}</p>
-                      </motion.div>
-                    );
-                  })}
-                  {followers.length === 0 && (
-                    <p className="text-center py-12 text-muted-foreground text-sm">No followers yet.</p>
+                  {followers.length > 0 ? (
+                    followers.map((f) => {
+                      const initials = f.name
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2);
+                      return (
+                        <motion.div
+                          key={f.userId}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="flex items-center gap-4 p-4 rounded-lg hover:bg-surface-container dark:hover:bg-stone-800 transition-colors border-b border-outline-variant/10 dark:border-stone-800 last:border-0"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container font-bold text-sm flex items-center justify-center flex-shrink-0">
+                            {initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-on-surface dark:text-white text-sm truncate">{f.name}</p>
+                            <p className="text-xs text-outline dark:text-stone-500">{f.email}</p>
+                          </div>
+                          <p className="text-xs text-outline/60 dark:text-stone-600 flex-shrink-0">Since {fmtDate(f.followedAt)}</p>
+                        </motion.div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-center py-12 text-outline dark:text-stone-500 text-sm">No followers yet.</p>
                   )}
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* WALLET */}
+          {/* WALLET TAB */}
           {activeTab === "wallet" && (
-            <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+            <motion.div
+              key="wallet"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-5"
+            >
               {/* Balance Card */}
               {wallet && (
-                <div className="relative overflow-hidden rounded-2xl bg-accent p-6">
+                <div className="relative overflow-hidden rounded-lg bg-primary dark:bg-primary-dim p-8 text-white border border-primary/50">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
                   <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-2xl" />
-                  <p className="text-white/70 text-sm mb-1">Current Balance</p>
-                  <p className="text-4xl font-bold text-white tracking-tight">{fmtCurrency(wallet.balance)}</p>
-                  <p className="text-white/50 text-xs mt-2">Last updated {fmtDate(wallet.updatedAt)}</p>
-                  <div className="mt-4 flex items-center gap-2">
+                  <p className="text-white/70 text-sm mb-2">Current Balance</p>
+                  <p className="text-5xl font-bold text-white tracking-tight">{fmtCurrency(wallet.balance)}</p>
+                  <p className="text-white/50 text-xs mt-3">Last updated {fmtDate(wallet.updatedAt)}</p>
+                  <div className="mt-6 flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-white/60" />
                     <span className="text-white/70 text-sm">{wallet.organizationName}</span>
                   </div>
@@ -966,8 +1144,10 @@ const OrganizationDashboard = () => {
               )}
 
               {/* Transactions */}
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <h3 className="font-semibold text-foreground mb-4">Transaction History</h3>
+              <div className="rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-lowest dark:bg-stone-900 p-6">
+                <h3 className="font-headline text-2xl font-bold text-on-surface dark:text-white mb-6">
+                  Transaction History
+                </h3>
                 {transactions.length > 0 ? (
                   <div>
                     {transactions.map((tx) => (
@@ -975,7 +1155,7 @@ const OrganizationDashboard = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-10 text-muted-foreground">
+                  <div className="text-center py-10 text-outline dark:text-stone-500">
                     <Wallet className="h-10 w-10 mx-auto mb-3 opacity-25" />
                     <p className="text-sm">No transactions yet.</p>
                   </div>
@@ -983,13 +1163,10 @@ const OrganizationDashboard = () => {
               </div>
             </motion.div>
           )}
-
         </AnimatePresence>
       </main>
 
-      <Footer />
-
-      {/* ── Modals ── */}
+      {/* Modals */}
       <AnimatePresence>
         {showAddJournalist && (
           <AddJournalistModal

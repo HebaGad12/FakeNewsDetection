@@ -2,6 +2,11 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
+  Search,
+  Database,
+  Cloud,
+  Lock,
+  Zap,
   Shield,
   Users,
   FileText,
@@ -182,85 +187,277 @@ const Pagination = ({
 // Tab: Overview
 // ============================================================================
 
+
+// ============================================================================
+// SideNavBar Component
+// ============================================================================
+
+interface SideNavBarProps {
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
+  user?: { name?: string } | null;
+  onLogout?: () => void;
+}
+
+const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps) => {
+  const navItems = [
+    { id: "overview", label: "Dashboard", icon: TrendingUp },
+    { id: "users", label: "User Management", icon: Users },
+    { id: "posts", label: "Posts", icon: FileText },
+    { id: "journalists", label: "Journalists", icon: UserCheck },
+    { id: "organizations", label: "Organizations", icon: Building2 },
+    { id: "reports", label: "Reports", icon: AlertTriangle },
+    { id: "wallets", label: "Wallets", icon: Wallet },
+    { id: "donations", label: "Donations", icon: Send },
+  ] as { id: Tab; label: string; icon: React.ElementType }[];
+
+  return (
+    <aside className="h-screen w-64 fixed left-0 top-0 bg-[#F9F9F9] dark:bg-stone-950 flex flex-col p-4 gap-2 z-50">
+      <div className="mb-8 px-2 flex flex-col gap-1">
+        <h1 className="font-headline text-2xl font-bold italic text-on-surface">Admin Portal</h1>
+        <p className="font-label text-xs text-outline tracking-wider">System Administration</p>
+      </div>
+      <nav className="flex-grow flex flex-col gap-1">
+        {navItems.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => onTabChange(id)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 font-sans text-sm font-medium transition-colors rounded-sm",
+              activeTab === id
+                ? "bg-stone-200 text-[#2D3435] scale-[0.98] transition-transform"
+                : "text-[#5B5E66] hover:bg-stone-100"
+            )}
+          >
+            <Icon className="h-5 w-5" />
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="mt-auto pt-4 border-t border-outline-variant/10">
+        <button onClick={onLogout} className="w-full py-2 bg-primary text-on-primary font-label text-xs tracking-widest rounded-sm hover:bg-primary-dim transition-colors uppercase">
+          Logout
+        </button>
+      </div>
+    </aside>
+  );
+};
+
+
 const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
   if (!stats)
     return <div className="py-16 text-center text-muted-foreground">Loading stats...</div>;
 
-  const cards = [
-    { label: "Total Users", value: stats.totalUsers, icon: Users, sub: `${stats.activeUsers} active` },
-    { label: "Total Posts", value: stats.totalPosts, icon: FileText, sub: `${stats.pendingPosts} pending` },
-    { label: "Journalists", value: stats.totalJournalists, icon: UserCheck, sub: `${stats.pendingJournalistRequests} pending` },
-    { label: "Organizations", value: stats.totalOrganizations, icon: Building2, sub: `${stats.pendingOrganizationRequests} pending` },
-  ];
+  const chartData = [20, 35, 30, 55, 45, 80, 60, 75, 65, 90];
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((c, i) => (
-          <DashStatCard key={c.label} {...c} delay={i * 0.07} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Users className="h-4 w-4 text-accent" /> Users by Role
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "Regular Users", value: stats.totalRegularUsers, color: "bg-blue-400" },
-              { label: "Journalists", value: stats.totalJournalists, color: "bg-purple-400" },
-              { label: "Organizations", value: stats.totalOrganizations, color: "bg-orange-400" },
-              { label: "Admins", value: stats.totalAdmins, color: "bg-red-400" },
-            ].map((r) => (
-              <div key={r.label} className="flex items-center gap-3">
-                <div className={cn("w-3 h-3 rounded-full", r.color)} />
-                <span className="text-sm flex-1">{r.label}</span>
-                <span className="font-semibold text-sm">{r.value}</span>
-              </div>
-            ))}
+    <div className="space-y-12">
+      <header className="mb-12">
+        <div className="flex justify-between items-end">
+          <div>
+            <h2 className="font-headline tracking-tight text-4xl font-bold text-on-surface">The Veritas Archive</h2>
+            <p className="font-label text-sm text-outline-variant mt-2 tracking-wide uppercase">System Administration Portal & Infrastructure Health</p>
           </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-accent" /> Posts by Status
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "Pending", value: stats.pendingPosts, color: "bg-blue-400" },
-              { label: "Approved", value: stats.approvedPosts, color: "bg-green-400" },
-              { label: "Rejected", value: stats.rejectedPosts, color: "bg-red-400" },
-              { label: "Flagged", value: stats.flaggedPosts, color: "bg-orange-400" },
-            ].map((r) => (
-              <div key={r.label} className="flex items-center gap-3">
-                <div className={cn("w-3 h-3 rounded-full", r.color)} />
-                <span className="text-sm flex-1">{r.label}</span>
-                <span className="font-semibold text-sm">{r.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-yellow-500" /> Pending Requests
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Journalist Requests", value: stats.pendingJournalistRequests },
-            { label: "Rejected Journalists", value: stats.rejectedJournalistRequests },
-            { label: "Org Requests", value: stats.pendingOrganizationRequests },
-            { label: "Rejected Orgs", value: stats.rejectedOrganizationRequests },
-          ].map((r) => (
-            <div key={r.label} className="text-center p-3 bg-muted/40 rounded-lg">
-              <p className="text-2xl font-bold">{r.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{r.label}</p>
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-end">
+              <span className="font-label text-[10px] text-green-600 font-bold tracking-widest uppercase">Network Status</span>
+              <span className="font-body text-sm font-semibold">Operational / 99.9% Uptime</span>
             </div>
-          ))}
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+      </header>
+
+      <section className="grid grid-cols-12 gap-6 mb-12">
+        <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest p-8 rounded-sm shadow-sm border border-border">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="font-headline text-xl">Global User Growth</h3>
+            <div className="flex gap-4">
+              <span className="font-label text-xs text-outline">DAILY</span>
+              <span className="font-label text-xs text-on-surface border-b border-primary">MONTHLY</span>
+              <span className="font-label text-xs text-outline">ANNUAL</span>
+            </div>
+          </div>
+          <div className="h-64 flex items-end gap-2 relative">
+            {chartData.map((height, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "flex-1 relative group transition-all",
+                  height > 70 ? "bg-primary" : "bg-primary-container"
+                )}
+                style={{ height: `${height}%` }}
+              >
+                {height > 70 && (
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-on-surface text-surface text-[10px] px-2 py-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                    Peak Activity
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex justify-between font-label text-[10px] text-outline tracking-widest">
+            <span>JAN 2024</span>
+            <span>JUN 2024</span>
+            <span>DEC 2024</span>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+          <div className="flex-1 bg-surface-container-low p-6 flex flex-col justify-between rounded-sm border border-border">
+            <h4 className="font-label text-xs tracking-widest text-outline">REPORT VOLUME</h4>
+            <div>
+              <span className="font-headline text-4xl block">{stats.totalPosts}</span>
+              <span className="font-label text-[10px] text-tertiary mt-1 flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                {stats.pendingPosts} pending
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 bg-on-surface p-6 flex flex-col justify-between text-surface-bright rounded-sm">
+            <h4 className="font-label text-xs tracking-widest opacity-60">ACTIVE INVESTIGATIONS</h4>
+            <div>
+              <span className="font-headline text-4xl block">{stats.totalUsers}</span>
+              <p className="font-body text-xs opacity-80 mt-2">Cross-jurisdictional verification pending.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-12 gap-12">
+        <div className="col-span-12 lg:col-span-7">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-headline text-2xl">User Management</h3>
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-outline" />
+              <input 
+                className="bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary font-body text-sm w-48 py-1" 
+                placeholder="Filter by name or role..." 
+                type="text"
+              />
+            </div>
+          </div>
+          <div className="space-y-4">
+             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <p className="font-body font-bold text-sm">Total Active Users</p>
+                </div>
+              </div>
+              <span className="text-xl font-bold font-headline">{stats.activeUsers}</span>
+            </div>
+             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-body font-bold text-sm">Verified Journalists</p>
+                </div>
+              </div>
+              <span className="text-xl font-bold font-headline">{stats.totalJournalists}</span>
+            </div>
+             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-body font-bold text-sm">Organizations</p>
+                </div>
+              </div>
+              <span className="text-xl font-bold font-headline">{stats.totalOrganizations}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-5">
+          <h3 className="font-headline text-2xl mb-6">Moderation Queue</h3>
+          <div className="space-y-4">
+            <div className="p-6 bg-surface-container-lowest border-l-4 border-tertiary shadow-sm rounded-r-sm">
+              <div className="flex justify-between items-start mb-2">
+                <span className="font-label text-[10px] font-bold text-tertiary tracking-widest uppercase">Journalists</span>
+                <span className="font-label text-[10px] text-outline">Pending</span>
+              </div>
+              <h5 className="font-body font-bold text-sm mb-2">{stats.pendingJournalistRequests} verification requests</h5>
+              <div className="flex gap-2 mt-4">
+                <button className="px-3 py-1 bg-tertiary text-on-tertiary font-label text-[10px] font-bold uppercase tracking-widest rounded-sm">Review</button>
+              </div>
+            </div>
+            
+            <div className="p-6 bg-surface-container-lowest border-l-4 border-outline-variant shadow-sm rounded-r-sm">
+              <div className="flex justify-between items-start mb-2">
+                <span className="font-label text-[10px] font-bold text-outline tracking-widest uppercase">Organizations</span>
+                <span className="font-label text-[10px] text-outline">Pending</span>
+              </div>
+              <h5 className="font-body font-bold text-sm mb-2">{stats.pendingOrganizationRequests} pending registrations</h5>
+              <div className="flex gap-2 mt-4">
+                <button className="px-3 py-1 bg-on-surface text-surface font-label text-[10px] font-bold uppercase tracking-widest rounded-sm">Review</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <section className="mt-16">
+        <h3 className="font-headline text-2xl mb-8">System Infrastructure</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-surface-container-low p-6 rounded-sm">
+            <div className="flex items-center justify-between mb-4">
+              <Database className="h-5 w-5 text-primary" />
+              <span className="w-2 h-2 bg-secondary rounded-full"></span>
+            </div>
+            <p className="font-label text-[10px] text-outline uppercase tracking-widest">Database Node 01</p>
+            <p className="font-body font-bold text-lg">HASH_VERIFIED_SQL</p>
+            <div className="mt-4 w-full bg-outline-variant/20 h-1">
+              <div className="bg-secondary h-full w-[45%]"></div>
+            </div>
+            <p className="font-label text-[10px] text-outline mt-2">45% Capacity Utilization</p>
+          </div>
+          
+          <div className="bg-surface-container-low p-6 rounded-sm">
+            <div className="flex items-center justify-between mb-4">
+              <Cloud className="h-5 w-5 text-primary" />
+              <span className="w-2 h-2 bg-secondary rounded-full"></span>
+            </div>
+            <p className="font-label text-[10px] text-outline uppercase tracking-widest">Archive Sync</p>
+            <p className="font-body font-bold text-lg">GLOBAL_REDUNDANCY</p>
+            <div className="mt-4 w-full bg-outline-variant/20 h-1">
+              <div className="bg-secondary h-full w-[88%]"></div>
+            </div>
+            <p className="font-label text-[10px] text-outline mt-2">88% Sync Completion</p>
+          </div>
+          
+          <div className="bg-surface-container-low p-6 rounded-sm">
+            <div className="flex items-center justify-between mb-4">
+              <Lock className="h-5 w-5 text-primary" />
+              <span className="w-2 h-2 bg-secondary rounded-full"></span>
+            </div>
+            <p className="font-label text-[10px] text-outline uppercase tracking-widest">Security Firewall</p>
+            <p className="font-body font-bold text-lg">AES_256_ACTIVE</p>
+            <div className="mt-4 w-full bg-outline-variant/20 h-1">
+              <div className="bg-secondary h-full w-full"></div>
+            </div>
+            <p className="font-label text-[10px] text-outline mt-2">Threat Mitigation: Locked</p>
+          </div>
+
+          <div className="bg-surface-container-low p-6 rounded-sm">
+            <div className="flex items-center justify-between mb-4">
+              <Zap className="h-5 w-5 text-tertiary-container" />
+              <span className="w-2 h-2 bg-tertiary-container rounded-full"></span>
+            </div>
+            <p className="font-label text-[10px] text-outline uppercase tracking-widest">API Latency</p>
+            <p className="font-body font-bold text-lg">EAST_US_1_SPIKE</p>
+            <div className="mt-4 w-full bg-outline-variant/20 h-1">
+              <div className="bg-tertiary-container h-full w-[72%]"></div>
+            </div>
+            <p className="font-label text-[10px] text-outline mt-2">142ms Latency Threshold</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
@@ -282,7 +479,10 @@ const UsersTab = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Parameters<typeof adminService.getUsers>[0] = { page, pageSize: 20 };
+      const params: Parameters<typeof adminService.getUsers>[0] = {
+        page, pageSize: 20,
+        search: ""
+      };
       if (roleFilter !== "all") params.role = roleFilter;
       if (activeFilter !== "all") params.isActive = activeFilter === "active";
       const data = await adminService.getUsers(params);
@@ -1725,6 +1925,7 @@ const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "donations", label: "Donations", icon: Send },
 ];
 
+
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -1746,48 +1947,10 @@ const AdminDashboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="min-h-screen bg-background text-on-surface flex">
+      <SideNavBar activeTab={activeTab} onTabChange={setActiveTab} user={user} onLogout={logout} />
 
-      <main className="container mx-auto px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-accent to-primary flex items-center justify-center">
-                <Shield className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="font-display text-2xl md:text-3xl font-bold text-primary">
-                  Admin Dashboard
-                </h1>
-                <p className="text-muted-foreground">Welcome, {user?.name}</p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-border pb-2">
-          {tabItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                activeTab === id
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </div>
-
+      <main className="ml-64 p-8 w-full min-h-screen bg-background">
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 12 }}
@@ -1804,8 +1967,6 @@ const AdminDashboard = () => {
           {activeTab === "donations" && <DonationsTab />}
         </motion.div>
       </main>
-
-      <Footer />
     </div>
   );
 };

@@ -1,21 +1,9 @@
+
+
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Save,
-  Send,
-  Image as ImageIcon,
-  Bold,
-  Italic,
-  Link as LinkIcon,
-  List,
-  ListOrdered,
-  Quote,
-  Heading2,
-  X,
-  AlertCircle,
-} from "lucide-react";
+import { ArrowLeft, Save, Send, Image as ImageIcon, Bold, Italic, Link as LinkIcon, List, ListOrdered, Quote, Heading2, X, AlertCircle } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -28,17 +16,9 @@ import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 import { MediaUpload, UploadedMedia } from "@/components/MediaUpload";
 import { MediaList } from "@/components/MediaList";
+import { cn } from "@/lib/utils";
 
-const categories = [
-  "Politics",
-  "Technology",
-  "Science",
-  "Health",
-  "Environment",
-  "Economy",
-  "Sports",
-  "Entertainment",
-];
+const categories = ["Politics", "Technology", "Science", "Health", "Environment", "Economy", "Sports", "Entertainment"];
 
 const CreateArticlePage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -47,45 +27,24 @@ const CreateArticlePage = () => {
   // Admins cannot create articles
   if (user?.role === "admin") {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-white">
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/feed")}
-            className="mb-6"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Feed
-          </Button>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
-          >
-            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
-            <h2 className="mb-2 text-xl font-semibold text-foreground">
-              Access Denied
-            </h2>
-            <p className="mb-6 text-muted-foreground">
-              Admins cannot create articles. Please use the admin dashboard for moderation tasks.
-            </p>
-            <Button onClick={() => navigate("/feed")}>Return to Feed</Button>
-          </motion.div>
+          <div className="max-w-2xl mx-auto text-center py-16">
+            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-rose-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-2">Access Denied</h2>
+            <p className="text-slate-500 mb-6">Admins cannot create articles. Please use the admin dashboard.</p>
+            <Button onClick={() => navigate("/feed")} className="bg-slate-900 hover:bg-slate-800">Return to Feed</Button>
+          </div>
         </main>
       </div>
     );
   }
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const [formData, setFormData] = useState({
-    title: "",
-    excerpt: "",
-    content: "",
-    category: "",
-    featuredImage: "",
-  });
+  const [formData, setFormData] = useState({ title: "", excerpt: "", content: "", category: "", featuredImage: "" });
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([]);
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -95,251 +54,109 @@ const CreateArticlePage = () => {
     return <Navigate to="/login" replace />;
   }
 
-  const handleMediaSelected = (media: UploadedMedia[]) => {
-    setUploadedMedia(media);
-  };
+  const handleMediaSelected = (media: UploadedMedia[]) => setUploadedMedia(media);
+  const handleRemoveMedia = (mediaId: string) => setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
+  const handleToggleCopyright = (mediaId: string, isCopyrighted: boolean) => setUploadedMedia((prev) => prev.map((m) => (m.id === mediaId ? { ...m, isCopyrighted } : m)));
 
-  const handleRemoveMedia = (mediaId: string) => {
-    setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
-    toast.success("Media removed");
-  };
-
-  const handleToggleCopyright = (mediaId: string, isCopyrighted: boolean) => {
-    setUploadedMedia((prev) =>
-      prev.map((m) =>
-        m.id === mediaId ? { ...m, isCopyrighted } : m
-      )
-    );
-  };
-
-  const handleSaveDraft = () => {
-    toast.success("Draft saved successfully!");
-  };
+  const handleSaveDraft = () => toast.success("Draft saved successfully!");
 
   const handlePublish = async () => {
     if (!formData.title || !formData.content || !formData.category) {
-      const missingFields = [];
-      if (!formData.title) missingFields.push("title");
-      if (!formData.content) missingFields.push("content");
-      if (!formData.category) missingFields.push("category");
-      toast.error(`Please fill in required fields: ${missingFields.join(", ")}`);
+      toast.error("Please fill in required fields: title, content, and category");
       return;
     }
-    
     setIsPublishing(true);
     try {
-      // Create post with multipart/form-data payload
       const result = await journalistService.createPost({
         title: formData.title,
         content: formData.content,
         tags: [formData.category],
         images: uploadedMedia.map((item) => item.file),
-        isCopyrightedFlags: uploadedMedia.map((item) =>
-          item.mediaType === "image" ? item.isCopyrighted : false
-        ),
+        isCopyrightedFlags: uploadedMedia.map((item) => (item.mediaType === "image" ? item.isCopyrighted : false)),
       });
-
-      if (result.moderationStatus === "Approved") {
-        toast.success("Article published successfully!");
-      } else if (result.moderationStatus === "Pending") {
-        toast.success("Article submitted for approval!");
-      } else {
-        toast.success("Article created successfully!");
-      }
-      
+      if (result.moderationStatus === "Approved") toast.success("Article published successfully!");
+      else if (result.moderationStatus === "Pending") toast.success("Article submitted for approval!");
+      else toast.success("Article created successfully!");
       navigate("/dashboard");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      console.error("Failed to publish article:", err);
-
-      const responseData = err?.response?.data;
-      const validationErrors = responseData?.errors
-        ? Object.entries(responseData.errors)
-            .map(([field, messages]) => `${field}: ${(messages as string[]).join(", ")}`)
-            .join(" | ")
-        : "";
-      const analysis = responseData?.analysis ? ` ${responseData.analysis}` : "";
-      const baseMessage =
-        validationErrors ||
-        responseData?.message ||
-        responseData?.detail ||
-        responseData?.error ||
-        responseData?.title ||
-        err?.message ||
-        "Failed to publish article. Please try again.";
-
-      toast.error(`${baseMessage}${analysis}`.trim());
+      toast.error(err?.response?.data?.message || "Failed to publish article");
     } finally {
       setIsPublishing(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white">
       <Header />
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Header */}
+      <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <Link
-              to="/dashboard"
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
+            <Link to="/dashboard" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+              <ArrowLeft className="h-5 w-5 text-slate-500" />
             </Link>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-primary">
-              Create New Article
-            </h1>
+            <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900">Create New Article</h1>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleSaveDraft} disabled={isPublishing}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Draft
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleSaveDraft} disabled={isPublishing} className="rounded-full border-slate-300">
+              <Save className="h-4 w-4 mr-2" /> Save Draft
             </Button>
-            <Button onClick={handlePublish} disabled={isPublishing}>
-              {isPublishing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  Publishing...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  {user.role === "journalist" && user.organization ? "Submit for Review" : "Publish"}
-                </>
-              )}
+            <Button onClick={handlePublish} disabled={isPublishing} className="bg-slate-900 hover:bg-slate-800 rounded-full">
+              {isPublishing ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              {user.role === "journalist" && user.organization ? "Submit for Review" : "Publish"}
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Editor */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="lg:col-span-2 space-y-6"
-          >
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Article Title *</Label>
-              <Input
-                id="title"
-                placeholder="Enter a compelling headline..."
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="text-xl font-semibold h-14"
-              />
+          <div className="lg:col-span-2 space-y-6">
+            <div>
+              <Label htmlFor="title" className="text-slate-700">Article Title *</Label>
+              <Input id="title" placeholder="Enter a compelling headline..." value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="mt-1 text-lg font-semibold h-14 rounded-lg border-slate-200 focus:border-red-600 focus:ring-0" />
             </div>
-
-            {/* Excerpt */}
-            <div className="space-y-2">
-              <Label htmlFor="excerpt">Excerpt / Summary</Label>
-              <Textarea
-                id="excerpt"
-                placeholder="Write a brief summary of your article..."
-                value={formData.excerpt}
-                onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                className="min-h-[80px]"
-              />
+            <div>
+              <Label htmlFor="excerpt" className="text-slate-700">Excerpt / Summary</Label>
+              <Textarea id="excerpt" placeholder="Write a brief summary..." value={formData.excerpt} onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })} className="mt-1 rounded-lg border-slate-200 focus:border-red-600 focus:ring-0" rows={3} />
             </div>
-
-            {/* Editor Toolbar */}
-            <div className="bg-card border border-border rounded-lg p-2 flex items-center gap-1 flex-wrap">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Bold className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Italic className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Heading2 className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <LinkIcon className="h-4 w-4" />
-              </Button>
-              <div className="w-px h-6 bg-border mx-1" />
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <List className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <ListOrdered className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Quote className="h-4 w-4" />
-              </Button>
-              <div className="w-px h-6 bg-border mx-1" />
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <ImageIcon className="h-4 w-4" />
-              </Button>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center gap-1 flex-wrap">
+              {[Bold, Italic, Heading2, LinkIcon, List, ListOrdered, Quote, ImageIcon].map((Icon, i) => (
+                <Button key={i} variant="ghost" size="icon" className="h-8 w-8 text-slate-500"><Icon className="h-4 w-4" /></Button>
+              ))}
             </div>
-
-            {/* Content */}
-            <div className="space-y-2">
-              <Label htmlFor="content">Article Content *</Label>
-              <Textarea
-                id="content"
-                placeholder="Write your article content here..."
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                className="min-h-[400px] font-mono"
-              />
+            <div>
+              <Label htmlFor="content" className="text-slate-700">Article Content *</Label>
+              <Textarea id="content" placeholder="Write your article content here..." value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} className="mt-1 min-h-[400px] font-mono rounded-lg border-slate-200 focus:border-red-600 focus:ring-0" />
             </div>
-          </motion.div>
+          </div>
 
-          {/* Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="space-y-6"
-          >
-            {/* Category */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <Label>Category *</Label>
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-5">
+              <Label className="text-slate-700 mb-3 block">Category *</Label>
               <div className="grid grid-cols-2 gap-2">
                 {categories.map((cat) => (
-                  <Button
-                    key={cat}
-                    variant={formData.category === cat ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFormData({ ...formData, category: cat })}
-                    className="text-sm"
-                  >
+                  <Button key={cat} variant={formData.category === cat ? "default" : "outline"} size="sm" onClick={() => setFormData({ ...formData, category: cat })} className={cn("text-sm rounded-full", formData.category === cat ? "bg-slate-900 hover:bg-slate-800" : "border-slate-200 text-slate-600")}>
                     {cat}
                   </Button>
                 ))}
               </div>
             </div>
 
-            {/* Media Upload */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <MediaUpload
-                onMediaSelected={handleMediaSelected}
-                uploadedMedia={uploadedMedia}
-              />
+            <div className="bg-white border border-slate-200 rounded-xl p-5">
+              <MediaUpload onMediaSelected={handleMediaSelected} uploadedMedia={uploadedMedia} />
             </div>
 
-            {/* Media List */}
             {uploadedMedia.length > 0 && (
-              <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-                <MediaList
-                  media={uploadedMedia}
-                  onRemove={handleRemoveMedia}
-                  onToggleCopyright={handleToggleCopyright}
-                />
+              <div className="bg-white border border-slate-200 rounded-xl p-5">
+                <MediaList media={uploadedMedia} onRemove={handleRemoveMedia} onToggleCopyright={handleToggleCopyright} />
               </div>
             )}
 
-            {/* AI Credibility Preview */}
-            <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-semibold mb-3">AI Credibility Check</h3>
-              <p className="text-sm text-muted-foreground">
-                Your article will be analyzed by our AI system for credibility scoring after submission.
-              </p>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+              <h3 className="font-semibold text-slate-900 mb-2">AI Credibility Check</h3>
+              <p className="text-sm text-slate-500">Your article will be analyzed by our AI system for credibility scoring after submission.</p>
             </div>
-          </motion.div>
-
+          </div>
         </div>
       </main>
 

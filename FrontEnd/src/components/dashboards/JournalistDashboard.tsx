@@ -1,34 +1,42 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  User,
+  LayoutDashboard,
+  ShieldCheck,
+  Radio,
+  Archive,
+  Building2,
+  Settings,
+  PlusCircle,
+  Eye,
+  TrendingUp,
+  BadgeCheck,
+  Wallet,
+  Filter,
+  Download,
+  MoreHorizontal,
+  MessageCircle,
+  Share2,
+  Megaphone,
   FileText,
+  Clock,
+  X,
+  Plus,
+  Send,
+  Trash2,
+  ImageIcon,
+  AlertCircle,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Search,
   Users,
   UserCheck,
-  TrendingUp,
-  Plus,
-  Trash2,
-  Eye,
   Heart,
   MessageSquare,
   Flag,
-  Edit3,
-  X,
-  Check,
-  AlertCircle,
-  Clock,
-  ChevronRight,
   BarChart2,
-  LogOut,
-  Bell,
-  Settings,
-  Search,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Send,
-  Image as ImageIcon,
+  Check
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -66,22 +74,17 @@ import donationService, {
 } from "@/services/donationService";
 import { postsService } from "@/services/postsService";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// --- Types -------------------------------------------------------------------
 
-type Tab = "overview" | "posts" | "following" | "followers" | "create" | "wallet";
+type Tab = "dashboard" | "fact_check" | "broadcast" | "archive" | "organizations" | "settings" | "create" | "wallet" | "community";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// --- Helpers -----------------------------------------------------------------
 
 const statusColor: Record<string, string> = {
-  Approved: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-  Pending: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  Rejected: "text-rose-400 bg-rose-400/10 border-rose-400/20",
-};
-
-const statusIcon: Record<string, React.ReactNode> = {
-  Approved: <Check className="h-3 w-3" />,
-  Pending: <Clock className="h-3 w-3" />,
-  Rejected: <X className="h-3 w-3" />,
+  Approved: "bg-secondary-container text-on-secondary-container",
+  Pending: "bg-surface-container-highest text-on-surface-variant",
+  Rejected: "bg-error-container text-on-error-container",
+  Draft: "bg-primary-container text-on-primary-container",
 };
 
 function formatNum(n: number): string {
@@ -89,381 +92,7 @@ function formatNum(n: number): string {
   return String(n);
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function StatCard({
-  icon,
-  label,
-  value,
-  delay = 0,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="relative group rounded-2xl border border-border bg-card p-5 hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5 transition-all"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="p-2.5 rounded-xl bg-accent/10 text-accent">{icon}</div>
-        <TrendingUp className="h-4 w-4 text-muted-foreground/40 group-hover:text-accent/60 transition-colors" />
-      </div>
-      <p className="text-2xl font-bold text-foreground tracking-tight">{value}</p>
-      <p className="text-sm text-muted-foreground mt-0.5">{label}</p>
-    </motion.div>
-  );
-}
-
-function PostCard({
-  post,
-  onDelete,
-  onUpdatePost,
-  onViewReport,
-  onNavigate,
-}: {
-  post: JournalistPostResponse;
-  onDelete: (id: string) => void;
-  onUpdatePost: (postId: string, updater: (post: JournalistPostResponse) => JournalistPostResponse) => void;
-  onViewReport: (id: string) => void;
-  onNavigate: (id: string) => void;
-}) {
-  const [deleting, setDeleting] = useState(false);
-  const [updatingMediaId, setUpdatingMediaId] = useState<string | null>(null);
-
-  const handleDelete = async () => {
-    if (!confirm("Delete this post?")) return;
-    setDeleting(true);
-    try {
-      await journalistService.deletePost(post.id);
-      onDelete(post.id);
-      toast.success("Post deleted successfully");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to delete post";
-      toast.error(message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleDeleteMedia = async (mediaId: string) => {
-    if (!confirm("Remove this media item from the post?")) return;
-    setUpdatingMediaId(mediaId);
-    try {
-      await journalistService.deleteMediaFromPost(post.id, mediaId);
-      onUpdatePost(post.id, (prevPost) => ({
-        ...prevPost,
-        media: (prevPost.media || []).filter((m) => m.mediaId !== mediaId),
-      }));
-      toast.success("Media removed successfully");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to remove media";
-      toast.error(message);
-    } finally {
-      setUpdatingMediaId(null);
-    }
-  };
-
-  const statusClass = statusColor[post.moderationStatus] ?? "text-muted-foreground bg-muted border-border";
-
-  return (
-    <motion.article
-      layout
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      className="group relative bg-card flex flex-col justify-between rounded-xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-all duration-300"
-    >
-      {/* Top Header: Status Info */}
-      <div className="flex items-start justify-between p-4 pb-2 border-b border-border/50">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap",
-              statusClass
-            )}
-          >
-            {statusIcon[post.moderationStatus]}
-            {post.moderationStatus}
-          </span>
-          {post.organizationName && post.organizationName !== "Independent" && (
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full truncate max-w-[120px]">
-              {post.organizationName}
-            </span>
-          )}
-        </div>
-
-        <div className="flex gap-1 ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button
-            onClick={() => onViewReport(post.id)}
-            className="p-1.5 rounded-md hover:bg-accent/10 hover:text-accent text-muted-foreground transition-colors"
-            title="View analytics"
-          >
-            <BarChart2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="p-1.5 rounded-md hover:bg-rose-500/10 hover:text-rose-400 text-muted-foreground transition-colors disabled:opacity-50"
-            title="Delete post"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div
-        className="block relative cursor-pointer flex-1"
-        onClick={() => onNavigate(post.id)}
-      >
-        <div className="p-4 pt-3">
-          <h3 className="font-display font-semibold text-card-foreground leading-tight mb-2 group-hover:text-primary transition-colors text-lg line-clamp-2">
-            {post.title}
-          </h3>
-          <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 mb-3">
-            {post.content}
-          </p>
-        </div>
-
-        {/* Media Section */}
-        {post.media && post.media.length > 0 && (
-          <div
-            className="relative w-full border-y border-border/50 bg-muted/20"
-            onClick={(e) => e.stopPropagation()} // Prevent nav when interacting with media
-          >
-            <div className={cn("grid gap-1 w-full overflow-hidden", post.media.length === 1 ? "grid-cols-1 aspect-video" : "grid-cols-2 aspect-video")}>
-              {post.media.slice(0, 4).map((media, idx) => (
-                <div
-                  key={media.mediaId}
-                  className="relative w-full h-full group/media"
-                >
-                  {media.mediaType === "image" ? (
-                    <img
-                      src={postsService.getImageUrl(media.path)}
-                      alt="Post media"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
-                      <ImageIcon className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                      <span className="text-xs text-muted-foreground">Unsupported Media</span>
-                    </div>
-                  )}
-                  
-                  {idx === 3 && post.media.length > 4 && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="text-white font-medium text-lg">+{post.media.length - 4}</span>
-                    </div>
-                  )}
-                  
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteMedia(media.mediaId);
-                    }}
-                    disabled={updatingMediaId === media.mediaId}
-                    className="absolute top-2 right-2 p-1.5 rounded-md bg-rose-500/80 text-white hover:bg-rose-600 transition-colors opacity-0 group-hover/media:opacity-100 disabled:opacity-50 z-10"
-                    title="Remove Media"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Meta bottom footer */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground p-3 bg-card px-4 border-t border-border/50 mt-auto">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1 hover:text-rose-400 transition-colors cursor-default">
-            <Heart className="h-3.5 w-3.5" />
-            <span>{post.likes}</span>
-          </span>
-          <span className="flex items-center gap-1 hover:text-blue-400 transition-colors cursor-default">
-            <MessageSquare className="h-3.5 w-3.5" />
-            <span>{post.comments}</span>
-          </span>
-          <span className="flex items-center gap-1 hover:text-amber-400 transition-colors cursor-default">
-            <Flag className="h-3.5 w-3.5" />
-            <span>{post.reports}</span>
-          </span>
-        </div>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3.5 w-3.5" />
-          {new Date(post.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </span>
-      </div>
-    </motion.article>
-  );
-}
-
-function UserRow({
-  name,
-  role,
-  followers,
-  onUnfollow,
-  id,
-}: {
-  name: string;
-  role: string;
-  followers: number;
-  onUnfollow?: (id: string) => void;
-  id: string;
-}) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 10 }}
-      className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors group"
-    >
-      <div className="w-10 h-10 rounded-full bg-accent/15 text-accent font-bold flex items-center justify-center text-sm flex-shrink-0">
-        {initials}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground text-sm truncate">{name}</p>
-        <p className="text-xs text-muted-foreground">
-          {role} · {formatNum(followers)} followers
-        </p>
-      </div>
-      {onUnfollow && (
-        <button
-          onClick={() => onUnfollow(id)}
-          className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground hover:border-rose-400/50 hover:text-rose-400 transition-all opacity-0 group-hover:opacity-100"
-        >
-          Unfollow
-        </button>
-      )}
-    </motion.div>
-  );
-}
-
-// ─── Report Modal ─────────────────────────────────────────────────────────────
-
-function ReportModal({
-  postId,
-  onClose,
-}: {
-  postId: string;
-  onClose: () => void;
-}) {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<Awaited<
-    ReturnType<typeof journalistService.getPostReport>
-  > | null>(null);
-
-  useEffect(() => {
-    journalistService
-      .getPostReport(postId)
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [postId]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <BarChart2 className="h-4 w-4 text-accent" />
-            Post Analytics
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : data ? (
-          <div className="space-y-4">
-            <p className="font-medium text-foreground">{data.title}</p>
-            <div
-              className={cn(
-                "inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium",
-                statusColor[data.moderationStatus] ?? "text-muted-foreground bg-muted border-border"
-              )}
-            >
-              {statusIcon[data.moderationStatus]}
-              {data.moderationStatus}
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { icon: <Heart className="h-4 w-4" />, label: "Likes", val: data.likes, color: "text-rose-400" },
-                { icon: <MessageSquare className="h-4 w-4" />, label: "Comments", val: data.comments, color: "text-blue-400" },
-                { icon: <Flag className="h-4 w-4" />, label: "Reports", val: data.reports, color: "text-amber-400" },
-              ].map((s) => (
-                <div key={s.label} className="bg-muted rounded-xl p-3 text-center">
-                  <div className={cn("flex justify-center mb-1", s.color)}>{s.icon}</div>
-                  <p className="font-bold text-foreground">{s.val}</p>
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {data.reportReasons.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-foreground mb-2">Report Reasons</p>
-                <ul className="space-y-1">
-                  {data.reportReasons.map((r, i) => (
-                    <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                      {r || "No reason provided"}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-center py-4">Failed to load report</p>
-        )}
-      </motion.div>
-    </div>
-  );
-}
-
-// ─── Create Post Form ─────────────────────────────────────────────────────────
+// --- Sub-components ----------------------------------------------------------
 
 function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   type SelectedMedia = {
@@ -487,7 +116,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
 
   const ALLOWED_IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"];
   const ALLOWED_VIDEO_EXTS = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv"];
-  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for videos
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
   const MAX_MEDIA_ITEMS = 10;
 
   const getFileExtension = (filename: string) => {
@@ -641,17 +270,14 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-8 text-center"
+        className="rounded-2xl border border-secondary bg-surface-container p-8 text-center"
       >
-        <div className="w-12 h-12 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+        <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4">
           <Check className="h-6 w-6" />
         </div>
-        <h3 className="font-semibold text-foreground mb-1">Post Created!</h3>
-        <p className="text-sm text-muted-foreground mb-2">
-          Status:{" "}
-          <span className={cn("font-medium", statusColor[result.moderationStatus]?.split(" ")[0])}>
-            {result.moderationStatus}
-          </span>
+        <h3 className="font-headline text-xl font-bold text-on-surface mb-1">Post Created!</h3>
+        <p className="text-sm text-on-surface-variant mb-2">
+          Status: <span className="font-bold">{result.moderationStatus}</span>
         </p>
         <button
           onClick={() => {
@@ -663,7 +289,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             setSelectedMedia([]);
             setResult(null);
           }}
-          className="mt-4 text-sm text-accent hover:underline"
+          className="mt-4 text-sm font-label font-bold text-primary hover:underline"
         >
           Write another post
         </button>
@@ -674,46 +300,45 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-sm font-medium text-foreground mb-1.5 block">Title</label>
+        <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">Title</label>
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Enter post title..."
-          className="bg-muted border-border h-11"
+          className="bg-surface-container-lowest border-outline-variant/30 h-11"
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-foreground mb-1.5 block">Content</label>
-        <textarea
+        <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">Content</label>
+        <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Write your story..."
           rows={8}
-          className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 transition"
+          className="bg-surface-container-lowest border-outline-variant/30"
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-foreground mb-1.5 block">
-          Tags <span className="text-muted-foreground font-normal">(comma-separated)</span>
+        <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">
+          Tags <span className="text-on-surface-variant font-normal">(comma-separated)</span>
         </label>
         <Input
           value={tags}
           onChange={(e) => setTags(e.target.value)}
           placeholder="politics, economy, technology..."
-          className="bg-muted border-border h-11"
+          className="bg-surface-container-lowest border-outline-variant/30 h-11"
         />
       </div>
 
-      {/* Image Upload Section */}
-      <div className="border-t border-border pt-4">
+      <div className="border-t border-outline-variant/20 pt-4">
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-foreground block">
+          <label className="text-sm font-label font-bold text-on-surface block">
             Media Upload ({selectedMedia.length}/{MAX_MEDIA_ITEMS})
           </label>
-          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
             <input
               type="checkbox"
-              className="accent-accent"
+              className="accent-primary"
               checked={globalCopyright}
               onChange={(e) => {
                 setGlobalCopyright(e.target.checked);
@@ -727,29 +352,18 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         {selectedMedia.length > 0 && (
           <div className="grid grid-cols-2 gap-3 mb-4">
             {selectedMedia.map((item) => (
-              <div key={item.id} className="relative rounded-lg border border-border bg-muted/30 p-2 group flex flex-col">
+              <div key={item.id} className="relative rounded-lg border border-outline-variant/30 bg-surface-container p-2 group flex flex-col">
                 <div className="relative w-full h-32 mb-2 bg-black/5 rounded-md overflow-hidden flex items-center justify-center">
                   {item.isVideo ? (
-                    <video
-                      src={item.preview}
-                      className="w-full h-full object-cover"
-                      controls
-                      autoPlay
-                      muted
-                      loop
-                    />
+                    <video src={item.preview} className="w-full h-full object-cover" controls autoPlay muted loop />
                   ) : (
-                    <img
-                      src={item.preview}
-                      alt={item.file.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={item.preview} alt={item.file.name} className="w-full h-full object-cover" />
                   )}
                 </div>
-                <label className="flex items-center gap-2 mt-auto text-xs text-foreground cursor-pointer">
+                <label className="flex items-center gap-2 mt-auto text-xs text-on-surface cursor-pointer">
                   <input
                     type="checkbox"
-                    className="accent-accent disabled:opacity-50"
+                    className="accent-primary disabled:opacity-50"
                     checked={item.isCopyrighted}
                     disabled={item.isVideo}
                     onChange={(e) => {
@@ -757,13 +371,12 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
                       setSelectedMedia(prev => prev.map(m => m.id === item.id ? { ...m, isCopyrighted: e.target.checked } : m));
                     }}
                   />
-                  Copyright this media {item.isVideo && '(Videos cannot be copyrighted)'}
+                  Copyright this media
                 </label>
                 <button
                   onClick={() => removeImage(item.id)}
-                  className="absolute top-3 right-3 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors opacity-0 group-hover:opacity-100 z-10 shadow-md"
+                  className="absolute top-3 right-3 p-1 bg-error text-on-error rounded-full hover:bg-error/80 transition-colors opacity-0 group-hover:opacity-100 z-10 shadow-md"
                   type="button"
-                  title="Remove Media"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -778,7 +391,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
           onDragOver={handleDrag}
           onDrop={handleDrop}
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-            dragActive ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
+            dragActive ? "border-primary bg-primary/5" : "border-outline hover:border-primary/50"
           }`}
         >
           <input
@@ -790,24 +403,17 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             multiple
           />
           <label htmlFor="media-upload-form" className="cursor-pointer block">
-            <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-            <p className="text-xs text-muted-foreground mb-1">
-              Drag and drop media files, or
-            </p>
+            <ImageIcon className="h-10 w-10 mx-auto text-on-surface-variant mb-2" />
+            <p className="text-xs text-on-surface-variant mb-1">Drag and drop media files, or</p>
             <Button variant="outline" size="sm" type="button" onClick={() => document.getElementById("media-upload-form")?.click()}>
               Browse Files
             </Button>
           </label>
-          <p className="text-xs text-muted-foreground mt-2">
-            Supported Images: {ALLOWED_IMAGE_EXTS.join(", ")}<br/>
-            Supported Videos: {ALLOWED_VIDEO_EXTS.join(", ")}<br/>
-            (Max 50MB each, up to {MAX_MEDIA_ITEMS} files)
-          </p>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-rose-400 text-sm">
+        <div className="flex items-center gap-2 text-error text-sm font-label">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
@@ -815,7 +421,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       <Button
         onClick={handleSubmit}
         disabled={loading || !title.trim() || !content.trim()}
-        className="w-full h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-medium"
+        className="w-full h-11 bg-primary text-on-primary hover:bg-primary/90 font-label font-bold uppercase tracking-widest text-xs"
       >
         {loading ? (
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -830,32 +436,17 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
+// --- Main Dashboard -----------------------------------------------------------
 
 const JournalistDashboard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [profile, setProfile] = useState<JournalistResponse | null>(null);
   const [posts, setPosts] = useState<JournalistPostResponse[]>([]);
   const [following, setFollowing] = useState<JournalistFollowingResponse[]>([]);
   const [followers, setFollowers] = useState<JournalistFollowerResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reportPostId, setReportPostId] = useState<string | null>(null);
-  const [searchQ, setSearchQ] = useState("");
   const [myWallet, setMyWallet] = useState<WalletResponse | null>(null);
-  const [walletTxns, setWalletTxns] = useState<WalletTransactionResponse[]>([]);
-  const [sentDonations, setSentDonations] = useState<DonationRecord[]>([]);
-  const [receivedDonations, setReceivedDonations] = useState<DonationRecord[]>([]);
-
-  // Send donation dialog
-  const [showSendDialog, setShowSendDialog] = useState(false);
-  const [sendRecipientId, setSendRecipientId] = useState("");
-  const [sendAmount, setSendAmount] = useState("");
-  const [sendMessage, setSendMessage] = useState("");
-  const [sending, setSending] = useState(false);
-
-  // Map following names to IDs for the send dialog
-  const recipientName = following.find((f) => f.id === sendRecipientId)?.name ?? "";
 
   useEffect(() => {
     Promise.all([
@@ -872,600 +463,318 @@ const JournalistDashboard = () => {
       })
       .finally(() => setLoading(false));
 
-    // Load wallet + donations (non-blocking)
-    Promise.all([
-      donationService.getMyWallet(),
-      donationService.getMyTransactions(),
-      donationService.getSentDonations(),
-      donationService.getReceivedDonations(),
-    ])
-      .then(([w, txns, sent, received]) => {
-        setMyWallet(w);
-        setWalletTxns(txns);
-        setSentDonations(sent);
-        setReceivedDonations(received);
-      })
-      .catch(() => { /* wallet may not exist yet */ });
+    donationService.getMyWallet().then(setMyWallet).catch(() => {});
   }, []);
 
-  const handleUnfollow = async (id: string) => {
-    await journalistService.unfollowUser(id);
-    setFollowing((prev) => prev.filter((f) => f.id !== id));
-  };
-
-  const handleSendDonation = async () => {
-    const amount = parseFloat(sendAmount);
-    if (!sendRecipientId) {
-      toast.error("Please select a recipient");
-      return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount greater than 0");
-      return;
-    }
-    setSending(true);
-    try {
-      await donationService.sendDonation({
-        recipientId: sendRecipientId,
-        amount,
-        message: sendMessage.trim() || undefined,
-      });
-      toast.success("Donation sent successfully!");
-      setShowSendDialog(false);
-      setSendRecipientId("");
-      setSendAmount("");
-      setSendMessage("");
-      // Refresh wallet data
-      try {
-        const [w, txns, sent, received] = await Promise.all([
-          donationService.getMyWallet(),
-          donationService.getMyTransactions(),
-          donationService.getSentDonations(),
-          donationService.getReceivedDonations(),
-        ]);
-        setMyWallet(w);
-        setWalletTxns(txns);
-        setSentDonations(sent);
-        setReceivedDonations(received);
-      } catch { /* ignore */ }
-    } catch {
-      toast.error("Failed to send donation");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const filteredPosts = posts.filter(
-    (p) =>
-      p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
-      p.content.toLowerCase().includes(searchQ.toLowerCase())
-  );
-
-  const tabs: { id: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
-    { id: "overview", label: "Overview", icon: <BarChart2 className="h-4 w-4" /> },
-    { id: "posts", label: "My Posts", icon: <FileText className="h-4 w-4" />, count: posts.length },
-    { id: "following", label: "Following", icon: <UserCheck className="h-4 w-4" />, count: following.length },
-    { id: "followers", label: "Followers", icon: <Users className="h-4 w-4" />, count: followers.length },
-    { id: "create", label: "New Post", icon: <Plus className="h-4 w-4" /> },
-    { id: "wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
-  ];
-
-  if (loading) {
+  if (loading || !profile) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-[#F9F9F9] dark:bg-stone-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading dashboard...</p>
+          <div className="w-8 h-8 border-2 border-[#5B5E66] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#5B5E66] text-sm font-label font-bold uppercase tracking-widest">Initializing Archive...</p>
         </div>
       </div>
     );
   }
 
-  const updatePostInState = (
-    postId: string,
-    updater: (post: JournalistPostResponse) => JournalistPostResponse
-  ) => {
-    setPosts((prev) => prev.map((p) => (p.id === postId ? updater(p) : p)));
-  };
+  const navItems = [
+    { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { id: "archive", icon: Archive, label: "Archive" },
+    { id: "community", icon: Users, label: "Community" },
+    { id: "wallet", icon: Wallet, label: "Finances" },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-primary mb-2">
-              Journalist Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Welcome back,{" "}
-              <span className="text-foreground font-medium">{profile?.name ?? "..."}</span>
-            </p>
+    <div className="bg-background text-on-surface min-h-screen font-body">
+      {/* SideNavBar */}
+      <aside className="bg-[#F9F9F9] dark:bg-stone-950 text-[#5B5E66] dark:text-stone-300 font-sans text-sm font-medium h-screen w-64 fixed left-0 top-0 flex flex-col p-4 gap-2 z-40 border-r border-[#EAEAEA] dark:border-stone-800 hidden md:flex">
+        <div className="mb-8 px-2 mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-lg flex items-center justify-center flex-shrink-0">
+              {profile.name.substring(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-on-surface font-bold text-sm leading-tight truncate w-36">{profile.name}</h2>
+              <p className="text-xs text-on-surface-variant font-normal truncate w-36">{profile.role || "Verified Journalist"}</p>
+            </div>
           </div>
         </div>
 
-        {/* Profile Card */}
-        {profile && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 mb-8"
-          >
-            {/* subtle bg accent */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+        <nav className="flex-1 flex flex-col gap-1">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as Tab)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-sm transition-transform active:scale-[0.98] w-full text-left",
+                activeTab === item.id
+                  ? "bg-stone-200 dark:bg-stone-800 text-[#2D3435] dark:text-white"
+                  : "text-[#5B5E66] dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors"
+              )}
+            >
+              <item.icon className="w-5 h-5" strokeWidth={2} />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-accent/15 text-accent font-bold text-xl flex items-center justify-center flex-shrink-0">
-                {profile.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2)}
-              </div>
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                  <h2 className="font-bold text-xl text-foreground">{profile.name}</h2>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20 font-medium">
-                    {profile.role}
-                  </span>
+        <button
+          onClick={() => setActiveTab("create")}
+          className="mt-auto bg-primary text-on-primary py-3 px-4 rounded-sm font-label text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition-opacity active:opacity-80"
+        >
+          <PlusCircle className="w-4 h-4" />
+          New Investigation
+        </button>
+        
+        <Link to="/" className="mt-4 text-xs font-label uppercase tracking-widest text-[#5B5E66] text-center hover:opacity-80">
+          Return Home
+        </Link>
+      </aside>
+
+      {/* Main Content Canvas */}
+      <main className="md:ml-64 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0">
+        <header className="mb-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+          <div>
+            <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
+              Archive System v4.2
+            </span>
+            <h1 className="font-headline text-4xl text-on-surface font-bold">
+              {activeTab === "dashboard" && "The Veritas Archive"}
+              {activeTab === "archive" && "Your Published Intel"}
+              {activeTab === "community" && "Intelligence Network"}
+              {activeTab === "wallet" && "Financial Operations"}
+              {activeTab === "create" && "Draft Operation"}
+            </h1>
+          </div>
+          <div className="flex gap-4 items-center">
+            <div className="text-right">
+              <p className="font-label text-[10px] uppercase text-outline">System Status</p>
+              <p className="text-secondary font-bold flex items-center gap-1 justify-end">
+                <span className="w-2 h-2 bg-secondary rounded-full"></span>
+                ENCRYPTED
+              </p>
+            </div>
+          </div>
+        </header>
+
+        {activeTab === "dashboard" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {/* At a Glance: Analytics */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <div className="bg-surface-container-lowest p-6 flex flex-col justify-between group transition-all duration-300">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="font-label text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total Followers</span>
+                  <Eye className="w-5 h-5 text-primary-dim opacity-40" />
                 </div>
-                <p className="text-sm text-muted-foreground">{profile.email}</p>
-                <p className="text-sm text-muted-foreground">
-                  Organization:{" "}
-                  <span className="text-foreground font-medium">{profile.organization ?? "Independent"}</span>
-                </p>
-              </div>
-              <div className="flex gap-6 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.followers || 0)}</p>
-                  <p className="text-xs text-muted-foreground">Followers</p>
+                  <h3 className="text-4xl font-headline font-extrabold text-on-surface">{formatNum(profile.followers)}</h3>
+                  <p className="text-xs text-secondary font-medium mt-2 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" />
+                    Building trust
+                  </p>
+                </div>
+              </div>
+              <div className="bg-surface-container-low p-6 flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="font-label text-xs font-bold text-on-surface-variant uppercase tracking-wider">Credibility Rating</span>
+                  <BadgeCheck className="w-5 h-5 text-secondary" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-4xl font-headline font-extrabold text-on-surface">98</h3>
+                  <span className="text-lg text-on-surface-variant font-light">/100</span>
+                </div>
+                <div className="mt-4 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+                  <div className="bg-secondary h-full w-[98%]"></div>
+                </div>
+              </div>
+              <div className="bg-surface-container-lowest p-6 flex flex-col justify-between border-l-4 border-primary">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="font-label text-xs font-bold text-on-surface-variant uppercase tracking-wider">Revenue Earned</span>
+                  <Wallet className="w-5 h-5 text-primary-dim opacity-40" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatNum(profile.posts || 0)}</p>
-                  <p className="text-xs text-muted-foreground">Posts</p>
+                  <h3 className="text-4xl font-headline font-extrabold text-on-surface">
+                    ${myWallet?.balance.toFixed(2) || "0.00"}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-2 font-medium">Available Funds</p>
                 </div>
+              </div>
+            </section>
+
+            {/* Content Pipeline Table */}
+            <section className="bg-surface-container-low p-8 text-on-surface">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+                <h2 className="font-headline text-2xl font-bold">Content Pipeline</h2>
+                <div className="flex gap-2">
+                  <button className="bg-surface-container-lowest text-on-surface text-xs font-label uppercase font-bold py-2 px-4 flex items-center gap-2 hover:bg-surface-container-high transition-colors">
+                    <Filter className="w-4 h-4" />Filter
+                  </button>
+                  <button className="bg-surface-container-lowest text-on-surface text-xs font-label uppercase font-bold py-2 px-4 flex items-center gap-2 hover:bg-surface-container-high transition-colors">
+                    <Download className="w-4 h-4" />Export
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-outline-variant/20">
+                      <th className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant pb-4 px-4">Article Title</th>
+                      <th className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant pb-4 px-4">Category</th>
+                      <th className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant pb-4 px-4 text-center">Engagement</th>
+                      <th className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant pb-4 px-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10">
+                    {posts.slice(0, 5).map(post => (
+                      <tr key={post.id} className="group hover:bg-surface-container-lowest transition-colors">
+                        <td className="py-5 px-4 cursor-pointer" onClick={() => navigate(`/article/${post.id}`)}>
+                          <p className="font-bold text-on-surface leading-tight mb-1 max-w-[300px] truncate">{post.title}</p>
+                          <p className="text-[11px] text-on-surface-variant italic">{new Date(post.createdAt).toLocaleDateString()}</p>
+                        </td>
+                        <td className="py-5 px-4">
+                          <span className="bg-surface-container-highest px-2 py-1 text-[10px] font-label uppercase font-bold tracking-tighter">
+                            Intel
+                          </span>
+                        </td>
+                        <td className="py-5 px-4 text-center">
+                          <div className="flex justify-center gap-3 text-on-surface-variant">
+                            <span className="text-xs flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {formatNum(post.comments)}</span>
+                            <span className="text-xs flex items-center gap-1"><Heart className="w-4 h-4" /> {formatNum(post.likes)}</span>
+                          </div>
+                        </td>
+                        <td className="py-5 px-4">
+                          <div className={cn("inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-label font-bold uppercase", statusColor[post.moderationStatus] || "bg-outline text-surface")}>
+                            <span className="w-1.5 h-1.5 bg-current rounded-full opacity-50"></span>
+                            {post.moderationStatus}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {posts.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-on-surface-variant text-sm">
+                          No communications on network.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* Quick Action Area */}
+            <section className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="relative overflow-hidden bg-on-surface text-surface p-10 min-h-[300px] flex flex-col justify-end">
+                <div className="absolute top-0 right-0 p-8 opacity-20">
+                  <Megaphone className="w-[120px] h-[120px]" strokeWidth={1} />
+                </div>
+                <span className="bg-tertiary text-on-tertiary px-3 py-1 text-[10px] font-label uppercase font-bold w-fit mb-4">Urgent Assignment</span>
+                <h3 className="font-headline text-3xl font-bold mb-4">Lead Investigation: Market Corrections</h3>
+                <p className="text-surface-variant text-sm md:text-base mb-6 max-w-sm">Sources indicate anomalous trading events globally. Provide verified brief to subscribers.</p>
+                <button onClick={() => setActiveTab("create")} className="bg-surface text-on-surface px-6 py-3 font-label text-xs uppercase font-bold tracking-widest w-fit hover:bg-primary-fixed transition-colors">
+                  Accept Briefing
+                </button>
+              </div>
+              <div className="bg-surface-container-low p-10 flex flex-col items-center justify-center text-center border-2 border-dashed border-outline-variant">
+                <FileText className="w-12 h-12 text-primary-dim opacity-50 mb-6" />
+                <h3 className="font-headline text-2xl font-bold mb-2 text-on-surface">Create New Investigation</h3>
+                <p className="text-on-surface-variant text-sm mb-8 max-w-xs">Start a fresh thread, upload raw evidence, or begin drafting your next investigative piece.</p>
+                <button 
+                  onClick={() => setActiveTab("create")}
+                  className="bg-primary text-on-primary px-8 py-4 font-label text-xs uppercase font-bold tracking-[0.2em] shadow-lg active:scale-95 transition-transform"
+                >
+                  Initialize Draft
+                </button>
+              </div>
+            </section>
+          </motion.div>
+        )}
+
+        {activeTab === "archive" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {posts.map(post => (
+              <div key={post.id} className="bg-surface-container-low p-6 flex flex-col justify-between text-on-surface">
+                 <h3 className="font-headline text-xl font-bold mb-3 max-w-full truncate">{post.title}</h3>
+                 <p className="text-sm text-on-surface-variant mb-6 line-clamp-3">{post.content}</p>
+                 <div className="flex justify-between items-center text-xs font-label uppercase font-bold tracking-widest text-outline">
+                    <span className="flex gap-3">
+                      <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> {post.likes}</span>
+                      <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {post.comments}</span>
+                    </span>
+                    <button onClick={() => navigate(`/article/${post.id}`)} className="text-primary hover:underline">Read Intel</button>
+                 </div>
+              </div>
+            ))}
+            {posts.length === 0 && (
+              <div className="col-span-full py-20 text-center text-on-surface-variant">Data vault is empty.</div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === "community" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-surface-container-low p-6">
+              <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><UserCheck className="w-6 h-6"/> Observing Network ({following.length})</h3>
+              <div className="space-y-4">
+                {following.map(f => (
+                  <div key={f.id} className="flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-sm text-on-surface">{f.name}</p>
+                      <p className="text-xs text-on-surface-variant">{f.role}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-surface-container-low p-6">
+              <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><Users className="w-6 h-6"/> Broadcast Receivers ({followers.length})</h3>
+              <div className="space-y-4">
+                {followers.map(f => (
+                  <div key={f.id} className="flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-sm text-on-surface">{f.name}</p>
+                      <p className="text-xs text-on-surface-variant">{f.role}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-1 overflow-x-auto pb-1 mb-8 scrollbar-hide">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
-                activeTab === tab.id
-                  ? "bg-accent text-accent-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-              {tab.count !== undefined && (
-                <span
-                  className={cn(
-                    "text-xs px-1.5 py-0.5 rounded-full font-medium",
-                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-border text-foreground"
-                  )}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {activeTab === "wallet" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface-container-low p-8">
+            <div className="mb-10 text-center py-10 bg-surface-container-highest border border-outline-variant/20">
+               <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-2">Secure Vault Balance</p>
+               <h2 className="font-headline text-6xl font-black text-on-surface">${myWallet?.balance.toFixed(2) || "0.00"}</h2>
+            </div>
+            <p className="text-center text-sm font-label uppercase tracking-widest text-on-surface-variant">For granular financial operations, please access the terminal.</p>
+          </motion.div>
+        )}
 
-        {/* Tab Content */}
-        <AnimatePresence mode="wait">
-          {/* OVERVIEW */}
-          {activeTab === "overview" && (
-            <motion.div
-              key="overview"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard icon={<FileText className="h-5 w-5" />} label="Total Posts" value={posts.length} delay={0} />
-                <StatCard
-                  icon={<Heart className="h-5 w-5" />}
-                  label="Total Likes"
-                  value={formatNum(posts.reduce((s, p) => s + p.likes, 0))}
-                  delay={0.05}
-                />
-                <StatCard
-                  icon={<MessageSquare className="h-5 w-5" />}
-                  label="Total Comments"
-                  value={formatNum(posts.reduce((s, p) => s + p.comments, 0))}
-                  delay={0.1}
-                />
-                <StatCard
-                  icon={<Users className="h-5 w-5" />}
-                  label="Following"
-                  value={following.length}
-                  delay={0.15}
-                />
-              </div>
+        {activeTab === "create" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface-container-low p-8">
+             <CreatePostForm onSuccess={() => journalistService.getMyPosts().then(setPosts)} />
+          </motion.div>
+        )}
 
-              {/* Recent Posts Preview */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-foreground">Recent Posts</h2>
-                  <button
-                    onClick={() => setActiveTab("posts")}
-                    className="text-sm text-accent hover:underline flex items-center gap-1"
-                  >
-                    View all <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <AnimatePresence>
-                    {posts.slice(0, 3).map((post) => (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
-                        onUpdatePost={updatePostInState}
-                        onViewReport={setReportPostId}
-                        onNavigate={(id) => navigate(`/article/${id}`)}
-                      />
-                    ))}
-                  </AnimatePresence>
-                  {posts.length === 0 && (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                      <p>No posts yet.</p>
-                      <button
-                        onClick={() => setActiveTab("create")}
-                        className="mt-2 text-accent hover:underline text-sm"
-                      >
-                        Create your first post →
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* POSTS */}
-          {activeTab === "posts" && (
-            <motion.div
-              key="posts"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
-            >
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search posts..."
-                  value={searchQ}
-                  onChange={(e) => setSearchQ(e.target.value)}
-                  className="pl-11 h-11 bg-card border-border"
-                />
-              </div>
-              <AnimatePresence>
-                {filteredPosts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onDelete={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
-                    onUpdatePost={updatePostInState}
-                    onViewReport={setReportPostId}
-                    onNavigate={(id) => navigate(`/article/${id}`)}
-                  />
-                ))}
-              </AnimatePresence>
-              {filteredPosts.length === 0 && (
-                <div className="text-center py-16 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-25" />
-                  <p>{searchQ ? "No matching posts found." : "No posts yet."}</p>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* FOLLOWING */}
-          {activeTab === "following" && (
-            <motion.div
-              key="following"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <h2 className="font-semibold text-foreground mb-4 px-1">
-                People You Follow ({following.length})
-              </h2>
-              <div className="space-y-1">
-                <AnimatePresence>
-                  {following.map((f) => (
-                    <UserRow
-                      key={f.id}
-                      id={f.id}
-                      name={f.name}
-                      role={f.role}
-                      followers={f.followers}
-                      onUnfollow={handleUnfollow}
-                    />
-                  ))}
-                </AnimatePresence>
-                {following.length === 0 && (
-                  <p className="text-center py-10 text-muted-foreground text-sm">
-                    You're not following anyone yet.
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* FOLLOWERS */}
-          {activeTab === "followers" && (
-            <motion.div
-              key="followers"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <h2 className="font-semibold text-foreground mb-4 px-1">
-                Your Followers ({followers.length})
-              </h2>
-              <div className="space-y-1">
-                <AnimatePresence>
-                  {followers.map((f) => (
-                    <UserRow
-                      key={f.id}
-                      id={f.id}
-                      name={f.name}
-                      role={f.role}
-                      followers={f.followers}
-                    />
-                  ))}
-                </AnimatePresence>
-                {followers.length === 0 && (
-                  <p className="text-center py-10 text-muted-foreground text-sm">
-                    No followers yet.
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* CREATE POST */}
-          {activeTab === "create" && (
-            <motion.div
-              key="create"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="rounded-2xl border border-border bg-card p-6 max-w-2xl"
-            >
-              <h2 className="font-semibold text-foreground mb-5 flex items-center gap-2">
-                <Plus className="h-4 w-4 text-accent" />
-                Create New Post
-              </h2>
-              <CreatePostForm
-                onSuccess={() => {
-                  journalistService.getMyPosts().then(setPosts);
-                }}
-              />
-            </motion.div>
-          )}
-
-          {/* WALLET */}
-          {activeTab === "wallet" && (
-            <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
-              {/* Balance Card */}
-              <div className="relative overflow-hidden rounded-2xl bg-accent p-6">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-2xl" />
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-5 w-5 text-white/70" />
-                    <p className="text-white/70 text-sm">Current Balance</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="relative z-10"
-                    onClick={() => setShowSendDialog(true)}
-                  >
-                    <Send className="h-4 w-4 mr-1" />
-                    Send Donation
-                  </Button>
-                </div>
-                <p className="text-4xl font-bold text-white tracking-tight">
-                  ${(myWallet?.balance ?? 0).toFixed(2)}
-                </p>
-                {myWallet && (
-                  <p className="text-white/50 text-xs mt-2">
-                    Last updated {new Date(myWallet.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                  </p>
-                )}
-              </div>
-
-              {/* Transactions */}
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <h3 className="font-semibold text-foreground mb-4">Transaction History</h3>
-                {walletTxns.length > 0 ? (
-                  <div>
-                    {walletTxns.map((tx) => {
-                      const isCredit = tx.amount > 0;
-                      return (
-                        <div key={tx.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-                          <div className={cn(
-                            "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
-                            isCredit ? "bg-emerald-400/10 text-emerald-400" : "bg-rose-400/10 text-rose-400"
-                          )}>
-                            {isCredit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{tx.description || tx.type}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {tx.type}{tx.actorName ? ` \u00b7 ${tx.actorName}` : ""} \u00b7 {new Date(tx.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                            </p>
-                          </div>
-                          <span className={cn("font-semibold text-sm tabular-nums", isCredit ? "text-emerald-400" : "text-rose-400")}>
-                            {isCredit ? "+" : ""}${Math.abs(tx.amount).toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <Wallet className="h-10 w-10 mx-auto mb-3 opacity-25" />
-                    <p className="text-sm">No transactions yet.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Sent & Received Donations */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Sent Donations */}
-                <div className="rounded-2xl border border-border bg-card p-5">
-                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <ArrowUpRight className="h-4 w-4 text-rose-400" />
-                    Sent Donations ({sentDonations.length})
-                  </h3>
-                  {sentDonations.length > 0 ? (
-                    <div className="space-y-0">
-                      {sentDonations.map((d) => (
-                        <div key={d.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">To {d.recipientName}</p>
-                            {d.message && <p className="text-xs text-muted-foreground truncate">{d.message}</p>}
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(d.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                            </p>
-                          </div>
-                          <span className="font-semibold text-sm text-rose-400 tabular-nums">-${d.amount.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center py-6 text-sm text-muted-foreground">No donations sent yet.</p>
-                  )}
-                </div>
-
-                {/* Received Donations */}
-                <div className="rounded-2xl border border-border bg-card p-5">
-                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <ArrowDownLeft className="h-4 w-4 text-emerald-400" />
-                    Received Donations ({receivedDonations.length})
-                  </h3>
-                  {receivedDonations.length > 0 ? (
-                    <div className="space-y-0">
-                      {receivedDonations.map((d) => (
-                        <div key={d.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">From {d.senderName}</p>
-                            {d.message && <p className="text-xs text-muted-foreground truncate">{d.message}</p>}
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(d.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                            </p>
-                          </div>
-                          <span className="font-semibold text-sm text-emerald-400 tabular-nums">+${d.amount.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center py-6 text-sm text-muted-foreground">No donations received yet.</p>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </main>
 
-      <Footer />
-
-      {/* Send Donation Dialog */}
-      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5 text-accent" />
-              Send Donation
-            </DialogTitle>
-            <DialogDescription>
-              Send a donation to a user or journalist. Your current balance: ${(myWallet?.balance ?? 0).toFixed(2)}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Recipient</Label>
-              <Select value={sendRecipientId} onValueChange={setSendRecipientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a person you follow" />
-                </SelectTrigger>
-                <SelectContent>
-                  {following.length > 0 ? (
-                    following.map((person) => (
-                      <SelectItem key={person.id} value={person.id}>
-                        {person.name} <span className="text-muted-foreground">({person.role})</span>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      You're not following anyone yet
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Amount ($)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="Enter amount"
-                value={sendAmount}
-                onChange={(e) => setSendAmount(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Message (optional)</Label>
-              <Textarea
-                placeholder="Add a message..."
-                value={sendMessage}
-                onChange={(e) => setSendMessage(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSendDialog(false)}>Cancel</Button>
-            <Button onClick={handleSendDonation} disabled={sending}>
-              {sending ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-              ) : (
-                <Send className="h-4 w-4 mr-1" />
-              )}
-              Send
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modals */}
-      <AnimatePresence>
-        {reportPostId && (
-          <ReportModal postId={reportPostId} onClose={() => setReportPostId(null)} />
-        )}
-      </AnimatePresence>
+      {/* BottomNavBar - Hidden on Desktop */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center pt-2 pb-5 px-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl z-50 border-t border-stone-200/20">
+        <button onClick={() => navigate("/feed")} className="flex flex-col items-center text-[#5B5E66]/60 dark:text-stone-500 font-sans text-[10px] uppercase tracking-widest gap-1">
+          <Archive className="w-5 h-5" /> Feed
+        </button>
+        <button onClick={() => setActiveTab("dashboard")} className={cn("flex flex-col items-center font-bold font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "dashboard" ? "text-[#2D3435] dark:text-white" : "text-[#5B5E66]/60 dark:text-stone-500")}>
+          <LayoutDashboard className="w-5 h-5" /> Dash
+        </button>
+        <button onClick={() => setActiveTab("create")} className={cn("flex flex-col items-center font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "create" ? "text-[#2D3435] dark:text-white font-bold" : "text-[#5B5E66]/60 dark:text-stone-500")}>
+          <PlusCircle className="w-5 h-5" /> New
+        </button>
+        <button onClick={() => setActiveTab("wallet")} className={cn("flex flex-col items-center font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "wallet" ? "text-[#2D3435] dark:text-white font-bold" : "text-[#5B5E66]/60 dark:text-stone-500")}>
+          <Wallet className="w-5 h-5" /> Funds
+        </button>
+      </nav>
     </div>
   );
 };
