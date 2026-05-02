@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Clock,
   Sparkles,
-  ChevronDown,
   AlertCircle,
   Loader,
   Eye,
@@ -20,7 +19,6 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { NewsCard } from "@/components/NewsCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -48,9 +46,9 @@ const sortOptions = [
 
 // استيراد أيقونة Globe
 import { Globe } from "lucide-react";
+import { NewsCard } from "@/components/NewsCard";
 
 const FeedPage = () => {
-  // Posts data
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +58,6 @@ const FeedPage = () => {
   const [activeSort, setActiveSort] = useState("recent");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Load posts on mount
   useEffect(() => {
     const loadPosts = async () => {
       try {
@@ -85,16 +82,9 @@ const FeedPage = () => {
       setAllPosts((prev) => prev.filter((post) => post.id !== deletedPostId));
     };
 
-    window.addEventListener(
-      POST_DELETED_EVENT,
-      handlePostDeleted as EventListener
-    );
-
+    window.addEventListener(POST_DELETED_EVENT, handlePostDeleted as EventListener);
     return () => {
-      window.removeEventListener(
-        POST_DELETED_EVENT,
-        handlePostDeleted as EventListener
-      );
+      window.removeEventListener(POST_DELETED_EVENT, handlePostDeleted as EventListener);
     };
   }, []);
 
@@ -225,6 +215,20 @@ const FeedPage = () => {
                     </div>
                   </Link>
                 ))}
+              </div>
+            </div>
+            
+            {/* Top Contributors */}
+            <div className="bg-muted p-6 rounded-sm">
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-6">Top Contributors</h4>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center font-bold text-primary">A</div>
+                  <div>
+                    <p className="text-xs font-bold">Arjun Mehta</p>
+                    <p className="text-[10px] text-muted-foreground">Environmental Intelligence</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

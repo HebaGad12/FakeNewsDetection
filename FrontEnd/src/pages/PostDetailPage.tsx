@@ -516,6 +516,31 @@ export default function PostDetailPage() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground">{comment.authorName}</span>
+                          {comment.authorRole === "Journalist" && (
+                            <span className="bg-primary/10 text-primary text-[8px] px-2 py-0.5 rounded-sm font-bold uppercase tracking-widest flex items-center gap-0.5">
+                              <CheckCircle2 className="h-2.5 w-2.5" /> Verified
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {new Date(comment.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
+                          title="Delete comment"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-base text-foreground/80 leading-relaxed font-serif">
+                        {comment.content}
+                      </p>
+                    </div>
                   </motion.div>
                 ))
               )}
@@ -525,6 +550,57 @@ export default function PostDetailPage() {
       </main>
 
       <Footer />
+
+      {/* Lightbox */}
+      {lightboxOpen && post.media && post.media.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          
+          <motion.img
+            key={lightboxIndex}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+            src={postsService.getImageUrl(post.media[lightboxIndex].path)}
+            alt={`${post.title} ${lightboxIndex + 1}`}
+            className="max-h-[85vh] max-w-screen-xl object-contain shadow-2xl rounded-sm"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {post.media.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + post.media.length) % post.media.length); }}
+                className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % post.media.length); }}
+                className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              >
+                <ChevronRight className="h-8 w-8" />
+              </button>
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                {post.media.map((_, i) => (
+                  <div key={i} className={cn("h-1.5 rounded-full transition-all", i === lightboxIndex ? "w-6 bg-white" : "w-1.5 bg-white/30")} />
+                ))}
+              </div>
+            </>
+          )}
+        </motion.div>
+      )}
 
       {/* Report Dialog */}
       <Dialog open={showReportDialog} onOpenChange={handleCloseReport}>

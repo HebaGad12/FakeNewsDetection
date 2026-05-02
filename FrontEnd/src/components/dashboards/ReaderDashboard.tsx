@@ -19,9 +19,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userService } from "@/services";
 import { UserOverview, FollowingUser, UserActivity, UserProfileExtended } from "@/services/types";
 import donationService, {
+  DonationRecord,
   WalletResponse,
   WalletTransactionResponse,
-  DonationRecord,
 } from "@/services/donationService";
 import { postsService, Post } from "@/services/postsService";
 import { toast } from "sonner";
@@ -81,16 +81,12 @@ const ReaderDashboard = () => {
       setRecentPosts(sortedPosts.slice(0, 3));
 
       try {
-        const [w, txns, sent, received] = await Promise.all([
+        const [w, txns] = await Promise.all([
           donationService.getMyWallet(),
           donationService.getMyTransactions(),
-          donationService.getSentDonations(),
-          donationService.getReceivedDonations(),
         ]);
         setMyWallet(w);
         setWalletTxns(txns);
-        setSentDonations(sent);
-        setReceivedDonations(received);
       } catch {
         // Wallet may not exist yet
       }
