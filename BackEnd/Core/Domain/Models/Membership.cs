@@ -12,6 +12,7 @@ namespace Domain.Models
         public Guid UserId { get; set; }
         public Guid CommunityId { get; set; }
         public string Role { get; set; } = "Member";
+        public bool IsBanned { get; set; } = false;
         public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 
         public User User { get; set; }

@@ -244,19 +244,19 @@ namespace Presentation.Controllers
             var uploadsPath = Path.Combine(_env.ContentRootPath, "Media", "Uploads", "Users", userId.ToString());
             Directory.CreateDirectory(uploadsPath);
 
-            var filePath = Path.Combine(uploadsPath, file.FileName);
+            var filePath = Path.Combine(uploadsPath, "profile.jpg");
 
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
-            return Ok(new { Message = "Profile picture uploaded successfully", Path = filePath });
+            return Ok(new { Message = "Profile picture uploaded successfully" });
         }
 
-        [HttpGet("{userId}/picture/{fileName}")]
-        public IActionResult GetProfilePicture(Guid userId, string fileName)
+        [HttpGet("{userId}/picture")]
+        public IActionResult GetProfilePicture(Guid userId)
         {
-            var filePath = Path.Combine(_env.ContentRootPath, "Media", "Uploads", "Users", userId.ToString(), fileName);
+            var filePath = Path.Combine(_env.ContentRootPath, "Media", "Uploads", "Users", userId.ToString(), "profile.jpg");
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound("File not found.");

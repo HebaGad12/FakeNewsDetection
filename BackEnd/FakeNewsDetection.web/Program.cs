@@ -36,7 +36,7 @@ namespace FakeNewsDetection.web
 
             // ── Database ─────────────────────────────────────────────────────
             builder.Services.AddDbContext<AppDbContext>(opts =>
-               opts.UseSqlServer(builder.Configuration.GetConnectionString("default")));
+               opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
 
             // ── Authentication ───────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
@@ -63,16 +63,15 @@ namespace FakeNewsDetection.web
                 {
                     OnMessageReceived = context =>
                     {
-                        // SignalR sends JWT via query string for WebSockets/SSE
                         var accessToken = context.Request.Query["access_token"];
-                        var path        = context.HttpContext.Request.Path;
+                        var path = context.HttpContext.Request.Path;
 
                         if (!string.IsNullOrWhiteSpace(accessToken)
-                            && path.StartsWithSegments("/livehub"))
+                            && (path.StartsWithSegments("/livehub")
+                                || path.StartsWithSegments("/notificationhub"))) 
                         {
                             context.Token = accessToken;
                         }
-
                         return Task.CompletedTask;
                     }
                 };
@@ -175,6 +174,9 @@ namespace FakeNewsDetection.web
             // ── Serve uploaded media files ────────────────────────────────────
             // Images are stored at:  <wwwroot>/media/posts/{id}.ext
             // Accessible via URL:    /media/posts/{id}.ext
+
+            app.UseStaticFiles();
+
             var mediaDir = Path.Combine(Directory.GetCurrentDirectory(), "media");
             Directory.CreateDirectory(mediaDir); // ensure root exists on first run
 
@@ -190,6 +192,7 @@ namespace FakeNewsDetection.web
 
             app.MapControllers();
             app.MapHub<LiveHub>("/livehub");
+            app.MapHub<NotificationHub>("/notificationhub");
             app.Run();
         }
     }

@@ -15,6 +15,14 @@ namespace Domain.Contracts
         Task<IEnumerable<PostDto>> GetPostsAsync(Guid communityId);
         Task<ApiResponse<PostDto>> CreatePostAsync(Guid communityId, CreatePostDto dto);
         Task<bool> IsMemberAsync(Guid communityId, Guid userId);
+        Task<ApiResponse<string>> BanUserAsync(Guid communityId, Guid requesterId, Guid targetUserId);
+        Task<ApiResponse<string>> UnbanUserAsync(Guid communityId, Guid requesterId, Guid targetUserId);
+        Task<ApiResponse<MemberStatusDto>> GetUserStatusAsync(Guid communityId, Guid targetUserId);
+        Task<ApiResponse<string>> DeletePostAsync(Guid communityId, Guid requesterId, Guid postId);
+        Task<ApiResponse<string>> LeaveAsync(Guid communityId, Guid userId);
+        Task<IEnumerable<CommunityDto>> GetAllAsync();
+        Task<IEnumerable<CommunityDto>> GetByCreatorAsync(Guid creatorId);
+        Task<IEnumerable<CommunityDto>> SearchByNameAsync(string query);
     }
 
  public class ApiResponse<T>
@@ -45,13 +53,27 @@ namespace Domain.Contracts
         Guid Id,
         string Name,
         string Role,
-        DateTime JoinedAt
+        DateTime JoinedAt,
+        bool IsBanned
     );
 
     public record CreatePostDto(
         Guid UserId,
         string Content,
         List<string>? MediaPaths
+    );
+
+    public record MemberStatusDto(
+        string Status
+    );
+
+    public record CommentDto(
+        Guid Id,
+        Guid AuthorId,
+        string AuthorName,
+        string AuthorRole,
+        string Content,
+        DateTime CreatedAt
     );
 
     public record PostDto(
@@ -63,6 +85,8 @@ namespace Domain.Contracts
         Guid? AuthorOrgId,
         string? AuthorOrgName,
         DateTime CreatedAt,
-        List<string>? MediaPaths
+        List<string>? MediaPaths,
+        int TotalLikes,
+        List<CommentDto> Comments
     );
 }

@@ -108,25 +108,6 @@ namespace Presentation.Controllers
         }
 
 
-        // ─────────────────────────────────────────
-        // LIKE  (all authenticated users)
-        // ─────────────────────────────────────────
-        [HttpPost("{communityId}/create")]
-        public async Task<IActionResult> CreatePost(Guid communityId, Guid userId, string content)
-        {
-            var post = new Post
-            {
-                Id = Guid.NewGuid(),
-                AuthorId = userId,
-                CommunityId = communityId,
-                Content = content,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _posts.AddAsync(post);
-            return Ok(post);
-        }
-
-
         [HttpPost("{postId}/like")]
         public async Task<ActionResult> Like(Guid postId)
         {

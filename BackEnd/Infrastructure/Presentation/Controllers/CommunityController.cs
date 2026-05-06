@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using ServicesAbstraction;
 using System.Text;
 using System.Threading.Tasks;
 namespace Presentation.Controllers
@@ -23,11 +24,13 @@ namespace Presentation.Controllers
     {
         private readonly ICommunityRepository _communities;
         private readonly IWebHostEnvironment _env;
+        private readonly IToxicityService _toxicity;
 
-        public CommunityController(ICommunityRepository communities, IWebHostEnvironment env)
+        public CommunityController(ICommunityRepository communities, IWebHostEnvironment env, IToxicityService toxicity)
         {
             _communities = communities;
             _env = env;
+            _toxicity = toxicity;
         }
 
         private Guid GetCurrentUserId() =>
@@ -101,6 +104,16 @@ namespace Presentation.Controllers
         }
 
        
+
+        [HttpDelete("{communityId}/leave")]
+        public async Task<IActionResult> LeaveCommunity(Guid communityId)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _communities.LeaveAsync(communityId, userId);
+            if (!result.Success) return result.Message!.Contains("not found") ? NotFound(result) : BadRequest(result);
+            return Ok(result);
+        }
+
         [HttpGet("{communityId}/members")]
         [AllowAnonymous]
         public async Task<IActionResult> GetMembers(Guid communityId)
@@ -126,6 +139,14 @@ namespace Presentation.Controllers
             List<IFormFile>? mediaFiles) 
         {
             var userId = GetCurrentUserId();
+
+            // ── Toxicity check ────────────────────────────────────────────────
+            if (await _toxicity.IsToxicAsync(content))
+                return BadRequest(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "Your post contains toxic or inappropriate language and cannot be published."
+                });
 
             var mediaPaths = new List<string>();
             if (mediaFiles != null && mediaFiles.Any())
@@ -168,6 +189,93 @@ namespace Presentation.Controllers
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Ban a member from the community. Only the journalist who created the community can do this.
+        /// </summary>
+        [HttpPost("{communityId}/members/{targetUserId}/ban")]
+        public async Task<IActionResult> BanUser(Guid communityId, Guid targetUserId)
+        {
+            var requesterId = GetCurrentUserId();
+            var result = await _communities.BanUserAsync(communityId, requesterId, targetUserId);
+            if (!result.Success) return result.Message!.Contains("not found") ? NotFound(result) : StatusCode(403, result);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Delete any post inside the community. Only the journalist who created the community can do this.
+        /// </summary>
+        [HttpDelete("{communityId}/posts/{postId}")]
+        public async Task<IActionResult> DeletePost(Guid communityId, Guid postId)
+        {
+            var requesterId = GetCurrentUserId();
+            var result = await _communities.DeletePostAsync(communityId, requesterId, postId);
+            if (!result.Success) return result.Message!.Contains("not found") ? NotFound(result) : StatusCode(403, result);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Unban a previously banned member. Only the community creator can do this.
+        /// </summary>
+        [HttpPost("{communityId}/members/{targetUserId}/unban")]
+        public async Task<IActionResult> UnbanUser(Guid communityId, Guid targetUserId)
+        {
+            var requesterId = GetCurrentUserId();
+            var result = await _communities.UnbanUserAsync(communityId, requesterId, targetUserId);
+            if (!result.Success) return result.Message!.Contains("not found") ? NotFound(result) : StatusCode(403, result);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get the membership status of a specific user in this community.
+        /// Returns: "Member", "Banned", or "NotMember".
+        /// </summary>
+        [HttpGet("{communityId}/members/{targetUserId}/status")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetUserStatus(Guid communityId, Guid targetUserId)
+        {
+            var result = await _communities.GetUserStatusAsync(communityId, targetUserId);
+            if (!result.Success) return NotFound(result);
+            return Ok(result);
+        }
+
+
+        /// <summary>
+        /// List all communities on the platform. Accessible by anyone.
+        /// </summary>
+        [HttpGet("all")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAllCommunities()
+        {
+            var communities = await _communities.GetAllAsync();
+            return Ok(communities);
+        }
+
+        /// <summary>
+        /// List all communities created by a specific journalist.
+        /// </summary>
+        [HttpGet("by-journalist/{journalistId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetByJournalist(Guid journalistId)
+        {
+            var communities = await _communities.GetByCreatorAsync(journalistId);
+            return Ok(communities);
+        }
+
+        /// <summary>
+        /// Search communities by name (case-insensitive, partial match).
+        /// </summary>
+        [HttpGet("search")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Search([FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "Search query cannot be empty." });
+
+            var results = await _communities.SearchByNameAsync(query);
+            return Ok(results);
+        }
+
 
 
     }

@@ -141,7 +141,8 @@ namespace Persistence.Repositories
                 m.UserId,
                 m.User.Name,
                 m.Role,
-                m.JoinedAt
+                m.JoinedAt,
+                m.IsBanned
             ));
         }
 
@@ -152,6 +153,8 @@ namespace Persistence.Repositories
                 .Include(p => p.Author)
                     .ThenInclude(a => a.Organization)
                 .Include(p => p.Media)
+                .Include(p => p.Interactions)
+                    .ThenInclude(i => i.User)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -164,7 +167,20 @@ namespace Persistence.Repositories
                 p.Author.OrganizationId,
                 p.Author.Organization?.Name,
                 p.CreatedAt,
-                p.Media.Select(m => m.Path).ToList()
+                p.Media.Select(m => m.Path).ToList(),
+                p.Interactions.Count(i => i.Type == InteractionType.Like),
+                p.Interactions
+                    .Where(i => i.Type == InteractionType.Comment)
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => new CommentDto(
+                        i.Id,
+                        i.UserId,
+                        i.User.Name,
+                        i.User.Role.ToString(),
+                        i.Content ?? "",
+                        i.CreatedAt
+                    ))
+                    .ToList()
             ));
         }
 
@@ -179,6 +195,11 @@ namespace Persistence.Repositories
             var isMember = await IsMemberAsync(communityId, dto.UserId);
             if (!isMember)
                 return new ApiResponse<PostDto> { Success = false, Message = "You must be a member to post." };
+
+            var membership = await _context.Memberships
+                .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == dto.UserId);
+            if (membership != null && membership.IsBanned)
+                return new ApiResponse<PostDto> { Success = false, Message = "You are banned from this community." };
 
             var author = await _context.Users
                 .Include(u => u.Organization)
@@ -229,10 +250,202 @@ namespace Persistence.Repositories
                     author.OrganizationId,
                     author.Organization?.Name,
                     post.CreatedAt,
-                    dto.MediaPaths
+                    dto.MediaPaths,
+                    TotalLikes: 0,
+                    Comments: new List<CommentDto>()
                 )
             };
         }
+
+        public async Task<ApiResponse<string>> BanUserAsync(Guid communityId, Guid requesterId, Guid targetUserId)
+        {
+            var community = await _context.Communities.FindAsync(communityId);
+            if (community == null)
+                return new ApiResponse<string> { Success = false, Message = "Community not found." };
+
+            if (community.CreatedBy != requesterId)
+                return new ApiResponse<string> { Success = false, Message = "Only the community creator can ban users." };
+
+            if (requesterId == targetUserId)
+                return new ApiResponse<string> { Success = false, Message = "You cannot ban yourself." };
+
+            var membership = await _context.Memberships
+                .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == targetUserId);
+
+            if (membership == null)
+                return new ApiResponse<string> { Success = false, Message = "User is not a member of this community." };
+
+            if (membership.IsBanned)
+                return new ApiResponse<string> { Success = false, Message = "User is already banned." };
+
+            membership.IsBanned = true;
+            await _context.SaveChangesAsync();
+
+            return new ApiResponse<string> { Success = true, Message = "User has been banned from the community." };
+        }
+
+        public async Task<ApiResponse<string>> DeletePostAsync(Guid communityId, Guid requesterId, Guid postId)
+        {
+            var community = await _context.Communities.FindAsync(communityId);
+            if (community == null)
+                return new ApiResponse<string> { Success = false, Message = "Community not found." };
+
+            if (community.CreatedBy != requesterId)
+                return new ApiResponse<string> { Success = false, Message = "Only the community creator can delete posts." };
+
+            var post = await _context.Posts
+                .Include(p => p.Media)
+                .FirstOrDefaultAsync(p => p.Id == postId && p.CommunityId == communityId);
+
+            if (post == null)
+                return new ApiResponse<string> { Success = false, Message = "Post not found in this community." };
+
+            foreach (var media in post.Media)
+            {
+                var fullPath = Path.Combine(_env.WebRootPath, media.Path.TrimStart('/'));
+                if (File.Exists(fullPath))
+                    File.Delete(fullPath);
+            }
+
+            _context.Posts.Remove(post);
+            await _context.SaveChangesAsync();
+
+            return new ApiResponse<string> { Success = true, Message = "Post deleted successfully." };
+        }
+
+        public async Task<ApiResponse<string>> UnbanUserAsync(Guid communityId, Guid requesterId, Guid targetUserId)
+        {
+            var community = await _context.Communities.FindAsync(communityId);
+            if (community == null)
+                return new ApiResponse<string> { Success = false, Message = "Community not found." };
+
+            if (community.CreatedBy != requesterId)
+                return new ApiResponse<string> { Success = false, Message = "Only the community creator can unban users." };
+
+            var membership = await _context.Memberships
+                .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == targetUserId);
+
+            if (membership == null)
+                return new ApiResponse<string> { Success = false, Message = "User is not a member of this community." };
+
+            if (!membership.IsBanned)
+                return new ApiResponse<string> { Success = false, Message = "User is not banned." };
+
+            membership.IsBanned = false;
+            await _context.SaveChangesAsync();
+
+            return new ApiResponse<string> { Success = true, Message = "User has been unbanned successfully." };
+        }
+
+        public async Task<ApiResponse<MemberStatusDto>> GetUserStatusAsync(Guid communityId, Guid targetUserId)
+        {
+            var community = await _context.Communities.FindAsync(communityId);
+            if (community == null)
+                return new ApiResponse<MemberStatusDto> { Success = false, Message = "Community not found." };
+
+            var membership = await _context.Memberships
+                .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == targetUserId);
+
+            string status;
+            if (membership == null)
+                status = "NotMember";
+            else if (membership.IsBanned)
+                status = "Banned";
+            else
+                status = "Member";
+
+            return new ApiResponse<MemberStatusDto>
+            {
+                Success = true,
+                Data = new MemberStatusDto(status)
+            };
+        }
+
+
+        public async Task<IEnumerable<CommunityDto>> GetAllAsync()
+        {
+            var communities = await _context.Communities
+                .Include(c => c.Creator)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+
+            return communities.Select(c => new CommunityDto(
+                c.Id,
+                c.Name,
+                c.Description,
+                c.IsOpen,
+                c.ImageUrl,
+                c.CreatedBy,
+                c.Creator.Name,
+                c.Creator.Role.ToString()
+            ));
+        }
+
+        public async Task<IEnumerable<CommunityDto>> GetByCreatorAsync(Guid creatorId)
+        {
+            var communities = await _context.Communities
+                .Include(c => c.Creator)
+                .Where(c => c.CreatedBy == creatorId)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+
+            return communities.Select(c => new CommunityDto(
+                c.Id,
+                c.Name,
+                c.Description,
+                c.IsOpen,
+                c.ImageUrl,
+                c.CreatedBy,
+                c.Creator.Name,
+                c.Creator.Role.ToString()
+            ));
+        }
+
+        public async Task<IEnumerable<CommunityDto>> SearchByNameAsync(string query)
+        {
+            var lower = query.ToLower();
+
+            var communities = await _context.Communities
+                .Include(c => c.Creator)
+                .Where(c => c.Name.ToLower().Contains(lower))
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+
+            return communities.Select(c => new CommunityDto(
+                c.Id,
+                c.Name,
+                c.Description,
+                c.IsOpen,
+                c.ImageUrl,
+                c.CreatedBy,
+                c.Creator.Name,
+                c.Creator.Role.ToString()
+            ));
+        }
+
+
+        public async Task<ApiResponse<string>> LeaveAsync(Guid communityId, Guid userId)
+        {
+            var community = await _context.Communities.FindAsync(communityId);
+            if (community == null)
+                return new ApiResponse<string> { Success = false, Message = "Community not found." };
+
+            // The creator cannot leave their own community
+            if (community.CreatedBy == userId)
+                return new ApiResponse<string> { Success = false, Message = "You are the creator of this community and cannot leave it." };
+
+            var membership = await _context.Memberships
+                .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == userId);
+
+            if (membership == null)
+                return new ApiResponse<string> { Success = false, Message = "You are not a member of this community." };
+
+            _context.Memberships.Remove(membership);
+            await _context.SaveChangesAsync();
+
+            return new ApiResponse<string> { Success = true, Message = "You have successfully left the community." };
+        }
+
 
     }
 }
