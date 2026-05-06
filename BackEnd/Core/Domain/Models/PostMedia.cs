@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace Domain.Models
 {
@@ -11,6 +12,7 @@ namespace Domain.Models
         public Guid Id { get; set; }
 
         public Guid PostId { get; set; }
+        [JsonIgnore]
         public Post Post { get; set; } = null!;
 
         /// <summary>Relative or absolute path where the file is stored on disk / CDN.</summary>

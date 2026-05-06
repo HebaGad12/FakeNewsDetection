@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Persistence;
 
@@ -11,9 +12,11 @@ using Persistence;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427190845_CommunityJ")]
+    partial class CommunityJ
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -49,8 +52,6 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CreatedBy");
 
                     b.ToTable("Communities");
                 });
@@ -432,17 +433,6 @@ namespace Persistence.Migrations
                     b.ToTable("WalletTransactions");
                 });
 
-            modelBuilder.Entity("Domain.Models.Community", b =>
-                {
-                    b.HasOne("Domain.Models.User", "Creator")
-                        .WithMany("CommunitiesCreated")
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Creator");
-                });
-
             modelBuilder.Entity("Domain.Models.Donation", b =>
                 {
                     b.HasOne("Domain.Models.User", "Recipient")
@@ -639,8 +629,6 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Models.User", b =>
                 {
-                    b.Navigation("CommunitiesCreated");
-
                     b.Navigation("Followees");
 
                     b.Navigation("Followers");

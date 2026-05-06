@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 
 namespace Persistence
 {
@@ -23,7 +24,8 @@ namespace Persistence
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<Donation> Donations => Set<Donation>();
-
+        public DbSet<Community> Communities { get; set; }
+        public DbSet<Membership> Memberships { get; set; }
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -206,7 +208,12 @@ namespace Persistence
             b.Entity<Donation>()
                 .Property(d => d.Message)
                 .HasMaxLength(500);
-
+         //community
+           b.Entity<Community>()
+                .HasOne(c => c.Creator)
+                .WithMany(u => u.CommunitiesCreated)
+                .HasForeignKey(c => c.CreatedBy)
+                .OnDelete(DeleteBehavior.Restrict);
 
         }
     }

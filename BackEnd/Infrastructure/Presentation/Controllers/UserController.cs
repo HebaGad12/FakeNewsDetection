@@ -2,6 +2,8 @@ using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
 using System;
@@ -22,19 +24,21 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IModerationRepository _moderations;
         private readonly IFollowRepository _follows;
-
+        private readonly IWebHostEnvironment _env;
         public UserController(
             IUserRepository users,
             IPostRepository posts,
             IInteractionRepository interactions,
             IModerationRepository moderations,
-            IFollowRepository follows)
+            IFollowRepository follows,
+             IWebHostEnvironment env)
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
             _moderations = moderations;
             _follows = follows;
+            _env = env;
         }
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -186,6 +190,36 @@ namespace Presentation.Controllers
                 a.CreatedAt
             ));
             return Ok(dto);
+        }
+
+        [HttpPost("{userId}/upload-picture")]
+        public async Task<IActionResult> UploadProfilePicture(Guid userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            var uploadsPath = Path.Combine(_env.ContentRootPath, "Media", "Uploads", "Users", userId.ToString());
+            Directory.CreateDirectory(uploadsPath);
+
+            var filePath = Path.Combine(uploadsPath, file.FileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+            return Ok(new { Message = "Profile picture uploaded successfully", Path = filePath });
+        }
+
+        [HttpGet("{userId}/picture/{fileName}")]
+        public IActionResult GetProfilePicture(Guid userId, string fileName)
+        {
+            var filePath = Path.Combine(_env.ContentRootPath, "Media", "Uploads", "Users", userId.ToString(), fileName);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found.");
+
+            var imageBytes = System.IO.File.ReadAllBytes(filePath);
+            return File(imageBytes, "image/jpeg");
         }
     }
 }
