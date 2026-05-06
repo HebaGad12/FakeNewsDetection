@@ -3,6 +3,8 @@ using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Presentation.SignalR_Hubs;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
@@ -20,16 +22,25 @@ namespace Presentation.Controllers
         private readonly IDonationRepository _donations;
         private readonly IWalletRepository _wallets;
         private readonly IUserRepository _users;
+        private readonly INotificationRepository _notifications;
+        private readonly IHubContext<NotificationHub> _hub;
 
         public DonationController(
             IDonationRepository donations,
             IWalletRepository wallets,
-            IUserRepository users)
+            IUserRepository users,
+            INotificationRepository notifications,
+            IHubContext<NotificationHub> hub)
         {
             _donations = donations;
             _wallets = wallets;
             _users = users;
+            _notifications = notifications;
+            _hub = hub;
         }
+
+        private Guid GetUserId() =>
+            Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet("my-wallet")]
         public async Task<ActionResult<WalletResponse>> MyWallet()
@@ -49,17 +60,11 @@ namespace Presentation.Controllers
             var transactions = await _wallets.GetTransactionsByUserIdAsync(userId);
 
             var dto = transactions.Select(t => new WalletTransactionResponse(
-                t.Id,
-                t.Amount,
-                t.Type.ToString(),
-                t.Description,
-                t.Actor?.Name,
-                t.CreatedAt
-            ));
+                t.Id, t.Amount, t.Type.ToString(),
+                t.Description, t.Actor?.Name, t.CreatedAt));
 
             return Ok(dto);
         }
-
 
         [HttpPost("send")]
         [Authorize(Roles = "Regular,Journalist")]
@@ -69,7 +74,6 @@ namespace Presentation.Controllers
                 return BadRequest("Donation amount must be greater than zero.");
 
             var senderId = GetUserId();
-
             if (senderId == request.RecipientId)
                 return BadRequest("You cannot donate to yourself.");
 
@@ -90,7 +94,6 @@ namespace Presentation.Controllers
 
             senderWallet.Balance -= request.Amount;
             recipientWallet.Balance += request.Amount;
-
             await _wallets.UpdateAsync(senderWallet);
             await _wallets.UpdateAsync(recipientWallet);
 
@@ -127,6 +130,53 @@ namespace Presentation.Controllers
                 CreatedAt = DateTime.UtcNow
             });
 
+            // ── Notify recipient (deposit) ─────────────────────────────────
+            var nRecipient = new Notification
+            {
+                UserId = request.RecipientId,
+                ActorId = senderId,
+                Type = "donation_received",
+                Title = "Donation received",
+                Message = $"{sender.Name} donated {request.Amount:F2} EGP to your wallet."
+            };
+            await _notifications.AddAsync(nRecipient);
+            await _hub.Clients.Group($"user:{request.RecipientId}")
+                .SendAsync("ReceiveNotification", new
+                {
+                    nRecipient.Id,
+                    nRecipient.Title,
+                    nRecipient.Message,
+                    nRecipient.Type,
+                    nRecipient.IsRead,
+                    nRecipient.CreatedAt,
+                    ActorId = senderId,
+                    ActorName = sender.Name
+                });
+
+            // ── Notify sender (withdrawal confirmation) ────────────────────
+            var nSender = new Notification
+            {
+                UserId = senderId,
+                ActorId = request.RecipientId,
+                Type = "donation_sent",
+                Title = "Donation sent",
+                Message = $"You successfully sent {request.Amount:F2} EGP to {recipient.Name}."
+            };
+            await _notifications.AddAsync(nSender);
+            await _hub.Clients.Group($"user:{senderId}")
+                .SendAsync("ReceiveNotification", new
+                {
+                    nSender.Id,
+                    nSender.Title,
+                    nSender.Message,
+                    nSender.Type,
+                    nSender.IsRead,
+                    nSender.CreatedAt,
+                    ActorId = request.RecipientId,
+                    ActorName = recipient.Name
+                });
+            // ─────────────────────────────────────────────────────────────
+
             return Ok(new
             {
                 Message = "Donation sent successfully",
@@ -137,20 +187,17 @@ namespace Presentation.Controllers
             });
         }
 
-
         [HttpGet("sent")]
         public async Task<ActionResult<IEnumerable<DonationResponse>>> SentDonations()
         {
-            var userId = GetUserId();
-            var donations = await _donations.GetSentByUserAsync(userId);
+            var donations = await _donations.GetSentByUserAsync(GetUserId());
             return Ok(donations.Select(MapDonation));
         }
 
         [HttpGet("received")]
         public async Task<ActionResult<IEnumerable<DonationResponse>>> ReceivedDonations()
         {
-            var userId = GetUserId();
-            var donations = await _donations.GetReceivedByUserAsync(userId);
+            var donations = await _donations.GetReceivedByUserAsync(GetUserId());
             return Ok(donations.Select(MapDonation));
         }
 
@@ -162,18 +209,9 @@ namespace Presentation.Controllers
             return Ok(donations.Select(MapDonation));
         }
 
-        private Guid GetUserId() =>
-            Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
         private static DonationResponse MapDonation(Donation d) => new(
-            d.Id,
-            d.SenderId,
-            d.Sender?.Name ?? "Deleted User",
-            d.RecipientId,
-            d.Recipient?.Name ?? "Deleted User",
-            d.Amount,
-            d.Message,
-            d.CreatedAt
-        );
+            d.Id, d.SenderId, d.Sender?.Name ?? "Deleted User",
+            d.RecipientId, d.Recipient?.Name ?? "Deleted User",
+            d.Amount, d.Message, d.CreatedAt);
     }
 }

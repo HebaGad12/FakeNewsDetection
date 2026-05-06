@@ -4,6 +4,8 @@ using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using Presentation.SignalR_Hubs;
 using ServicesAbstraction;
 using Shared.DTOs;
 using System;
@@ -14,10 +16,6 @@ using System.Threading.Tasks;
 
 namespace Presentation.Controllers
 {
-    /// <summary>
-    /// Unified posts controller: like, comment, get all posts with comments.
-    /// All authenticated users (Regular, Journalist, Organization) use these shared endpoints.
-    /// </summary>
     [ApiController]
     [Route("api/posts")]
     [Authorize]
@@ -28,31 +26,36 @@ namespace Presentation.Controllers
         private readonly IUserRepository _users;
         private readonly IPostMediaRepository _media;
         private readonly IToxicityService _toxicity;
+        private readonly INotificationRepository _notifications;
+        private readonly IHubContext<NotificationHub> _hub;
 
         public PostsController(
             IPostRepository posts,
             IInteractionRepository interactions,
             IUserRepository users,
             IPostMediaRepository media,
-            IToxicityService toxicity)
+            IToxicityService toxicity,
+            INotificationRepository notifications,
+            IHubContext<NotificationHub> hub)
         {
             _posts = posts;
             _interactions = interactions;
             _users = users;
             _media = media;
             _toxicity = toxicity;
+            _notifications = notifications;
+            _hub = hub;
         }
 
         private Guid GetUserId() =>
             Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // ─────────────────────────────────────────
-        // GET ALL POSTS WITH COMMENTS
-        // ─────────────────────────────────────────
+        private string GetUserName() =>
+            User.FindFirstValue(ClaimTypes.Name)
+            ?? User.FindFirstValue("name")
+            ?? User.FindFirstValue("unique_name")
+            ?? "Someone";
 
-        /// <summary>
-        /// Returns all approved posts with their comments, interactions, and media.
-        /// </summary>
         [HttpGet]
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<PostWithCommentsResponse>>> GetAllPosts()
@@ -93,23 +96,17 @@ namespace Presentation.Controllers
                 )).ToList();
 
                 result.Add(new PostWithCommentsResponse(
-                    p.Id,
-                    p.Title,
-                    p.Content,
-                    p.Tags,
-                    author?.Name ?? "Unknown",
-                    p.AuthorId,
-                    orgName,
-                    p.CreatedAt,
-                    p.UpdatedAt,
+                    p.Id, p.Title, p.Content, p.Tags,
+                    author?.Name ?? "Unknown", p.AuthorId, orgName,
+                    p.CreatedAt, p.UpdatedAt,
                     p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
-                    comments,
-                    mediaDtos
+                    comments, mediaDtos
                 ));
             }
 
             return Ok(result);
         }
+
 
         // ─────────────────────────────────────────
         // LIKE  (all authenticated users)
@@ -129,6 +126,7 @@ namespace Presentation.Controllers
             return Ok(post);
         }
 
+
         [HttpPost("{postId}/like")]
         public async Task<ActionResult> Like(Guid postId)
         {
@@ -137,7 +135,6 @@ namespace Presentation.Controllers
             var post = await _posts.GetByIdAsync(postId);
             if (post == null) return NotFound("Post not found.");
 
-            // Check duplicate like
             var existing = await _interactions.GetByUserAsync(userId);
             if (existing.Any(i => i.PostId == postId && i.Type == InteractionType.Like))
                 return Conflict("You have already liked this post.");
@@ -151,16 +148,42 @@ namespace Presentation.Controllers
                 CreatedAt = DateTime.UtcNow
             });
 
+            // ── Notify post author ────────────────────────────────────────
+            if (post.AuthorId != userId)
+            {
+                var actorName = GetUserName();
+                var n = new Notification
+                {
+                    UserId = post.AuthorId,
+                    ActorId = userId,
+                    Type = "like",
+                    Title = "New like",
+                    Message = $"{actorName} liked your post \"{post.Title}\"."
+                };
+                await _notifications.AddAsync(n);
+                await _hub.Clients.Group($"user:{post.AuthorId}")
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        n.Id,
+                        n.Title,
+                        n.Message,
+                        n.Type,
+                        n.IsRead,
+                        n.CreatedAt,
+                        ActorId = userId,
+                        ActorName = actorName
+                    });
+            }
+            // ─────────────────────────────────────────────────────────────
+
             post = await _posts.GetByIdAsync(postId);
-            var likesCount = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0;
-            return Ok(new { Likes = likesCount });
+            return Ok(new { Likes = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0 });
         }
 
         [HttpDelete("{postId}/like")]
         public async Task<ActionResult> Unlike(Guid postId)
         {
             var userId = GetUserId();
-
             var interactions = await _interactions.GetByUserAsync(userId);
             var like = interactions.FirstOrDefault(i => i.PostId == postId && i.Type == InteractionType.Like);
             if (like == null) return NotFound("Like not found.");
@@ -168,13 +191,8 @@ namespace Presentation.Controllers
             await _interactions.DeleteAsync(like.Id);
 
             var post = await _posts.GetByIdAsync(postId);
-            var likesCount = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0;
-            return Ok(new { Likes = likesCount });
+            return Ok(new { Likes = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0 });
         }
-
-        // ─────────────────────────────────────────
-        // COMMENT  (all authenticated users)
-        // ─────────────────────────────────────────
 
         [HttpPost("{postId}/comment")]
         public async Task<ActionResult> Comment(Guid postId, [FromBody] CommentRequestDto req)
@@ -184,14 +202,12 @@ namespace Presentation.Controllers
             var post = await _posts.GetByIdAsync(postId);
             if (post == null) return NotFound("Post not found.");
 
-            // ── Toxicity check ──────────────────────────────────────────────
             if (await _toxicity.IsToxicAsync(req.Content))
                 return BadRequest(new
                 {
                     Error = "ToxicContent",
                     Message = "Your comment contains toxic language and cannot be posted."
                 });
-            // ────────────────────────────────────────────────────────────────
 
             var interaction = new Interaction
             {
@@ -205,53 +221,59 @@ namespace Presentation.Controllers
 
             await _interactions.AddAsync(interaction);
 
+            // ── Notify post author ────────────────────────────────────────
+            if (post.AuthorId != userId)
+            {
+                var actorName = GetUserName();
+                var n = new Notification
+                {
+                    UserId = post.AuthorId,
+                    ActorId = userId,
+                    Type = "comment",
+                    Title = "New comment",
+                    Message = $"{actorName} commented on your post \"{post.Title}\"."
+                };
+                await _notifications.AddAsync(n);
+                await _hub.Clients.Group($"user:{post.AuthorId}")
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        n.Id,
+                        n.Title,
+                        n.Message,
+                        n.Type,
+                        n.IsRead,
+                        n.CreatedAt,
+                        ActorId = userId,
+                        ActorName = actorName
+                    });
+            }
+            // ─────────────────────────────────────────────────────────────
+
             post = await _posts.GetByIdAsync(postId);
-            var commentsCount = post?.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0;
-            return Ok(new { CommentId = interaction.Id, Comments = commentsCount });
+            return Ok(new { CommentId = interaction.Id, Comments = post?.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0 });
         }
 
         [HttpDelete("{postId}/comment/{commentId}")]
         public async Task<ActionResult> DeleteComment(Guid postId, Guid commentId)
         {
             var userId = GetUserId();
-
             var interactions = await _interactions.GetByUserAsync(userId);
             var comment = interactions.FirstOrDefault(i =>
                 i.Id == commentId && i.PostId == postId && i.Type == InteractionType.Comment);
 
             if (comment == null) return NotFound("Comment not found or not owned by you.");
-
             await _interactions.DeleteAsync(comment.Id);
             return NoContent();
         }
     }
 
-    // ─────────────────────────────────────────
-    // Response DTOs
-    // ─────────────────────────────────────────
-
-    public record CommentDto(
-        Guid Id,
-        string AuthorName,
-        string AuthorRole,
-        string Content,
-        DateTime CreatedAt
-    );
+    public record CommentDto(Guid Id, string AuthorName, string AuthorRole, string Content, DateTime CreatedAt);
 
     public record PostWithCommentsResponse(
-        Guid Id,
-        string Title,
-        string Content,
-        string[] Tags,
-        string AuthorName,
-        Guid AuthorId,
-        string OrganizationName,
-        DateTime CreatedAt,
-        DateTime? UpdatedAt,
-        int LikesCount,
-        List<CommentDto> Comments,
-        List<MediaDto> Media
-    );
+        Guid Id, string Title, string Content, string[] Tags,
+        string AuthorName, Guid AuthorId, string OrganizationName,
+        DateTime CreatedAt, DateTime? UpdatedAt,
+        int LikesCount, List<CommentDto> Comments, List<MediaDto> Media);
 
     public record CommentRequestDto(string Content);
 }

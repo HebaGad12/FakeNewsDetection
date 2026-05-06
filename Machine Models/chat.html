@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Text Analysis — Grammar & Fact Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface-2: #222228;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text-primary: #f0ede8;
+    --text-secondary: #9a9691;
+    --text-muted: #5c5a57;
+    --accent-grammar: #c8a96e;
+    --accent-grammar-dim: rgba(200,169,110,0.12);
+    --accent-fact: #6ea8c8;
+    --accent-fact-dim: rgba(110,168,200,0.12);
+    --accent-active: #f0ede8;
+    --success: #7ec8a0;
+    --success-dim: rgba(126,200,160,0.1);
+    --danger: #c87e7e;
+    --danger-dim: rgba(200,126,126,0.1);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'Lora', serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Header ── */
+  header {
+    width: 100%;
+    max-width: 780px;
+    padding: 3rem 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+  }
+
+  h1 em {
+    font-style: italic;
+    font-family: var(--font-body);
+    color: var(--accent-grammar);
+  }
+
+  .subtitle {
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-top: 0.25rem;
+  }
+
+  /* ── Main ── */
+  main {
+    width: 100%;
+    max-width: 780px;
+    padding: 0 2rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ── Mode selector ── */
+  .mode-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mode-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .mode-btn.grammar::before { background: var(--accent-grammar-dim); }
+  .mode-btn.factcheck::before { background: var(--accent-fact-dim); }
+
+  .mode-btn:hover::before,
+  .mode-btn.active::before { opacity: 1; }
+
+  .mode-btn.active.grammar { border-color: var(--accent-grammar); }
+  .mode-btn.active.factcheck { border-color: var(--accent-fact); }
+
+  .mode-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .grammar .mode-icon { background: var(--accent-grammar-dim); }
+  .factcheck .mode-icon { background: var(--accent-fact-dim); }
+  .mode-btn.active.grammar .mode-icon { background: rgba(200,169,110,0.25); }
+  .mode-btn.active.factcheck .mode-icon { background: rgba(110,168,200,0.25); }
+
+  .mode-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    position: relative;
+    z-index: 1;
+  }
+
+  .mode-label strong {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .mode-label span {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+  }
+
+  .mode-check {
+    margin-left: auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    position: relative;
+    z-index: 1;
+  }
+
+  .mode-btn.active.grammar .mode-check {
+    opacity: 1;
+    background: var(--accent-grammar);
+    border-color: var(--accent-grammar);
+    color: #1a1200;
+  }
+
+  .mode-btn.active.factcheck .mode-check {
+    opacity: 1;
+    background: var(--accent-fact);
+    border-color: var(--accent-fact);
+    color: #001a26;
+  }
+
+  /* ── Textarea card ── */
+  .input-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .input-card:focus-within { border-color: var(--border-strong); }
+
+  textarea {
+    width: 100%;
+    min-height: 200px;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 20px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.75;
+    resize: vertical;
+  }
+
+  textarea::placeholder { color: var(--text-muted); }
+
+  .input-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .char-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ── Submit button ── */
+  .submit-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    background: var(--text-primary);
+    color: var(--bg);
+    border-color: var(--text-primary);
+  }
+
+  .submit-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .submit-btn.grammar-mode { border-color: var(--accent-grammar); color: var(--accent-grammar); }
+  .submit-btn.grammar-mode:hover:not(:disabled) { background: var(--accent-grammar); color: #1a1200; }
+  .submit-btn.factcheck-mode { border-color: var(--accent-fact); color: var(--accent-fact); }
+  .submit-btn.factcheck-mode:hover:not(:disabled) { background: var(--accent-fact); color: #001a26; }
+
+  /* ── Loader ── */
+  .loader {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .loader.visible { display: flex; }
+
+  .dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes pulse {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Result card ── */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: none;
+    animation: slideUp 0.35s ease;
+  }
+
+  .result-card.visible { display: block; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .result-badge .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  .grammar-badge { color: var(--accent-grammar); }
+  .grammar-badge .dot { background: var(--accent-grammar); }
+  .factcheck-badge { color: var(--accent-fact); }
+  .factcheck-badge .dot { background: var(--accent-fact); }
+
+  .copy-btn {
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover { border-color: var(--border-strong); color: var(--text-secondary); }
+  .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+  .result-body {
+    padding: 20px;
+    font-size: 14.5px;
+    line-height: 1.85;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+
+  .result-body::-webkit-scrollbar { width: 4px; }
+  .result-body::-webkit-scrollbar-track { background: transparent; }
+  .result-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+  /* Error card */
+  .error-card {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--danger-dim);
+    border: 1px solid rgba(200,126,126,0.25);
+    border-radius: var(--radius);
+    color: var(--danger);
+    font-size: 14px;
+    animation: slideUp 0.3s ease;
+  }
+
+  .error-card.visible { display: flex; }
+
+  /* ── Footer ── */
+  footer {
+    width: 100%;
+    max-width: 780px;
+    padding: 0 2rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+    margin-top: auto;
+  }
+
+  footer p {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .api-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .api-status.online .status-dot { background: var(--success); }
+  .api-status.online { color: var(--success); }
+
+  /* Scrollbar on body */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">Analysis Studio</span>
+  <h1>Write. Verify. <em>Refine.</em></h1>
+  <p class="subtitle">Grammar editing and fact verification powered by Gemini — pick your mode, paste your text.</p>
+</header>
+
+<main>
+
+  <!-- Mode selector -->
+  <div class="mode-row">
+    <button class="mode-btn grammar active" onclick="setMode('grammar')">
+      <div class="mode-icon">✦</div>
+      <div class="mode-label">
+        <strong>Grammar Check</strong>
+        <span>Spelling, punctuation &amp; style</span>
+      </div>
+      <div class="mode-check">✓</div>
+    </button>
+    <button class="mode-btn factcheck" onclick="setMode('factcheck')">
+      <div class="mode-icon">◈</div>
+      <div class="mode-label">
+        <strong>Fact Check</strong>
+        <span>Verify claims with web sources</span>
+      </div>
+      <div class="mode-check">✓</div>
+    </button>
+  </div>
+
+  <!-- Input -->
+  <div class="input-card">
+    <textarea
+      id="inputText"
+      placeholder="Paste or type your text here…"
+      oninput="onInput()"
+    ></textarea>
+    <div class="input-footer">
+      <span class="char-count" id="charCount">0 characters</span>
+      <button class="submit-btn grammar-mode" id="submitBtn" onclick="analyse()" disabled>
+        <span id="btnLabel">Analyse</span>
+        <span>→</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loader -->
+  <div class="loader" id="loader">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <span id="loaderText">Running grammar analysis…</span>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="errorCard">
+    <span>⚠</span>
+    <span id="errorText">Something went wrong. Check that the API server is running.</span>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="result-badge grammar-badge" id="resultBadge">
+        <div class="dot"></div>
+        <span id="resultBadgeText">Grammar Analysis</span>
+      </div>
+      <button class="copy-btn" id="copyBtn" onclick="copyResult()">copy</button>
+    </div>
+    <div class="result-body" id="resultBody"></div>
+  </div>
+
+</main>
+
+<footer>
+  <p>POST → http://localhost:8000/chat</p>
+  <div class="api-status" id="apiStatus">
+    <div class="status-dot"></div>
+    <span>checking…</span>
+  </div>
+</footer>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+  let currentMode = 'grammar';
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.mode-btn.${mode}`).classList.add('active');
+
+    const btn = document.getElementById('submitBtn');
+    btn.className = `submit-btn ${mode}-mode`;
+
+    hideResults();
+  }
+
+  function onInput() {
+    const text = document.getElementById('inputText').value;
+    const count = text.length;
+    document.getElementById('charCount').textContent =
+      count === 0 ? '0 characters' : `${count.toLocaleString()} character${count !== 1 ? 's' : ''}`;
+    document.getElementById('submitBtn').disabled = text.trim().length === 0;
+  }
+
+  function hideResults() {
+    document.getElementById('resultCard').classList.remove('visible');
+    document.getElementById('errorCard').classList.remove('visible');
+  }
+
+  async function analyse() {
+    const text = document.getElementById('inputText').value.trim();
+    if (!text) return;
+
+    hideResults();
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loaderText');
+    loaderText.textContent = currentMode === 'grammar'
+      ? 'Running grammar analysis…'
+      : 'Verifying claims with web search…';
+    loader.classList.add('visible');
+    document.getElementById('submitBtn').disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, mode: currentMode }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      showResult(data.analysis, currentMode);
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      loader.classList.remove('visible');
+      document.getElementById('submitBtn').disabled = false;
+    }
+  }
+
+  function showResult(analysis, mode) {
+    const card = document.getElementById('resultCard');
+    const badge = document.getElementById('resultBadge');
+    const badgeText = document.getElementById('resultBadgeText');
+    const body = document.getElementById('resultBody');
+
+    badge.className = `result-badge ${mode}-badge`;
+    badgeText.textContent = mode === 'grammar' ? 'Grammar Analysis' : 'Fact-Check Report';
+    body.textContent = analysis;
+
+    card.classList.add('visible');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    document.getElementById('copyBtn').textContent = 'copy';
+    document.getElementById('copyBtn').classList.remove('copied');
+  }
+
+  function showError(msg) {
+    const card = document.getElementById('errorCard');
+    document.getElementById('errorText').textContent = msg || 'Something went wrong. Check that the API server is running.';
+    card.classList.add('visible');
+  }
+
+  function copyResult() {
+    const text = document.getElementById('resultBody').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = 'copied ✓';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  async function checkHealth() {
+    const el = document.getElementById('apiStatus');
+    try {
+      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        el.className = 'api-status online';
+        el.innerHTML = '<div class="status-dot"></div><span>API online</span>';
+      } else throw new Error();
+    } catch {
+      el.className = 'api-status';
+      el.innerHTML = '<div class="status-dot"></div><span>API offline</span>';
+    }
+  }
+
+  checkHealth();
+</script>
+</body>
+</html>

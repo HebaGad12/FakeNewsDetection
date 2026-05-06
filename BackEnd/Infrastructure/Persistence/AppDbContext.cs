@@ -1,4 +1,4 @@
-using Domain.Models;
+﻿using Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -26,6 +26,7 @@ namespace Persistence
         public DbSet<Donation> Donations => Set<Donation>();
         public DbSet<Community> Communities { get; set; }
         public DbSet<Membership> Memberships { get; set; }
+        public DbSet<Notification> Notifications => Set<Notification>();
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -215,6 +216,39 @@ namespace Persistence
                 .HasForeignKey(c => c.CreatedBy)
                 .OnDelete(DeleteBehavior.Restrict);
 
+
+            // ===================== NOTIFICATION =====================
+
+            b.Entity<Notification>().HasKey(n => n.Id);
+            b.Entity<Notification>().HasIndex(n => n.UserId);
+            b.Entity<Notification>().HasIndex(n => n.CreatedAt);
+
+            b.Entity<Notification>()
+                .Property(n => n.Title)
+                .HasMaxLength(300);
+
+            b.Entity<Notification>()
+                .Property(n => n.Message)
+                .HasMaxLength(1000);
+
+            b.Entity<Notification>()
+                .Property(n => n.Type)
+                .HasMaxLength(50);
+
+            // Receiver FK
+            b.Entity<Notification>()
+                .HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Actor FK (who triggered it — nullable)
+            b.Entity<Notification>()
+                .HasOne(n => n.Actor)
+                .WithMany()
+                .HasForeignKey(n => n.ActorId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);   // NoAction avoids cascade cycle
         }
     }
 }

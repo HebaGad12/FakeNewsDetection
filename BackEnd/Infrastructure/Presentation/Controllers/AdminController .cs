@@ -22,19 +22,22 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IModerationRepository _moderations;
         private readonly IFollowRepository _follows;
+        private readonly INotificationRepository _notifications;
 
         public AdminController(
             IUserRepository users,
             IPostRepository posts,
             IInteractionRepository interactions,
             IModerationRepository moderations,
-            IFollowRepository follows)
+            IFollowRepository follows,
+            INotificationRepository notifications)
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
             _moderations = moderations;
             _follows = follows;
+            _notifications = notifications;
         }
 
         #region Dashboard & Statistics
@@ -104,7 +107,6 @@ namespace Presentation.Controllers
                 var followers = await _follows.GetFollowersAsync(u.Id);
                 var followees = await _follows.GetFolloweesAsync(u.Id);
 
-                // For org members: look up the org user's name
                 string? orgName = null;
                 if (u.OrganizationId.HasValue)
                 {
@@ -143,7 +145,6 @@ namespace Presentation.Controllers
             var followers = await _follows.GetFollowersAsync(id);
             var followees = await _follows.GetFolloweesAsync(id);
             var allPosts = await _posts.GetAllAsync();
-
             var userPosts = allPosts.Where(p => p.AuthorId == id).ToList();
 
             var totalLikes = 0;
@@ -167,7 +168,7 @@ namespace Presentation.Controllers
                 orgName = orgUser?.Name;
             }
 
-            var response = new AdminUserDetailResponse(
+            return Ok(new AdminUserDetailResponse(
                 Id: user.Id,
                 Name: user.Name,
                 Email: user.Email,
@@ -184,9 +185,7 @@ namespace Presentation.Controllers
                 TotalCommentsReceived: totalComments,
                 TotalInteractions: totalInteractions,
                 ModerationActionsCount: moderations.Count()
-            );
-
-            return Ok(response);
+            ));
         }
 
         [HttpPatch("users/{id}/status")]
@@ -305,7 +304,7 @@ namespace Presentation.Controllers
                 orgName = orgUser?.Name;
             }
 
-            var response = new AdminPostDetailResponse(
+            return Ok(new AdminPostDetailResponse(
                 Id: post.Id,
                 Title: post.Title,
                 Content: post.Content,
@@ -328,9 +327,7 @@ namespace Presentation.Controllers
                 ShareCount: postInteractions.Count(i => i.Type == InteractionType.Share),
                 ReportCount: postInteractions.Count(i => i.Type == InteractionType.Report),
                 TotalInteractions: postInteractions.Count()
-            );
-
-            return Ok(response);
+            ));
         }
 
         [HttpPatch("posts/{id}/moderation")]
@@ -348,7 +345,7 @@ namespace Presentation.Controllers
 
             await _posts.UpdateAsync(post);
 
-            var moderationAction = new ModerationAction
+            await _moderations.AddAsync(new ModerationAction
             {
                 Id = Guid.NewGuid(),
                 PostId = id,
@@ -362,9 +359,8 @@ namespace Presentation.Controllers
                     _ => ModerationActionType.Keep
                 },
                 CreatedAt = DateTime.UtcNow
-            };
+            });
 
-            await _moderations.AddAsync(moderationAction);
             return Ok(new { message = "Post moderation updated successfully" });
         }
 
@@ -409,7 +405,8 @@ namespace Presentation.Controllers
                          && u.OrganizationId == null
                          && u.RegistrationStatus == RegistrationStatus.Pending)
                 .OrderBy(u => u.CreatedAt)
-                .Select(u => new PendingJournalistResponse(u.Id, u.Name, u.Email, u.JournalistExternalId ?? "", u.CreatedAt));
+                .Select(u => new PendingJournalistResponse(
+                    u.Id, u.Name, u.Email, u.JournalistExternalId ?? "", u.CreatedAt));
 
             return Ok(pending);
         }
@@ -431,6 +428,17 @@ namespace Presentation.Controllers
                 user.RegistrationStatus = RegistrationStatus.Approved;
                 user.RejectionReason = null;
                 await _users.UpdateAsync(user);
+
+                // Save to DB only — journalist is not connected to SignalR yet (cannot log in until approved).
+                // They will see this notification the moment they open the app after their first login.
+                await _notifications.AddAsync(new Notification
+                {
+                    UserId = user.Id,
+                    Type = "registration_approved",
+                    Title = "Registration approved",
+                    Message = "Your journalist registration has been approved. You can now log in."
+                });
+
                 return Ok(new { message = $"Journalist '{user.Name}' has been approved and can now log in." });
             }
             else
@@ -441,6 +449,10 @@ namespace Presentation.Controllers
                 user.RegistrationStatus = RegistrationStatus.Rejected;
                 user.RejectionReason = request.RejectionReason;
                 await _users.UpdateAsync(user);
+
+                // No notification stored — rejected users cannot log in and will never see it.
+                // The Login endpoint already returns the rejection reason when they try to sign in.
+
                 return Ok(new { message = $"Journalist '{user.Name}' has been rejected." });
             }
         }
@@ -527,6 +539,17 @@ namespace Presentation.Controllers
                 user.RegistrationStatus = RegistrationStatus.Approved;
                 user.RejectionReason = null;
                 await _users.UpdateAsync(user);
+
+                // Save to DB only — org is not connected to SignalR yet (cannot log in until approved).
+                // They will see this notification the moment they open the app after their first login.
+                await _notifications.AddAsync(new Notification
+                {
+                    UserId = user.Id,
+                    Type = "registration_approved",
+                    Title = "Registration approved",
+                    Message = "Your organization registration has been approved. You can now log in."
+                });
+
                 return Ok(new { message = $"Organization '{user.Name}' has been approved and can now log in." });
             }
             else
@@ -537,6 +560,10 @@ namespace Presentation.Controllers
                 user.RegistrationStatus = RegistrationStatus.Rejected;
                 user.RejectionReason = request.RejectionReason;
                 await _users.UpdateAsync(user);
+
+                // No notification stored — rejected users cannot log in and will never see it.
+                // The Login endpoint already returns the rejection reason when they try to sign in.
+
                 return Ok(new { message = $"Organization '{user.Name}' has been rejected." });
             }
         }

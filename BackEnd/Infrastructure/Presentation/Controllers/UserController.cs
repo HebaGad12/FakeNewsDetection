@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Presentation.SignalR_Hubs;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
@@ -24,21 +26,31 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IModerationRepository _moderations;
         private readonly IFollowRepository _follows;
+
         private readonly IWebHostEnvironment _env;
+
+        private readonly INotificationRepository _notifications; // ← NEW
+        private readonly IHubContext<NotificationHub> _hub;      // ← NEW
+
         public UserController(
             IUserRepository users,
             IPostRepository posts,
             IInteractionRepository interactions,
             IModerationRepository moderations,
             IFollowRepository follows,
-             IWebHostEnvironment env)
+             IWebHostEnvironment env,
+            INotificationRepository notifications, // ← NEW
+            IHubContext<NotificationHub> hub)      // ← NEW
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
             _moderations = moderations;
             _follows = follows;
+ 
             _env = env;
+            _notifications = notifications; // ← NEW
+            _hub = hub;                     // ← NEW
         }
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -67,8 +79,8 @@ namespace Presentation.Controllers
             var user = await _users.GetByIdAsync(GetUserId());
             if (user is null) return NotFound("User not found");
 
-            if (req.Name != null)    user.Name    = req.Name;
-            if (req.Email != null)   user.Email   = req.Email;
+            if (req.Name != null) user.Name = req.Name;
+            if (req.Email != null) user.Email = req.Email;
             if (req.Profile != null) user.Profile = req.Profile;
 
             await _users.UpdateAsync(user);
@@ -80,14 +92,14 @@ namespace Presentation.Controllers
         {
             var uid = GetUserId();
             var interactions = await _interactions.GetByUserAsync(uid);
-            var likes     = interactions.Count(i => i.Type == InteractionType.Like);
-            var comments  = interactions.Count(i => i.Type == InteractionType.Comment);
-            var reports   = interactions.Count(i => i.Type == InteractionType.Report);
+            var likes = interactions.Count(i => i.Type == InteractionType.Like);
+            var comments = interactions.Count(i => i.Type == InteractionType.Comment);
+            var reports = interactions.Count(i => i.Type == InteractionType.Report);
 
-            var moderations    = await _moderations.GetByActorAsync(uid);
+            var moderations = await _moderations.GetByActorAsync(uid);
             var helpfulReports = moderations.Count(m => m.Action == ModerationActionType.Keep);
 
-            var followees           = await _follows.GetFolloweesAsync(uid);
+            var followees = await _follows.GetFolloweesAsync(uid);
             var followingJournalists = followees.Count(f => f.Followee.Role == Role.Journalist);
 
             return Ok(new UserOverviewResponse(likes, comments, reports, helpfulReports, followingJournalists));
@@ -125,7 +137,6 @@ namespace Presentation.Controllers
             if (targetUser.Role != Role.Journalist && targetUser.Role != Role.Organization)
                 return BadRequest("You can only follow journalists or organizations.");
 
-            // FIX: Check for duplicate follow
             var existing = await _follows.GetAsync(userId, targetId);
             if (existing is not null)
                 return Conflict("You are already following this user.");
@@ -136,6 +147,38 @@ namespace Presentation.Controllers
                 FolloweeId = targetId,
                 CreatedAt = DateTime.UtcNow
             });
+
+            // ── Notify the journalist/org being followed ──────────────────────
+            var followerName = User.FindFirstValue(ClaimTypes.Name)
+                            ?? User.FindFirstValue("name")
+                            ?? User.FindFirstValue("unique_name")
+                            ?? "Someone";
+
+            var notification = new Notification
+            {
+                UserId = targetId,   // journalist/org receives it
+                ActorId = userId,     // the follower is the actor
+                Type = "follow",
+                Title = "New Follower",
+                Message = $"{followerName} started following you."
+            };
+
+            await _notifications.AddAsync(notification);
+
+            await _hub.Clients
+                .Group($"user:{targetId}")
+                .SendAsync("ReceiveNotification", new
+                {
+                    notification.Id,
+                    notification.Title,
+                    notification.Message,
+                    notification.Type,
+                    notification.IsRead,
+                    notification.CreatedAt,
+                    ActorId = userId,
+                    ActorName = followerName
+                });
+            // ─────────────────────────────────────────────────────────────────
 
             targetUser = await _users.GetByIdAsync(targetId);
             return Ok(new { Followers = targetUser?.Followers?.Count ?? 0 });
