@@ -81,10 +81,10 @@ type Tab = "dashboard" | "fact_check" | "broadcast" | "archive" | "organizations
 // --- Helpers -----------------------------------------------------------------
 
 const statusColor: Record<string, string> = {
-  Approved: "bg-secondary-container text-on-secondary-container",
-  Pending: "bg-surface-container-highest text-on-surface-variant",
-  Rejected: "bg-error-container text-on-error-container",
-  Draft: "bg-primary-container text-on-primary-container",
+  Approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  Pending:  "bg-surface-container-highest text-on-surface-variant",
+  Rejected: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+  Draft:    "bg-primary-container text-on-primary-container",
 };
 
 function formatNum(n: number): string {
@@ -266,18 +266,38 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   };
 
   if (result) {
+    const isApproved = result.moderationStatus?.toLowerCase() === "approved";
+    const isRejected = result.moderationStatus?.toLowerCase() === "rejected";
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         className="rounded-2xl border border-secondary bg-surface-container p-8 text-center"
       >
-        <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4">
+        <div className={cn(
+          "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4",
+          isApproved
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+            : isRejected
+            ? "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
+            : "bg-secondary-container text-on-secondary-container"
+        )}>
           <Check className="h-6 w-6" />
         </div>
         <h3 className="font-headline text-xl font-bold text-on-surface mb-1">Post Created!</h3>
         <p className="text-sm text-on-surface-variant mb-2">
-          Status: <span className="font-bold">{result.moderationStatus}</span>
+          Status:{" "}
+          <span className={cn(
+            "font-bold px-2 py-0.5 rounded-full text-xs uppercase tracking-wide",
+            isApproved
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+              : isRejected
+              ? "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
+              : "bg-surface-container-highest text-on-surface-variant"
+          )}>
+            {result.moderationStatus}
+          </span>
         </p>
         <button
           onClick={() => {
