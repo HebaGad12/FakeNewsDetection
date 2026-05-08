@@ -43,6 +43,7 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { postsService, Post, PostComment } from "@/services/postsService";
 import { userService } from "@/services/userService";
+import { adminService } from "@/services/adminService";
 import { usePostInteractions } from "@/hooks/usePostInteractions";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,7 @@ export default function PostDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  const [showAdminDeleteDialog, setShowAdminDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | "">("");
   const [reportDescription, setReportDescription] = useState("");
@@ -166,6 +168,23 @@ export default function PostDetailPage() {
   };
 
   const isReader = user?.role?.toLowerCase() === "reader" || user?.role?.toLowerCase() === "regularuser";
+  const isAdmin = user?.role?.toLowerCase() === "admin";
+
+  const handleAdminDeletePost = async () => {
+    if (!post) return;
+    try {
+      setIsDeleting(true);
+      await adminService.deletePost(post.id);
+      toast.success("Post deleted successfully.");
+      navigate(-1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to delete post.");
+      setIsDeleting(false);
+    } finally {
+      setShowAdminDeleteDialog(false);
+    }
+  };
 
   if (isLoading) return <div className="min-h-screen bg-white dark:bg-zinc-950"><Header /><LoadingSpinner fullScreen message="Loading article..." /></div>;
 
@@ -246,6 +265,7 @@ export default function PostDetailPage() {
                 </p>
               </div>
               {/* Delete / Report */}
+              {/* Delete — post owner */}
               {user && post.authorId === user.id && (
                 <button
                   onClick={handleDeletePost}
@@ -254,6 +274,18 @@ export default function PostDetailPage() {
                   title="Delete post"
                 >
                   {isDeleting ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                </button>
+              )}
+              {/* Delete — admin */}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAdminDeleteDialog(true)}
+                  disabled={isDeleting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wide transition-colors disabled:opacity-50"
+                  title="Admin: Delete post"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Post
                 </button>
               )}
               {isReader && user && post.authorId !== user.id && (
@@ -601,6 +633,47 @@ export default function PostDetailPage() {
           )}
         </motion.div>
       )}
+
+      {/* Admin Delete Confirmation Dialog */}
+      <Dialog open={showAdminDeleteDialog} onOpenChange={setShowAdminDeleteDialog}>
+        <DialogContent className="rounded-none sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              Delete Post
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. The post will be permanently removed from the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 pl-3 py-2">
+            <p className="text-xs text-zinc-400 uppercase font-bold tracking-wide mb-0.5">Post</p>
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2">{post.title}</p>
+            <p className="text-xs text-zinc-400 mt-0.5">by {post.authorName}</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAdminDeleteDialog(false)}
+              disabled={isDeleting}
+              className="rounded-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAdminDeletePost}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-none"
+            >
+              {isDeleting
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                : <Trash2 className="h-4 w-4 mr-1" />
+              }
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Report Dialog */}
       <Dialog open={showReportDialog} onOpenChange={handleCloseReport}>
