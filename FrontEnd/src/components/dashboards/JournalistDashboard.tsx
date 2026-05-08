@@ -73,6 +73,8 @@ import donationService, {
   DonationRecord,
 } from "@/services/donationService";
 import { postsService } from "@/services/postsService";
+import { communityService } from "@/services";
+import type { CommunityDto } from "@/services/commnityServices";
 
 // --- Types -------------------------------------------------------------------
 
@@ -447,6 +449,8 @@ const JournalistDashboard = () => {
   const [followers, setFollowers] = useState<JournalistFollowerResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [myWallet, setMyWallet] = useState<WalletResponse | null>(null);
+  const [myCommunities, setMyCommunities] = useState<CommunityDto[]>([]);
+  const [communitySearch, setCommunitySearch] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -460,6 +464,11 @@ const JournalistDashboard = () => {
         setPosts(po);
         setFollowing(fo);
         setFollowers(fl);
+
+        // Fetch communities created by this journalist
+        if (p?.id) {
+          communityService.getByJournalist(p.id).then(setMyCommunities).catch(() => {});
+        }
       })
       .finally(() => setLoading(false));
 
@@ -712,31 +721,126 @@ const JournalistDashboard = () => {
         )}
 
         {activeTab === "community" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+            {/* My Communities Section */}
             <div className="bg-surface-container-low p-6">
-              <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><UserCheck className="w-6 h-6"/> Observing Network ({following.length})</h3>
-              <div className="space-y-4">
-                {following.map(f => (
-                  <div key={f.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-sm text-on-surface">{f.name}</p>
-                      <p className="text-xs text-on-surface-variant">{f.role}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-headline text-2xl font-bold flex items-center gap-2 text-on-surface">
+                  <MessageSquare className="w-6 h-6" /> My Communities ({myCommunities.length})
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/communities")}
+                  className="text-xs font-label uppercase tracking-widest font-bold"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Create New
+                </Button>
               </div>
-            </div>
-            <div className="bg-surface-container-low p-6">
-              <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><Users className="w-6 h-6"/> Broadcast Receivers ({followers.length})</h3>
-              <div className="space-y-4">
-                {followers.map(f => (
-                  <div key={f.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-sm text-on-surface">{f.name}</p>
-                      <p className="text-xs text-on-surface-variant">{f.role}</p>
+              {myCommunities.length > 0 && (
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-on-surface-variant" />
+                  <Input
+                    placeholder="Search your communities..."
+                    value={communitySearch}
+                    onChange={(e) => setCommunitySearch(e.target.value)}
+                    className="pl-10 h-10 bg-surface-container-lowest border-outline-variant/30 text-sm"
+                  />
+                </div>
+              )}
+              {(() => {
+                const filtered = myCommunities.filter((c) =>
+                  c.name.toLowerCase().includes(communitySearch.toLowerCase())
+                );
+                if (myCommunities.length === 0) {
+                  return (
+                    <div className="text-center py-10 border-2 border-dashed border-outline-variant/30 rounded-lg">
+                      <Users className="w-10 h-10 text-on-surface-variant/40 mx-auto mb-3" />
+                      <p className="text-sm text-on-surface-variant mb-3">You haven't created any communities yet.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/communities")}
+                      >
+                        Go to Communities
+                      </Button>
                     </div>
+                  );
+                }
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-sm text-on-surface-variant">
+                      No communities match "{communitySearch}"
+                    </div>
+                  );
+                }
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filtered.map((community) => (
+                    <div
+                      key={community.id}
+                      className="bg-surface-container-lowest border border-outline-variant/20 p-5 rounded-sm flex flex-col justify-between gap-4 hover:shadow-md transition-shadow group cursor-pointer"
+                      onClick={() => navigate(`/communities/${community.id}`)}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-headline text-lg font-bold text-on-surface group-hover:text-primary transition-colors truncate">
+                            {community.name}
+                          </h4>
+                          <span className={cn(
+                            "text-[10px] font-label uppercase font-bold tracking-wider px-2 py-0.5 rounded-full flex-shrink-0",
+                            community.isOpen
+                              ? "bg-secondary-container text-on-secondary-container"
+                              : "bg-surface-container-highest text-on-surface-variant"
+                          )}>
+                            {community.isOpen ? "Open" : "Closed"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant line-clamp-2">{community.description}</p>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-label uppercase tracking-widest text-outline font-semibold pt-3 border-t border-outline-variant/10">
+                        <span className="text-primary font-bold group-hover:underline">View Community →</span>
+                      </div>
+                    </div>
+                  ))}
                   </div>
-                ))}
+                );
+              })()}
+            </div>
+
+            {/* Following / Followers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-surface-container-low p-6">
+                <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><UserCheck className="w-6 h-6"/> Observing Network ({following.length})</h3>
+                <div className="space-y-4">
+                  {following.map(f => (
+                    <div key={f.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-sm text-on-surface">{f.name}</p>
+                        <p className="text-xs text-on-surface-variant">{f.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {following.length === 0 && (
+                    <p className="text-sm text-on-surface-variant">Not observing anyone yet.</p>
+                  )}
+                </div>
+              </div>
+              <div className="bg-surface-container-low p-6">
+                <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><Users className="w-6 h-6"/> Broadcast Receivers ({followers.length})</h3>
+                <div className="space-y-4">
+                  {followers.map(f => (
+                    <div key={f.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-sm text-on-surface">{f.name}</p>
+                        <p className="text-xs text-on-surface-variant">{f.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {followers.length === 0 && (
+                    <p className="text-sm text-on-surface-variant">No broadcast receivers yet.</p>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>

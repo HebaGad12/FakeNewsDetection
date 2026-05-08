@@ -75,10 +75,11 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       
       // Reload the page to reflect changes
       window.location.reload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Profile update error:", error);
-      
-      const message = error.response?.data?.message;
+
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err.response?.data?.message;
       if (message) {
         toast.error(message);
       } else {

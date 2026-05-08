@@ -123,8 +123,9 @@ export function Header() {
         )
       );
       toast.success("Profile followed successfully");
-    } catch (error: any) {
-      if (error?.response?.status === 409) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } };
+      if (err?.response?.status === 409) {
         setFollowingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
         toast.error("You are already following this profile");
       } else {

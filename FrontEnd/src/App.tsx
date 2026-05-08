@@ -12,6 +12,7 @@ import { Suspense, lazy } from "react";
 const Index = lazy(() => import("./pages/Index"));
 const FeedPage = lazy(() => import("./pages/FeedPage"));
 const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
+const CommunityFeedPage = lazy(() => import("./pages/CommunityFeedPage"));
 const LivePage = lazy(() => import("./pages/LivePage"));
 const LiveBroadcastPage = lazy(() => import("./pages/LiveBroadcastPage"));
 const LiveWatchPage = lazy(() => import("./pages/LiveWatchPage"));
@@ -39,6 +40,7 @@ function AppRoutes() {
       <Route path="/feed" element={<FeedPage />} />
       <Route path="/article/:id" element={<PostDetailPage />} />
       <Route path="/communities" element={<CommunitiesPage />} />
+      <Route path="/communities/:communityId" element={<CommunityFeedPage />} />
 
       {/* Live routes */}
       <Route path="/live" element={<LivePage />} />
