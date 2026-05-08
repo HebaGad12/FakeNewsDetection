@@ -373,3 +373,19 @@ Machine Models/venv/
 
 # ChromaDB vector store — large local database, rebuilt automatically
 Machine Models/chroma_image_db/
+# ── Uploaded user content — never commit ────────────────────────────────────
+
+# Community cover images  (saved by CommunityRepository.SaveImageAsync)
+**/wwwroot/uploads/communities/
+
+# Post media (images & videos saved by CommunityController.CreatePost)
+**/wwwroot/uploads/posts/
+
+# Catch-all for any other uploads subfolder added in the future
+**/wwwroot/uploads/
+
+# Keep the folder structure in git so the app can write to it on a fresh clone
+!**/wwwroot/uploads/.gitkeep
+!**/wwwroot/uploads/communities/.gitkeep
+!**/wwwroot/uploads/posts/.gitkeep
+/FakeNewsDetection.web/Media/Uploads/Users/*

@@ -1,4 +1,6 @@
-using Domain.Contracts;
+﻿using Domain.Contracts;
+using Microsoft.AspNetCore.SignalR;
+using Presentation.SignalR_Hubs;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -19,11 +21,16 @@ namespace Presentation.Controllers
     {
         private readonly IUserRepository _users;
         private readonly ITokenService _tokens;
+        private readonly IUserRepository _usersRepo;
+        private readonly INotificationRepository _notifications;
+        private readonly IHubContext<NotificationHub> _hub;
 
-        public AuthController(IUserRepository users, ITokenService tokens)
+        public AuthController(IUserRepository users, ITokenService tokens, INotificationRepository notifications, IHubContext<NotificationHub> hub)
         {
             _users = users;
             _tokens = tokens;
+            _notifications = notifications;
+            _hub = hub;
         }
 
         [HttpPost("register")]
@@ -60,11 +67,43 @@ namespace Presentation.Controllers
             await _users.AddAsync(user);
 
             if (isPending)
+            {
+                // ── Notify admin: new pending registration ───────────────
+                var allUsers = await _users.GetAllAsync();
+                var admin = allUsers.FirstOrDefault(u => u.Role == Role.Admin);
+                if (admin is not null)
+                {
+                    var roleLabel = user.Role == Role.Journalist ? "journalist" : "organization";
+                    var nAdmin = new Domain.Models.Notification
+                    {
+                        UserId = admin.Id,
+                        ActorId = user.Id,
+                        Type = "pending_registration",
+                        Title = "New registration pending",
+                        Message = $"{user.Name} registered as a {roleLabel} and is awaiting your review."
+                    };
+                    await _notifications.AddAsync(nAdmin);
+                    await _hub.Clients.Group($"user:{admin.Id}")
+                        .SendAsync("ReceiveNotification", new
+                        {
+                            nAdmin.Id,
+                            nAdmin.Title,
+                            nAdmin.Message,
+                            nAdmin.Type,
+                            nAdmin.IsRead,
+                            nAdmin.CreatedAt,
+                            ActorId = user.Id,
+                            ActorName = user.Name
+                        });
+                }
+                // ────────────────────────────────────────────────────────
+
                 return Accepted(new
                 {
                     message = "Registration submitted successfully. Your account is pending admin review.",
                     userId = user.Id
                 });
+            }
 
             var token = _tokens.CreateToken(user);
             return Ok(new AuthResponse(token, user.Id, user.Name, user.Email, user.Role.ToString()));

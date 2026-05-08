@@ -1,8 +1,11 @@
-using Domain.Contracts;
+﻿using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.VisualBasic;
+using Presentation.SignalR_Hubs;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
@@ -22,19 +25,25 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IFollowRepository _follows;
         private readonly IWalletRepository _wallets;
+        private readonly INotificationRepository _notifications;
+        private readonly IHubContext<NotificationHub> _hub;
 
         public OrganizationController(
             IUserRepository users,
             IPostRepository posts,
             IInteractionRepository interactions,
             IFollowRepository follows,
-            IWalletRepository wallets)
+            IWalletRepository wallets,
+            INotificationRepository notifications,
+            IHubContext<NotificationHub> hub)
         {
             _users = users;
             _posts = posts;
             _interactions = interactions;
             _follows = follows;
             _wallets = wallets;
+            _notifications = notifications;
+            _hub = hub;
         }
 
         private Guid GetCallerId() =>
@@ -228,131 +237,153 @@ namespace Presentation.Controllers
 
             await _posts.UpdateAsync(post);
 
+            // ── Notify journalist: post reviewed ─────────────────────────
+            var reviewOutcome = req.Approve ? "approved" : "rejected";
+            var nReview = new Domain.Models.Notification
+            {
+                UserId = post.AuthorId,
+                ActorId = orgUserId,
+                Type = req.Approve ? "post_approved" : "post_rejected",
+                Title = req.Approve ? "Post approved" : "Post rejected",
+                Message = req.Approve
+                    ? $"Your post '{ post.Title }' has been approved and is now public."
+                    : $"Your post '{ post.Title}' was rejected. Notes: {req.Notes ?? "No notes provided."}"
+            };
+        await _notifications.AddAsync(nReview);
+        await _hub.Clients.Group($"user:{post.AuthorId}")
+                .SendAsync("ReceiveNotification", new
+                {
+                    nReview.Id, nReview.Title, nReview.Message,
+                    nReview.Type, nReview.IsRead, nReview.CreatedAt,
+                    ActorId = orgUserId
+    });
+            // ─────────────────────────────────────────────────────────────
+
             return Ok(new
             {
                 Message = $"Post '{post.Title}' has been {(req.Approve ? "approved and is now public" : "rejected")}.",
                 ModerationStatus = post.ModerationStatus.ToString()
-            });
+});
         }
 
         [HttpPatch("{orgUserId}/posts/{postId}/status")]
-        public async Task<ActionResult> SetPostStatus(
+public async Task<ActionResult> SetPostStatus(
             Guid orgUserId, Guid postId, [FromBody] OrgSetStatusRequest req)
-        {
-            var (orgUser, err) = await ResolveOrgUser(orgUserId);
-            if (err is not null) return err;
+{
+    var (orgUser, err) = await ResolveOrgUser(orgUserId);
+    if (err is not null) return err;
 
-            var post = await _posts.GetByIdAsync(postId);
-            if (post is null || post.OrganizationId != orgUserId)
-                return NotFound("Post not found in this organization.");
+    var post = await _posts.GetByIdAsync(postId);
+    if (post is null || post.OrganizationId != orgUserId)
+        return NotFound("Post not found in this organization.");
 
-            post.ModerationStatus = req.IsActive ? ModerationStatus.Approved : ModerationStatus.Removed;
-            post.UpdatedAt = DateTime.UtcNow;
-            await _posts.UpdateAsync(post);
+    post.ModerationStatus = req.IsActive ? ModerationStatus.Approved : ModerationStatus.Removed;
+    post.UpdatedAt = DateTime.UtcNow;
+    await _posts.UpdateAsync(post);
 
-            return Ok(new
-            {
-                Message = $"Post '{post.Title}' has been {(req.IsActive ? "activated (approved)" : "deactivated (removed)")}."
-            });
-        }
+    return Ok(new
+    {
+        Message = $"Post '{post.Title}' has been {(req.IsActive ? "activated (approved)" : "deactivated (removed)")}."
+    });
+}
 
-        [HttpGet("{orgUserId}/followers")]
-        public async Task<ActionResult<IEnumerable<OrgFollowerResponse>>> GetFollowers(Guid orgUserId)
-        {
-            var (orgUser, err) = await ResolveOrgUser(orgUserId);
-            if (err is not null) return err;
+[HttpGet("{orgUserId}/followers")]
+public async Task<ActionResult<IEnumerable<OrgFollowerResponse>>> GetFollowers(Guid orgUserId)
+{
+    var (orgUser, err) = await ResolveOrgUser(orgUserId);
+    if (err is not null) return err;
 
-            var followers = await _follows.GetFollowersAsync(orgUserId);
-            var allUsers = await _users.GetAllAsync();
-            var userDict = allUsers.ToDictionary(u => u.Id);
+    var followers = await _follows.GetFollowersAsync(orgUserId);
+    var allUsers = await _users.GetAllAsync();
+    var userDict = allUsers.ToDictionary(u => u.Id);
 
-            var dto = followers.Select(f =>
-            {
-                userDict.TryGetValue(f.FollowerId, out var follower);
-                return new OrgFollowerResponse(
-                    f.FollowerId,
-                    follower?.Name ?? "Unknown",
-                    follower?.Email ?? "Unknown",
-                    follower?.Role.ToString() ?? "Unknown",
-                    f.CreatedAt
-                );
-            });
+    var dto = followers.Select(f =>
+    {
+        userDict.TryGetValue(f.FollowerId, out var follower);
+        return new OrgFollowerResponse(
+            f.FollowerId,
+            follower?.Name ?? "Unknown",
+            follower?.Email ?? "Unknown",
+            follower?.Role.ToString() ?? "Unknown",
+            f.CreatedAt
+        );
+    });
 
-            return Ok(dto);
-        }
+    return Ok(dto);
+}
 
-        [HttpGet("{orgUserId}/analytics")]
-        public async Task<ActionResult<OrgAnalyticsResponse>> GetAnalytics(Guid orgUserId)
-        {
-            var (orgUser, err) = await ResolveOrgUser(orgUserId);
-            if (err is not null) return err;
+[HttpGet("{orgUserId}/analytics")]
+public async Task<ActionResult<OrgAnalyticsResponse>> GetAnalytics(Guid orgUserId)
+{
+    var (orgUser, err) = await ResolveOrgUser(orgUserId);
+    if (err is not null) return err;
 
-            var allPosts = await _posts.GetAllAsync();
-            var orgPosts = allPosts.Where(p => p.OrganizationId == orgUserId).ToList();
+    var allPosts = await _posts.GetAllAsync();
+    var orgPosts = allPosts.Where(p => p.OrganizationId == orgUserId).ToList();
 
-            var followers = await _follows.GetFollowersAsync(orgUserId);
-            var wallet = await _wallets.GetOrCreateAsync(orgUserId);
+    var followers = await _follows.GetFollowersAsync(orgUserId);
+    var wallet = await _wallets.GetOrCreateAsync(orgUserId);
 
-            var allUsers = await _users.GetAllAsync();
-            var journalistCount = allUsers.Count(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist);
-            var activeJournalistCount = allUsers.Count(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist && u.IsActive);
+    var allUsers = await _users.GetAllAsync();
+    var journalistCount = allUsers.Count(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist);
+    var activeJournalistCount = allUsers.Count(u => u.OrganizationId == orgUserId && u.Role == Role.Journalist && u.IsActive);
 
-            int totalLikes = 0, totalComments = 0, totalReports = 0;
+    int totalLikes = 0, totalComments = 0, totalReports = 0;
 
-            foreach (var p in orgPosts)
-            {
-                var interactions = await _interactions.GetByPostAsync(p.Id);
-                totalLikes += interactions.Count(i => i.Type == InteractionType.Like);
-                totalComments += interactions.Count(i => i.Type == InteractionType.Comment);
-                totalReports += interactions.Count(i => i.Type == InteractionType.Report);
-            }
+    foreach (var p in orgPosts)
+    {
+        var interactions = await _interactions.GetByPostAsync(p.Id);
+        totalLikes += interactions.Count(i => i.Type == InteractionType.Like);
+        totalComments += interactions.Count(i => i.Type == InteractionType.Comment);
+        totalReports += interactions.Count(i => i.Type == InteractionType.Report);
+    }
 
-            return Ok(new OrgAnalyticsResponse(
-                orgUserId,
-                orgUser!.Name,
-                TotalPosts: orgPosts.Count,
-                PendingPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Pending),
-                ApprovedPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Approved),
-                RejectedPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Removed),
-                TotalFollowers: followers.Count(),
-                JournalistCount: journalistCount,
-                ActiveJournalistCount: activeJournalistCount,
-                TotalLikesReceived: totalLikes,
-                TotalCommentsReceived: totalComments,
-                TotalReportsReceived: totalReports,
-                WalletBalance: wallet.Balance
-            ));
-        }
+    return Ok(new OrgAnalyticsResponse(
+        orgUserId,
+        orgUser!.Name,
+        TotalPosts: orgPosts.Count,
+        PendingPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Pending),
+        ApprovedPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Approved),
+        RejectedPosts: orgPosts.Count(p => p.ModerationStatus == ModerationStatus.Removed),
+        TotalFollowers: followers.Count(),
+        JournalistCount: journalistCount,
+        ActiveJournalistCount: activeJournalistCount,
+        TotalLikesReceived: totalLikes,
+        TotalCommentsReceived: totalComments,
+        TotalReportsReceived: totalReports,
+        WalletBalance: wallet.Balance
+    ));
+}
 
-        [HttpGet("{orgUserId}/wallet")]
-        public async Task<ActionResult<OrgWalletResponse>> GetWallet(Guid orgUserId)
-        {
-            var (orgUser, err) = await ResolveOrgUser(orgUserId);
-            if (err is not null) return err;
+[HttpGet("{orgUserId}/wallet")]
+public async Task<ActionResult<OrgWalletResponse>> GetWallet(Guid orgUserId)
+{
+    var (orgUser, err) = await ResolveOrgUser(orgUserId);
+    if (err is not null) return err;
 
-            var wallet = await _wallets.GetOrCreateAsync(orgUserId);
-            return Ok(new OrgWalletResponse(wallet.Id, orgUserId, orgUser!.Name, wallet.Balance, wallet.UpdatedAt));
-        }
+    var wallet = await _wallets.GetOrCreateAsync(orgUserId);
+    return Ok(new OrgWalletResponse(wallet.Id, orgUserId, orgUser!.Name, wallet.Balance, wallet.UpdatedAt));
+}
 
-        [HttpGet("{orgUserId}/wallet/transactions")]
-        public async Task<ActionResult<IEnumerable<OrgWalletTransactionResponse>>> GetWalletTransactions(Guid orgUserId)
-        {
-            var (orgUser, err) = await ResolveOrgUser(orgUserId);
-            if (err is not null) return err;
+[HttpGet("{orgUserId}/wallet/transactions")]
+public async Task<ActionResult<IEnumerable<OrgWalletTransactionResponse>>> GetWalletTransactions(Guid orgUserId)
+{
+    var (orgUser, err) = await ResolveOrgUser(orgUserId);
+    if (err is not null) return err;
 
-            var transactions = await _wallets.GetTransactionsByUserIdAsync(orgUserId);
+    var transactions = await _wallets.GetTransactionsByUserIdAsync(orgUserId);
 
-            var dto = transactions.Select(t => new OrgWalletTransactionResponse(
-                t.Id,
-                t.Amount,
-                t.Type.ToString(),
-                t.Description,
-                t.Actor?.Name,
-                t.CreatedAt
-            ));
+    var dto = transactions.Select(t => new OrgWalletTransactionResponse(
+        t.Id,
+        t.Amount,
+        t.Type.ToString(),
+        t.Description,
+        t.Actor?.Name,
+        t.CreatedAt
+    ));
 
-            return Ok(dto);
-        }
+    return Ok(dto);
+}
     }
 
 }
