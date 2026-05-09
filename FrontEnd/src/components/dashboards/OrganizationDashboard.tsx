@@ -30,12 +30,16 @@ import {
   Newspaper,
   Users as UsersIcon,
   Heart as HeartIcon,
+  ClipboardList,
+  Calendar,
+  AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import organizationService, {
   OrgProfileResponse,
   OrgAnalyticsResponse,
@@ -45,10 +49,11 @@ import organizationService, {
   OrgWalletResponse,
   OrgWalletTransactionResponse,
 } from "@/services/organizationService";
+import organizationTaskService, { OrganizationTaskResponse, OrganizationTaskDashboardResponse } from "@/services/organizationTask";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "journalists" | "posts" | "followers" | "wallet";
+type Tab = "overview" | "journalists" | "posts" | "followers" | "wallet" | "tasks";
 // FIX #3: استبدال "Rejected" بـ "Removed" ليتطابق مع الـ backend
 type PostFilter = "All" | "Pending" | "Approved" | "Removed";
 
@@ -108,6 +113,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarPro
     { id: "posts"      as Tab, icon: Newspaper,        label: "Posts"       },
     { id: "followers"  as Tab, icon: HeartIcon,        label: "Followers"   },
     { id: "wallet"     as Tab, icon: Wallet,           label: "Wallet"      },
+    { id: "tasks"      as Tab, icon: ClipboardList,    label: "Tasks"       },
   ];
 
   const initials = profile?.name
@@ -668,6 +674,143 @@ function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
   );
 }
 
+// ─── Add Task Modal ───────────────────────────────────────────────────────────
+
+function AddTaskModal({
+  orgId,
+  journalists,
+  onClose,
+  onAdded,
+}: {
+  orgId: string;
+  journalists: OrgJournalistResponse[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [form, setForm] = useState({ title: "", description: "", assignedJournalistId: "", priority: 1, deadline: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!form.title || !form.description || !form.assignedJournalistId || !form.deadline) {
+      setError("All fields are required.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await organizationTaskService.createTask({
+        title: form.title,
+        description: form.description,
+        assignedJournalistId: form.assignedJournalistId,
+        priority: Number(form.priority),
+        deadline: new Date(form.deadline).toISOString(),
+      });
+      onAdded();
+      onClose();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      setError(err?.response?.data?.message ?? "Failed to assign task.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-xl p-6 w-full max-w-md shadow-2xl"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-on-surface dark:text-white flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-primary" />
+            Assign New Task
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-surface-container dark:hover:bg-stone-800 text-outline dark:text-stone-500">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">Title</label>
+            <Input
+              value={form.title}
+              onChange={(e) => setForm(p => ({...p, title: e.target.value}))}
+              placeholder="Task title"
+              className="bg-surface-container dark:bg-stone-800 border-outline-variant/20 dark:border-stone-700 h-10 text-on-surface dark:text-stone-50"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm(p => ({...p, description: e.target.value}))}
+              placeholder="Task description"
+              rows={3}
+              className="w-full rounded-xl border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-4 py-3 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">Assign To</label>
+            <select
+              value={form.assignedJournalistId}
+              onChange={(e) => setForm(p => ({...p, assignedJournalistId: e.target.value}))}
+              className="w-full h-10 rounded-lg border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-3 text-sm text-on-surface dark:text-stone-50"
+            >
+              <option value="">Select a journalist</option>
+              {journalists.filter(j => j.isActive).map((j) => (
+                <option key={j.id} value={j.id}>{j.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm(p => ({...p, priority: Number(e.target.value)}))}
+                className="w-full h-10 rounded-lg border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-3 text-sm text-on-surface dark:text-stone-50"
+              >
+                <option value={0}>Low</option>
+                <option value={1}>Medium</option>
+                <option value={2}>High</option>
+                <option value={3}>Critical</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium text-on-surface dark:text-stone-200 mb-1.5 block">Deadline</label>
+              <Input
+                type="datetime-local"
+                value={form.deadline}
+                onChange={(e) => setForm(p => ({...p, deadline: e.target.value}))}
+                className="bg-surface-container dark:bg-stone-800 border-outline-variant/20 dark:border-stone-700 h-10 text-on-surface dark:text-stone-50"
+              />
+            </div>
+          </div>
+          {error && (
+            <p className="text-tertiary-fixed text-sm flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5" /> {error}
+            </p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" onClick={onClose} className="flex-1 h-10">Cancel</Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1 h-10 bg-primary hover:bg-primary-dim text-white"
+            >
+              {loading ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : "Assign Task"}
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const OrganizationDashboard = () => {
@@ -683,6 +826,8 @@ const OrganizationDashboard = () => {
   const [followers, setFollowers] = useState<OrgFollowerResponse[]>([]);
   const [wallet, setWallet] = useState<OrgWalletResponse | null>(null);
   const [transactions, setTransactions] = useState<OrgWalletTransactionResponse[]>([]);
+  const [tasks, setTasks] = useState<OrganizationTaskResponse[]>([]);
+  const [taskDashboard, setTaskDashboard] = useState<OrganizationTaskDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -690,7 +835,10 @@ const OrganizationDashboard = () => {
   const [postFilter, setPostFilter] = useState<PostFilter>("All");
   const [journalistSearch, setJournalistSearch] = useState("");
   const [showAddJournalist, setShowAddJournalist] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
   const [reviewPost, setReviewPost] = useState<OrgPostResponse | null>(null);
+  const [revisionComments, setRevisionComments] = useState<Record<string, string>>({});
+  const [showRevisionInput, setShowRevisionInput] = useState<Record<string, boolean>>({});
 
   const loadAll = async () => {
     setLoading(true);
@@ -701,13 +849,15 @@ const OrganizationDashboard = () => {
       setOrgId(resolvedId);
       setProfile(prof);
 
-      const [anal, journs, ps, fols, wal, txs] = await Promise.all([
+      const [anal, journs, ps, fols, wal, txs, tsks, tskDash] = await Promise.all([
         organizationService.getAnalytics(resolvedId),
         organizationService.getJournalists(resolvedId),
         organizationService.getOrganizationPosts(resolvedId),
         organizationService.getFollowers(resolvedId),
         organizationService.getWallet(resolvedId),
         organizationService.getWalletTransactions(resolvedId),
+        organizationTaskService.getTasks().catch(() => []),
+        organizationTaskService.getDashboard().catch(() => null),
       ]);
       setAnalytics(anal);
       setJournalists(journs);
@@ -715,6 +865,8 @@ const OrganizationDashboard = () => {
       setFollowers(fols);
       setWallet(wal);
       setTransactions(txs);
+      setTasks(tsks);
+      setTaskDashboard(tskDash);
     } catch (e: unknown) {
       const err = e as { response?: { status?: number } };
       const status = err?.response?.status;
@@ -1128,6 +1280,184 @@ const OrganizationDashboard = () => {
             </motion.div>
           )}
 
+          {/* TASKS TAB */}
+          {activeTab === "tasks" && (
+            <motion.div key="tasks" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white">Task Assignments</h2>
+                <Button
+                  onClick={() => setShowAddTask(true)}
+                  className="bg-primary hover:bg-primary-dim text-white gap-2 h-11 px-6"
+                >
+                  <Plus className="h-4 w-4" /> Assign New Task
+                </Button>
+              </div>
+
+              {taskDashboard && (
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
+                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Total Active</p>
+                    <p className="text-2xl font-bold text-on-surface dark:text-white">{taskDashboard.totalActive}</p>
+                  </div>
+                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
+                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Pending Review</p>
+                    <p className="text-2xl font-bold text-tertiary-fixed">{taskDashboard.pendingReview}</p>
+                  </div>
+                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
+                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Completed</p>
+                    <p className="text-2xl font-bold text-emerald-500">{taskDashboard.completed}</p>
+                  </div>
+                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
+                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Completion Rate</p>
+                    <p className="text-2xl font-bold text-secondary-fixed">
+                      {taskDashboard.totalTasks ? Math.round((taskDashboard.completed / taskDashboard.totalTasks) * 100) : 0}%
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-lowest dark:bg-stone-900 overflow-hidden">
+                {tasks.length > 0 ? (
+                  <div className="divide-y divide-outline-variant/10 dark:divide-stone-800">
+                    {tasks.map((task) => (
+                      <div key={task.id} className="p-6 hover:bg-surface-container dark:hover:bg-stone-800/50 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
+                                task.priority === 3 ? "bg-red-500/10 text-red-500" :
+                                task.priority === 2 ? "bg-orange-500/10 text-orange-500" :
+                                task.priority === 1 ? "bg-blue-500/10 text-blue-500" :
+                                "bg-stone-500/10 text-stone-500"
+                              )}>
+                                {["Low", "Medium", "High", "Critical"][task.priority]} Priority
+                              </span>
+                              <span className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
+                                task.status === 0 ? "bg-stone-500/10 text-stone-500" :
+                                task.status === 1 ? "bg-blue-500/10 text-blue-500" :
+                                task.status === 2 ? "bg-purple-500/10 text-purple-500" :
+                                task.status === 3 ? "bg-orange-500/10 text-orange-500" :
+                                task.status === 4 ? "bg-red-500/10 text-red-500" :
+                                (task.status === 5 || task.status === 7) ? "bg-emerald-500/10 text-emerald-500" :
+                                "bg-stone-500/10 text-stone-500"
+                              )}>
+                                {["Pending", "Accepted", "In Progress", "Submitted For Review", "Needs Revision", "Approved", "Rejected", "Completed", "Cancelled"][task.status] || "Unknown"}
+                              </span>
+                            </div>
+                            <h3 className="font-headline text-lg font-bold text-on-surface dark:text-white">{task.title}</h3>
+                          </div>
+                          <div className="text-right text-xs">
+                            <div className="flex items-center justify-end gap-1 text-outline dark:text-stone-400 mb-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              Due: {fmtDate(task.deadline)}
+                            </div>
+                            <p className="text-on-surface dark:text-stone-300 font-medium">{task.assignedJournalistName}</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-outline dark:text-stone-400 mb-4">{task.description}</p>
+                        
+                        {task.comments && task.comments.length > 0 && (
+                          <div className="mb-4 space-y-3 bg-surface-container-low dark:bg-stone-800/30 p-4 rounded-xl border border-outline-variant/10">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-outline">Task Activity & Comments</h4>
+                            {task.comments.map(comment => (
+                              <div key={comment.id} className="text-sm">
+                                <span className="font-bold text-on-surface dark:text-stone-300 mr-2">{comment.authorName}:</span>
+                                <span className="text-on-surface-variant dark:text-stone-400">{comment.content}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {task.status === 3 && (
+                          <div className="flex flex-col gap-3 mt-4 border-t border-outline-variant/10 dark:border-stone-800 pt-4">
+                            {!showRevisionInput[task.id] ? (
+                              <div className="flex gap-3">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    organizationTaskService.updateTaskStatus(task.id, 5).then(() => {
+                                      toast.success("Task Approved successfully!");
+                                      organizationTaskService.getTasks().then(setTasks).catch(() => {});
+                                      organizationTaskService.getDashboard().then(setTaskDashboard).catch(() => {});
+                                    });
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                  <Check className="w-4 h-4 mr-1" /> Approve Task
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setShowRevisionInput(p => ({...p, [task.id]: true}))}
+                                  className="text-orange-500 border-orange-500/50 hover:bg-orange-500/10"
+                                >
+                                  Request Modification
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  value={revisionComments[task.id] || ""}
+                                  onChange={(e) => setRevisionComments(p => ({...p, [task.id]: e.target.value}))}
+                                  placeholder="Explain what needs to be modified..."
+                                  rows={2}
+                                  className="w-full rounded-lg border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-3 py-2 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={async () => {
+                                      const comment = revisionComments[task.id];
+                                      if (!comment) {
+                                        toast.error("Please provide a modification comment.");
+                                        return;
+                                      }
+                                      try {
+                                        await organizationTaskService.addComment(task.id, comment);
+                                        await organizationTaskService.updateTaskStatus(task.id, 4);
+                                        toast.success("Modification requested!");
+                                        setShowRevisionInput(p => ({...p, [task.id]: false}));
+                                        setRevisionComments(p => ({...p, [task.id]: ""}));
+                                        organizationTaskService.getTasks().then(setTasks).catch(() => {});
+                                        organizationTaskService.getDashboard().then(setTaskDashboard).catch(() => {});
+                                      } catch (err) {
+                                        toast.error("Failed to request modification.");
+                                      }
+                                    }}
+                                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                                  >
+                                    Submit Request
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setShowRevisionInput(p => ({...p, [task.id]: false}));
+                                      setRevisionComments(p => ({...p, [task.id]: ""}));
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-16 text-outline dark:text-stone-500">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-25" />
+                    <p>No tasks assigned yet.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* WALLET TAB */}
           {activeTab === "wallet" && (
             <motion.div
@@ -1177,6 +1507,17 @@ const OrganizationDashboard = () => {
 
       {/* Modals */}
       <AnimatePresence>
+        {showAddTask && (
+          <AddTaskModal
+            orgId={orgId}
+            journalists={journalists}
+            onClose={() => setShowAddTask(false)}
+            onAdded={() => {
+              organizationTaskService.getTasks().then(setTasks).catch(() => {});
+              organizationTaskService.getDashboard().then(setTaskDashboard).catch(() => {});
+            }}
+          />
+        )}
         {showAddJournalist && (
           <AddJournalistModal
             orgId={orgId}
