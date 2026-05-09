@@ -27,6 +27,9 @@ namespace Persistence
         public DbSet<Community> Communities { get; set; }
         public DbSet<Membership> Memberships { get; set; }
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<OrganizationTask> OrganizationTasks => Set<OrganizationTask>();
+        public DbSet<TaskComment> TaskComments => Set<TaskComment>();
+
 
         protected override void OnModelCreating(ModelBuilder b)
         {
@@ -249,6 +252,61 @@ namespace Persistence
                 .HasForeignKey(n => n.ActorId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);   // NoAction avoids cascade cycle
+
+
+            // ===================== ORGANIZATION TASK =====================
+
+            b.Entity<OrganizationTask>().HasKey(t => t.Id);
+            b.Entity<OrganizationTask>().HasIndex(t => t.OrganizationId);
+            b.Entity<OrganizationTask>().HasIndex(t => t.AssignedJournalistId);
+            b.Entity<OrganizationTask>().HasIndex(t => t.CreatedAt);
+
+            b.Entity<OrganizationTask>()
+                .Property(t => t.Title)
+                .HasMaxLength(300)
+                .IsRequired();
+
+            b.Entity<OrganizationTask>()
+                .Property(t => t.Description)
+                .HasMaxLength(4000);
+
+            // Organization FK  (NoAction to avoid cascade cycles on the User self-ref)
+            b.Entity<OrganizationTask>()
+                .HasOne(t => t.Organization)
+                .WithMany()
+                .HasForeignKey(t => t.OrganizationId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Journalist FK
+            b.Entity<OrganizationTask>()
+                .HasOne(t => t.AssignedJournalist)
+                .WithMany()
+                .HasForeignKey(t => t.AssignedJournalistId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ===================== TASK COMMENT =====================
+
+            b.Entity<TaskComment>().HasKey(c => c.Id);
+            b.Entity<TaskComment>().HasIndex(c => c.TaskId);
+
+            b.Entity<TaskComment>()
+                .Property(c => c.Content)
+                .HasMaxLength(2000)
+                .IsRequired();
+
+            b.Entity<TaskComment>()
+                .HasOne(c => c.Task)
+                .WithMany(t => t.Comments)
+                .HasForeignKey(c => c.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.Entity<TaskComment>()
+                .HasOne(c => c.Author)
+                .WithMany()
+                .HasForeignKey(c => c.AuthorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+
         }
     }
 }
