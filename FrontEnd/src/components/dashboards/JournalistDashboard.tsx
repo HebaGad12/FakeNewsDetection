@@ -42,7 +42,12 @@ import {
   ChevronRight,
   Zap,
   RefreshCw,
-  CheckCircle
+  CheckCircle,
+  Sparkles,
+  Mic,
+  Globe,
+  Flame,
+  Video
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -129,6 +134,17 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [aiText, setAiText] = useState("");
+
+  const categories = [
+    { name: "Politics", icon: TrendingUp },
+    { name: "Technology", icon: Sparkles },
+    { name: "Science", icon: Mic },
+    { name: "Health", icon: Heart },
+    { name: "Environment", icon: Globe },
+    { name: "Economy", icon: TrendingUp },
+    { name: "Sports", icon: Flame },
+    { name: "Entertainment", icon: Video }
+  ];
 
   const ALLOWED_IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"];
   const ALLOWED_VIDEO_EXTS = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv"];
@@ -445,14 +461,26 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <div>
         <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">
-          Tags <span className="text-on-surface-variant font-normal">(comma-separated)</span>
+          Category
         </label>
-        <Input
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="politics, economy, technology..."
-          className="bg-surface-container-lowest border-outline-variant/30 h-11"
-        />
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat.name}
+              type="button"
+              onClick={() => setTags(cat.name)}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border",
+                tags === cat.name
+                  ? "bg-primary text-on-primary border-primary"
+                  : "bg-surface-container-lowest text-on-surface border-outline-variant/30 hover:bg-surface-container"
+              )}
+            >
+              <cat.icon className="w-3.5 h-3.5" />
+              {cat.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="border-t border-outline-variant/20 pt-4">
@@ -636,10 +664,14 @@ const JournalistDashboard = () => {
 
           {/* User badge */}
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-[11px] font-bold uppercase">
-                {profile.name.substring(0, 2).toUpperCase()}
-              </span>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white text-[11px] font-bold uppercase">
+                  {profile.name.substring(0, 2).toUpperCase()}
+                </span>
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-white text-xs font-semibold truncate">{profile.name}</p>

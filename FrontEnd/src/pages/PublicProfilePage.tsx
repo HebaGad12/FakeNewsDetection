@@ -43,6 +43,7 @@ const PublicProfilePage = () => {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingFollow, setLoadingFollow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
 
   // Derive journalist info from posts (authorName, authorId come from post data)
   const journalistName = posts[0]?.authorName ?? "Journalist";
@@ -70,8 +71,21 @@ const PublicProfilePage = () => {
       } finally {
         setLoadingPosts(false);
       }
+      
+      try {
+        const blobUrl = await userService.fetchPictureBlobUrl(id);
+        if (blobUrl) setProfileAvatarUrl(blobUrl);
+      } catch (e) {
+        console.error("Failed to load avatar", e);
+      }
     };
     void load();
+    
+    return () => {
+      if (profileAvatarUrl) {
+        URL.revokeObjectURL(profileAvatarUrl);
+      }
+    };
   }, [id, user]);
 
   const handleToggleFollow = async () => {
@@ -179,10 +193,14 @@ const PublicProfilePage = () => {
               <div className="px-10 pb-10">
                 {/* Avatar - made larger */}
                 <div className="-mt-12 mb-6 flex items-end justify-between">
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 border-4 border-white shadow-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-3xl font-bold uppercase">
-                      {journalistName.substring(0, 2)}
-                    </span>
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 border-4 border-white shadow-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {profileAvatarUrl ? (
+                      <img src={profileAvatarUrl} alt={journalistName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white text-3xl font-bold uppercase">
+                        {journalistName.substring(0, 2)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Follow / Unfollow button - larger text */}

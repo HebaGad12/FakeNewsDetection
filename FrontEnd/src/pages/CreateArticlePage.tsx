@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Send, Image as ImageIcon, Bold, Italic, Link as LinkIcon, List, ListOrdered, Quote, Heading2, X, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Send, Image as ImageIcon, Bold, Italic, Link as LinkIcon, List, ListOrdered, Quote, Heading2, X, AlertCircle, TrendingUp, Sparkles, Mic, Heart, Globe, Flame, Video, Brain } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,16 @@ import { MediaUpload, UploadedMedia } from "@/components/MediaUpload";
 import { MediaList } from "@/components/MediaList";
 import { cn } from "@/lib/utils";
 
-const categories = ["Politics", "Technology", "Science", "Health", "Environment", "Economy", "Sports", "Entertainment"];
+const categories = [
+  { name: "Politics", icon: TrendingUp },
+  { name: "Technology", icon: Sparkles },
+  { name: "Science", icon: Brain },
+  { name: "Health", icon: Heart },
+  { name: "Environment", icon: Globe },
+  { name: "Economy", icon: TrendingUp },
+  { name: "Sports", icon: Flame },
+  { name: "Entertainment", icon: Video }
+];
 
 const CreateArticlePage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -133,10 +142,22 @@ const CreateArticlePage = () => {
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-xl p-5">
               <Label className="text-slate-700 mb-3 block">Category *</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
-                  <Button key={cat} variant={formData.category === cat ? "default" : "outline"} size="sm" onClick={() => setFormData({ ...formData, category: cat })} className={cn("text-sm rounded-full", formData.category === cat ? "bg-slate-900 hover:bg-slate-800" : "border-slate-200 text-slate-600")}>
-                    {cat}
+                  <Button 
+                    key={cat.name} 
+                    variant={formData.category === cat.name ? "default" : "outline"} 
+                    size="sm" 
+                    onClick={() => setFormData({ ...formData, category: cat.name })} 
+                    className={cn(
+                      "text-sm rounded-full gap-1.5 transition-all", 
+                      formData.category === cat.name 
+                        ? "bg-slate-900 hover:bg-slate-800 text-white border-slate-900" 
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    <cat.icon className="w-3.5 h-3.5" />
+                    {cat.name}
                   </Button>
                 ))}
               </div>
