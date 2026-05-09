@@ -1,157 +1,320 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
-import { Navigate, useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Calendar, MessageCircle, UserCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Users,
+  FileText,
+  Heart,
+  Eye,
+  Clock,
+  UserMinus,
+  UserPlus,
+  ExternalLink,
+  Loader,
+  AlertCircle,
+  Calendar,
+  CheckCircle2,
+  Newspaper,
+} from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import publicProfileService, { PublicProfile } from "@/services/publicProfileService";
+import { userService } from "@/services";
+import { postsService, Post } from "@/services/postsService";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
 const PublicProfilePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useAuth();
-  const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const location = useLocation();
+  const { user } = useAuth();
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingFollow, setLoadingFollow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Derive journalist info from posts (authorName, authorId come from post data)
+  const journalistName = posts[0]?.authorName ?? "Journalist";
+  const journalistId = posts[0]?.authorId ?? id;
 
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!id) {
-        setLoadingProfile(false);
-        return;
-      }
-
-      setLoadingProfile(true);
+    if (!id) return;
+    const load = async () => {
       try {
-        const data = await publicProfileService.getProfile(id);
-        setProfile(data);
+        setLoadingPosts(true);
+        setError(null);
+
+        // Load all posts and filter by this author
+        const allPosts = await postsService.getAllPosts();
+        const authorPosts = allPosts.filter((p) => p.authorId === id);
+        setPosts(authorPosts);
+
+        // Check if current user follows this journalist
+        if (user) {
+          const following = await userService.getFollowing();
+          setIsFollowing(following.some((f: { id: string }) => f.id === id));
+        }
       } catch {
-        toast.error("Failed to load profile");
+        setError("Failed to load profile. Please try again.");
       } finally {
-        setLoadingProfile(false);
+        setLoadingPosts(false);
       }
     };
+    void load();
+  }, [id, user]);
 
-    loadProfile();
-  }, [id]);
+  const handleToggleFollow = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    if (!id) return;
+    try {
+      setLoadingFollow(true);
+      if (isFollowing) {
+        await userService.unfollow(id);
+        setIsFollowing(false);
+        toast.success("Unfollowed successfully");
+      } else {
+        await userService.follow(id);
+        setIsFollowing(true);
+        toast.success(`Now following ${journalistName}!`);
+      }
+    } catch {
+      toast.error("Action failed. Please try again.");
+    } finally {
+      setLoadingFollow(false);
+    }
+  };
 
-  if (isLoading) {
-    return <LoadingSpinner fullScreen message="Loading..." />;
-  }
+  // Stats derived from posts
+  const totalLikes = posts.reduce((sum, p) => sum + (p.likesCount ?? 0), 0);
+  const totalViews = posts.reduce((sum, p) => sum + (p.views ?? 0), 0);
+  const approvedPosts = posts.filter(
+    (p) => p.moderationStatus?.toLowerCase() === "approved"
+  ).length;
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (loadingProfile) {
-    return <LoadingSpinner fullScreen message="Loading profile..." />;
-  }
+  const isOwnProfile = user?.id === id;
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
+    <div className="min-h-screen bg-[#f8f8f6]">
       <Header />
 
-      <main className="max-w-[1000px] mx-auto px-6 py-12">
-        <Button variant="ghost" className="mb-8 p-0 hover:bg-transparent tracking-widest text-[10px] font-bold uppercase text-muted-foreground hover:text-foreground" onClick={() => navigate(-1)}>
-          &larr; Return
-        </Button>
+      <main className="container max-w-7xl mx-auto px-6 py-10">
+        {/* ── Back button ── */}
+        <button
+          onClick={() => {
+            // If came from dashboard, go back and signal a following refresh
+            const from = (location.state as { from?: string })?.from;
+            if (from === "dashboard") {
+              navigate("/dashboard", { state: { refreshFollowing: true } });
+            } else {
+              navigate(-1);
+            }
+          }}
+          className="flex items-center gap-2 text-base text-zinc-500 hover:text-zinc-900 mb-10 font-medium transition-colors group"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back
+        </button>
 
-        {profile ? (
-          <div>
-            {/* Header Section */}
-            <div className="mb-16">
-              <h1 className="font-display text-4xl sm:text-5xl font-extrabold text-foreground tracking-tight mb-4">
-                {profile.name}
-              </h1>
-              <p className="font-sans text-muted-foreground leading-relaxed max-w-2xl text-lg sm:text-xl">
-                {profile.bio || "Investigative Contributor"}
-                {profile.organization && ` â€¢ ${profile.organization}`}
-              </p>
-              <div className="flex flex-wrap gap-8 sm:gap-16 border-t border-border pt-6 mt-8">
-                 <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Contributions</p>
-                    <p className="font-display text-2xl">{profile.totalPosts}</p>
-                 </div>
-                 <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Network Base</p>
-                    <p className="font-display text-2xl">{profile.followers || "0"}</p>
-                 </div>
-                 <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Authentication Check</p>
-                    <p className="font-display text-2xl border-l-[3px] border-emerald-500 pl-3">Verified Source</p>
-                 </div>
-              </div>
-            </div>
-
-            {/* Content Section */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 sm:gap-16">
-              <div className="md:col-span-8">
-                 <h2 className="font-display text-2xl mb-8 text-foreground border-b border-border/50 pb-4">Filed Intelligence</h2>
-                 
-                 {profile.posts && profile.posts.length > 0 ? (
-                   <div className="space-y-12">
-                     {profile.posts.map(post => (
-                        <div key={post.id} className="group">
-                           <Link to={`/article/${post.id}`} className="block">
-                             <h2 className="font-display text-2xl sm:text-3xl font-bold leading-tight group-hover:text-primary transition-colors hover:underline mb-3">
-                               {post.title}
-                             </h2>
-                             <p className="font-sans text-muted-foreground leading-relaxed mb-4">
-                               {post.content ? `${post.content.substring(0, 200)}...` : ""}
-                             </p>
-                             <div className="flex items-center gap-4 pt-3 mt-4 border-t border-border/30 opacity-70 group-hover:opacity-100 transition-opacity">
-                               <span className="text-[10px] uppercase font-bold tracking-widest">{new Date(post.createdAt).toLocaleDateString()}</span>
-                               <span className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5">
-                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-explicit-any
-                                 <MessageCircle className="w-3.5 h-3.5" /> {(post as any).comments?.length || post.comments || 0} Responses
-                               </span>
-                             </div>
-                           </Link>
-                        </div>
-                     ))}
-                   </div>
-                 ) : (
-                   <p className="text-sm text-muted-foreground border-l-2 border-muted pl-4">No field reports available for this operative yet.</p>
-                 )}
-              </div>
-              
-              {/* Profile Meta Sidebar */}
-              <div className="md:col-span-4 space-y-8">
-                  <div className="bg-card border border-border rounded-sm p-6">
-                      <h4 className="font-sans text-xs font-bold text-muted-foreground mb-6 tracking-widest uppercase">Operative Data</h4>
-                      <ul className="space-y-4">
-                         <li className="flex justify-between items-center border-b border-border/50 pb-3">
-                             <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase">STATUS</span>
-                             <span className="text-xs font-bold text-foreground tracking-widest">ACTIVE</span>
-                         </li>
-                         <li className="flex justify-between items-center border-b border-border/50 pb-3">
-                             <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase">CLEARANCE</span>
-                             <span className="text-xs font-bold text-foreground uppercase tracking-widest">{profile.role || 'GUEST'}</span>
-                         </li>
-                         {typeof profile.totalJournalists === 'number' && profile.totalJournalists > 0 && (
-                           <li className="flex justify-between items-center border-b border-border/50 pb-3">
-                               <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase">PERSONNEL</span>
-                               <span className="text-xs font-bold text-foreground uppercase tracking-widest">{profile.totalJournalists}</span>
-                           </li>
-                         )}
-                         <li className="flex justify-between items-center">
-                             <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase">JOINED</span>
-                             <span className="text-xs font-bold text-foreground uppercase tracking-widest">{new Date(profile.memberSince).toLocaleDateString()}</span>
-                         </li>
-                      </ul>
-                  </div>
-              </div>
-            </div>
+        {/* ── Loading ── */}
+        {loadingPosts && (
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader className="h-8 w-8 animate-spin text-zinc-400 mb-4" />
+            <p className="text-zinc-500 text-base">Loading profile…</p>
           </div>
-        ) : (
-           <div className="text-center py-32 bg-card rounded-md border border-border/50">
-              <UserCircle2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-              <h2 className="font-display text-2xl font-semibold mb-2 text-foreground">Dossier Redacted</h2>
-              <p className="text-muted-foreground text-sm font-sans tracking-wide">The operative data you are trying to access does not exist or has been removed.</p>
-           </div>
+        )}
+
+        {/* ── Error ── */}
+        {error && !loadingPosts && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+            <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+            <p className="text-red-600 font-medium text-base">{error}</p>
+            <button
+              onClick={() => navigate(-1)}
+              className="mt-4 text-sm text-zinc-500 hover:text-zinc-800 underline"
+            >
+              Go back
+            </button>
+          </div>
+        )}
+
+        {!loadingPosts && !error && (
+          <>
+            {/* ── Profile Hero ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white border border-zinc-100 rounded-2xl overflow-hidden mb-10 shadow-sm"
+            >
+              {/* Top banner - made taller */}
+              <div className="h-36 bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 relative">
+                <div className="absolute inset-0 opacity-20"
+                  style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #3b82f6 0%, transparent 50%), radial-gradient(circle at 80% 20%, #6366f1 0%, transparent 40%)" }}
+                />
+              </div>
+
+              <div className="px-10 pb-10">
+                {/* Avatar - made larger */}
+                <div className="-mt-12 mb-6 flex items-end justify-between">
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 border-4 border-white shadow-xl flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-3xl font-bold uppercase">
+                      {journalistName.substring(0, 2)}
+                    </span>
+                  </div>
+
+                  {/* Follow / Unfollow button - larger text */}
+                  {user && !isOwnProfile && (
+                    <button
+                      onClick={handleToggleFollow}
+                      disabled={loadingFollow}
+                      className={cn(
+                        "flex items-center gap-2 px-6 py-3 rounded-xl text-base font-semibold transition-all border",
+                        isFollowing
+                          ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-600 hover:text-white hover:border-rose-600"
+                          : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700",
+                        loadingFollow && "opacity-60 cursor-not-allowed"
+                      )}
+                    >
+                      {loadingFollow ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : isFollowing ? (
+                        <UserMinus className="h-4 w-4" />
+                      ) : (
+                        <UserPlus className="h-4 w-4" />
+                      )}
+                      {isFollowing ? "Unfollow" : "Follow"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Name & role - larger text */}
+                <div className="mb-6">
+                  <h1 className="text-4xl font-bold text-zinc-900 tracking-tight">{journalistName}</h1>
+                  <p className="text-zinc-500 text-base mt-0.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                    Verified Journalist
+                  </p>
+                </div>
+
+                {/* Stats row - larger numbers and labels */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+                  {[
+                    { icon: FileText,  label: "Posts",        value: posts.length     },
+                    { icon: CheckCircle2, label: "Approved", value: approvedPosts, color: "text-emerald-600" },
+                    { icon: Heart,     label: "Total Likes",  value: totalLikes       },
+                    { icon: Eye,       label: "Total Views",  value: totalViews       },
+                  ].map(({ icon: Icon, label, value, color }) => (
+                    <div key={label} className="bg-zinc-50 rounded-xl p-5 border border-zinc-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon className={cn("h-5 w-5", color ?? "text-zinc-500")} />
+                        <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">{label}</span>
+                      </div>
+                      <p className="text-3xl font-bold text-zinc-900">{value.toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* ── Posts section ── */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                <Newspaper className="h-5 w-5 text-zinc-500" />
+                Published Articles
+              </h2>
+              <span className="text-sm text-zinc-500 font-mono">{posts.length} articles</span>
+            </div>
+
+            {posts.length === 0 ? (
+              <div className="bg-white border border-zinc-100 rounded-2xl p-20 text-center">
+                <FileText className="h-14 w-14 text-zinc-200 mx-auto mb-4" />
+                <p className="text-zinc-500 font-medium text-base">No published articles yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {posts.map((post, i) => (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <Link
+                      to={`/article/${post.id}`}
+                      className="group flex items-start gap-6 bg-white border border-zinc-100 rounded-2xl p-6 hover:border-blue-200 hover:shadow-md transition-all"
+                    >
+                      {/* Number - larger */}
+                      <span className="text-4xl font-bold text-zinc-200 group-hover:text-blue-100 transition-colors flex-shrink-0 w-12 text-center leading-tight mt-1">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          {post.moderationStatus?.toLowerCase() === "approved" && (
+                            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">
+                              Verified
+                            </span>
+                          )}
+                          {post.tags?.slice(0, 2).map((tag) => (
+                            <span key={tag} className="text-xs font-mono px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 uppercase tracking-wider">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        <h3 className="text-lg font-bold text-zinc-800 group-hover:text-blue-700 transition-colors line-clamp-2 leading-snug mb-2">
+                          {post.title}
+                        </h3>
+                        {post.content && (
+                          <p className="text-base text-zinc-500 line-clamp-2 mb-3">
+                            {post.content.substring(0, 160)}…
+                          </p>
+                        )}
+                        <div className="flex items-center gap-5 text-sm text-zinc-400 font-mono">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" /> {formatDate(post.createdAt)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3.5 w-3.5" /> {post.likesCount ?? 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3.5 w-3.5" /> {post.views ?? 0}
+                          </span>
+                          <span className="flex items-center gap-1 text-blue-500 group-hover:text-blue-700">
+                            <ExternalLink className="h-3.5 w-3.5" /> Read
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Thumbnail */}
+                      {post.media?.[0] && (
+                        <div className="w-24 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-100">
+                          <img
+                            src={postsService.getImageUrl(post.media[0].path)}
+                            alt={post.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        </div>
+                      )}
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
 

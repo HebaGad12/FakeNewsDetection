@@ -38,6 +38,7 @@ export interface PostComment {
  * Post/Article from API
  */
 export interface Post {
+  views: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   verificationStatus: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

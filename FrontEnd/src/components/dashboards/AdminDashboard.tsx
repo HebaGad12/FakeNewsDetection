@@ -30,6 +30,8 @@ import {
   DollarSign,
   Send,
   ArrowDownLeft,
+  Home,
+  LogOut,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -135,7 +137,7 @@ const DashStatCard = ({
       <Icon className="h-5 w-5 text-accent" />
       {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
     </div>
-    <p className="text-2xl font-bold text-foreground mb-1">{value}</p>
+    <p className="text-3xl font-bold text-foreground mb-1">{value}</p>
     <p className="text-sm text-muted-foreground">{label}</p>
   </motion.div>
 );
@@ -153,9 +155,9 @@ const Pagination = ({
 }) => {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   return (
-    <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-      <span>
-        Showing {Math.min((page - 1) * pageSize + 1, totalCount)}{String.fromCharCode(8211)}
+    <div className="flex items-center justify-between mt-6 text-sm text-muted-foreground">
+      <span className="text-sm">
+        Showing {Math.min((page - 1) * pageSize + 1, totalCount)}-
         {Math.min(page * pageSize, totalCount)} of {totalCount}
       </span>
       <div className="flex gap-2">
@@ -167,7 +169,7 @@ const Pagination = ({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="flex items-center px-2">
+        <span className="flex items-center px-3 text-sm font-medium">
           {page} / {totalPages}
         </span>
         <Button
@@ -184,12 +186,7 @@ const Pagination = ({
 };
 
 // ============================================================================
-// Tab: Overview
-// ============================================================================
-
-
-// ============================================================================
-// SideNavBar Component
+// SideNavBar Component - Enhanced Typography
 // ============================================================================
 
 interface SideNavBarProps {
@@ -200,134 +197,130 @@ interface SideNavBarProps {
 }
 
 const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps) => {
+  const navigate = useNavigate();
+
   const navItems = [
-    { id: "overview", label: "Dashboard", icon: TrendingUp },
-    { id: "users", label: "User Management", icon: Users },
-    { id: "posts", label: "Posts", icon: FileText },
-    { id: "journalists", label: "Journalists", icon: UserCheck },
-    { id: "organizations", label: "Organizations", icon: Building2 },
-    { id: "reports", label: "Reports", icon: AlertTriangle },
-    { id: "wallets", label: "Wallets", icon: Wallet },
-    { id: "donations", label: "Donations", icon: Send },
+    { id: "overview",       label: "Dashboard",       icon: TrendingUp    },
+    { id: "users",          label: "User Management", icon: Users         },
+    { id: "posts",          label: "Posts",           icon: FileText      },
+    { id: "journalists",    label: "Journalists",     icon: UserCheck     },
+    { id: "organizations",  label: "Organizations",   icon: Building2     },
+    { id: "reports",        label: "Reports",         icon: AlertTriangle },
+    { id: "wallets",        label: "Wallets",         icon: Wallet        },
+    { id: "donations",      label: "Donations",       icon: Send          },
   ] as { id: Tab; label: string; icon: React.ElementType }[];
 
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 bg-[#F9F9F9] dark:bg-stone-950 flex flex-col p-4 gap-2 z-50">
-      <div className="mb-8 px-2 flex flex-col gap-1">
-        <h1 className="font-headline text-2xl font-bold italic text-on-surface">Admin Portal</h1>
-        <p className="font-label text-xs text-outline tracking-wider">System Administration</p>
+    <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-50 bg-[#0f172a] border-r border-white/5 shadow-2xl">
+      {/* ── Brand ── */}
+      <div className="px-5 pt-7 pb-5 border-b border-white/5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+            <Shield className="h-5 w-5 text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h1 className="text-white font-bold text-base leading-tight tracking-wide">Admin Portal</h1>
+            <p className="text-blue-400/60 text-[11px] font-mono uppercase tracking-widest mt-0.5">System Administration</p>
+          </div>
+        </div>
+
+        {/* User badge */}
+        {user?.name && (
+          <div className="flex items-center gap-2.5 px-3 py-3 rounded-xl bg-white/5 border border-white/5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs font-bold uppercase">
+                {user.name.substring(0, 2)}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-sm font-semibold truncate">{user.name}</p>
+              <p className="text-white/35 text-[11px] font-mono">Administrator</p>
+            </div>
+          </div>
+        )}
       </div>
-      <nav className="flex-grow flex flex-col gap-1">
-        {navItems.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => onTabChange(id)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 font-sans text-sm font-medium transition-colors rounded-sm",
-              activeTab === id
-                ? "bg-stone-200 text-[#2D3435] scale-[0.98] transition-transform"
-                : "text-[#5B5E66] hover:bg-stone-100"
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            {label}
-          </button>
-        ))}
+
+      {/* ── Nav Items ── */}
+      <nav className="flex-grow flex flex-col gap-0.5 px-3 py-4 overflow-y-auto">
+        <p className="text-white/20 text-[10px] font-mono uppercase tracking-[0.18em] px-2 mb-3">Navigation</p>
+        {navItems.map(({ id, label, icon: Icon }) => {
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => onTabChange(id)}
+              className={cn(
+                "group relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                isActive
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                  : "text-white/45 hover:text-white hover:bg-white/6"
+              )}
+            >
+              {/* active left accent bar */}
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+              )}
+              <Icon className={cn(
+                "h-4 w-4 flex-shrink-0 transition-colors",
+                isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+              )} />
+              <span className="flex-1 text-left text-sm">{label}</span>
+              {isActive && (
+                <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />
+              )}
+            </button>
+          );
+        })}
       </nav>
-      <div className="mt-auto pt-4 border-t border-outline-variant/10">
-        <button onClick={onLogout} className="w-full py-2 bg-primary text-on-primary font-label text-xs tracking-widest rounded-sm hover:bg-primary-dim transition-colors uppercase">
-          Logout
+
+      {/* ── Footer Buttons ── */}
+      <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
+        {/* Go to Home */}
+        <button
+          onClick={() => navigate("/")}
+          className="group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+        >
+          <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
+          <span className="flex-1 text-left">Go to Home</span>
+          <ArrowUpRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+        </button>
+
+        {/* Logout */}
+        <button
+          onClick={onLogout}
+          className="group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          <span className="flex-1 text-left">Logout</span>
         </button>
       </div>
     </aside>
   );
 };
 
+// ============================================================================
+// Tab: Overview - Enhanced Typography
+// ============================================================================
 
 const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
   if (!stats)
-    return <div className="py-16 text-center text-muted-foreground">Loading stats...</div>;
-
-  const chartData = [20, 35, 30, 55, 45, 80, 60, 75, 65, 90];
+    return <div className="py-20 text-center text-muted-foreground text-base">Loading stats...</div>;
 
   return (
     <div className="space-y-12">
       <header className="mb-12">
         <div className="flex justify-between items-end">
           <div>
-            <h2 className="font-headline tracking-tight text-4xl font-bold text-on-surface">The Veritas Archive</h2>
-            <p className="font-label text-sm text-outline-variant mt-2 tracking-wide uppercase">System Administration Portal & Infrastructure Health</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end">
-              <span className="font-label text-[10px] text-green-600 font-bold tracking-widest uppercase">Network Status</span>
-              <span className="font-body text-sm font-semibold">Operational / 99.9% Uptime</span>
-            </div>
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <h2 className="font-headline tracking-tight text-5xl font-bold text-on-surface">The Veritas Archive</h2>
+            <p className="font-label text-base text-outline-variant mt-3 tracking-wide uppercase">System Administration Portal</p>
           </div>
         </div>
       </header>
 
-      <section className="grid grid-cols-12 gap-6 mb-12">
-        <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest p-8 rounded-sm shadow-sm border border-border">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="font-headline text-xl">Global User Growth</h3>
-            <div className="flex gap-4">
-              <span className="font-label text-xs text-outline">DAILY</span>
-              <span className="font-label text-xs text-on-surface border-b border-primary">MONTHLY</span>
-              <span className="font-label text-xs text-outline">ANNUAL</span>
-            </div>
-          </div>
-          <div className="h-64 flex items-end gap-2 relative">
-            {chartData.map((height, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "flex-1 relative group transition-all",
-                  height > 70 ? "bg-primary" : "bg-primary-container"
-                )}
-                style={{ height: `${height}%` }}
-              >
-                {height > 70 && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-on-surface text-surface text-[10px] px-2 py-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                    Peak Activity
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex justify-between font-label text-[10px] text-outline tracking-widest">
-            <span>JAN 2024</span>
-            <span>JUN 2024</span>
-            <span>DEC 2024</span>
-          </div>
-        </div>
-
-        <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
-          <div className="flex-1 bg-surface-container-low p-6 flex flex-col justify-between rounded-sm border border-border">
-            <h4 className="font-label text-xs tracking-widest text-outline">REPORT VOLUME</h4>
-            <div>
-              <span className="font-headline text-4xl block">{stats.totalPosts}</span>
-              <span className="font-label text-[10px] text-tertiary mt-1 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                {stats.pendingPosts} pending
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 bg-on-surface p-6 flex flex-col justify-between text-surface-bright rounded-sm">
-            <h4 className="font-label text-xs tracking-widest opacity-60">ACTIVE INVESTIGATIONS</h4>
-            <div>
-              <span className="font-headline text-4xl block">{stats.totalUsers}</span>
-              <p className="font-body text-xs opacity-80 mt-2">Cross-jurisdictional verification pending.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-12 gap-12">
+      <div className="grid grid-cols-12 gap-8">
         <div className="col-span-12 lg:col-span-7">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-headline text-2xl">User Management</h3>
+            <h3 className="font-headline text-2xl font-bold">User Management</h3>
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-outline" />
               <input 
@@ -338,132 +331,75 @@ const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
             </div>
           </div>
           <div className="space-y-4">
-             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+            <div className="flex items-center justify-between p-5 bg-surface-container-low rounded-lg">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-accent" />
+                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-accent" />
                 </div>
                 <div>
-                  <p className="font-body font-bold text-sm">Total Active Users</p>
+                  <p className="font-body font-semibold text-base">Total Active Users</p>
                 </div>
               </div>
-              <span className="text-xl font-bold font-headline">{stats.activeUsers}</span>
+              <span className="text-2xl font-bold font-headline">{stats.activeUsers}</span>
             </div>
-             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+            <div className="flex items-center justify-between p-5 bg-surface-container-low rounded-lg">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserCheck className="h-5 w-5 text-blue-600" />
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserCheck className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="font-body font-bold text-sm">Verified Journalists</p>
+                  <p className="font-body font-semibold text-base">Verified Journalists</p>
                 </div>
               </div>
-              <span className="text-xl font-bold font-headline">{stats.totalJournalists}</span>
+              <span className="text-2xl font-bold font-headline">{stats.totalJournalists}</span>
             </div>
-             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+            <div className="flex items-center justify-between p-5 bg-surface-container-low rounded-lg">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-orange-600" />
+                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-orange-600" />
                 </div>
                 <div>
-                  <p className="font-body font-bold text-sm">Organizations</p>
+                  <p className="font-body font-semibold text-base">Organizations</p>
                 </div>
               </div>
-              <span className="text-xl font-bold font-headline">{stats.totalOrganizations}</span>
+              <span className="text-2xl font-bold font-headline">{stats.totalOrganizations}</span>
             </div>
           </div>
         </div>
 
         <div className="col-span-12 lg:col-span-5">
-          <h3 className="font-headline text-2xl mb-6">Moderation Queue</h3>
+          <h3 className="font-headline text-2xl font-bold mb-6">Moderation Queue</h3>
           <div className="space-y-4">
-            <div className="p-6 bg-surface-container-lowest border-l-4 border-tertiary shadow-sm rounded-r-sm">
+            <div className="p-6 bg-surface-container-lowest border-l-4 border-tertiary shadow-sm rounded-r-lg">
               <div className="flex justify-between items-start mb-2">
-                <span className="font-label text-[10px] font-bold text-tertiary tracking-widest uppercase">Journalists</span>
-                <span className="font-label text-[10px] text-outline">Pending</span>
+                <span className="font-label text-[11px] font-bold text-tertiary tracking-widest uppercase">Journalists</span>
+                <span className="font-label text-[11px] text-outline">Pending</span>
               </div>
-              <h5 className="font-body font-bold text-sm mb-2">{stats.pendingJournalistRequests} verification requests</h5>
+              <h5 className="font-body font-bold text-base mb-2">{stats.pendingJournalistRequests} verification requests</h5>
               <div className="flex gap-2 mt-4">
-                <button className="px-3 py-1 bg-tertiary text-on-tertiary font-label text-[10px] font-bold uppercase tracking-widest rounded-sm">Review</button>
+                <button className="px-4 py-1.5 bg-tertiary text-on-tertiary font-label text-[11px] font-bold uppercase tracking-widest rounded-md">Review</button>
               </div>
             </div>
             
-            <div className="p-6 bg-surface-container-lowest border-l-4 border-outline-variant shadow-sm rounded-r-sm">
+            <div className="p-6 bg-surface-container-lowest border-l-4 border-outline-variant shadow-sm rounded-r-lg">
               <div className="flex justify-between items-start mb-2">
-                <span className="font-label text-[10px] font-bold text-outline tracking-widest uppercase">Organizations</span>
-                <span className="font-label text-[10px] text-outline">Pending</span>
+                <span className="font-label text-[11px] font-bold text-outline tracking-widest uppercase">Organizations</span>
+                <span className="font-label text-[11px] text-outline">Pending</span>
               </div>
-              <h5 className="font-body font-bold text-sm mb-2">{stats.pendingOrganizationRequests} pending registrations</h5>
+              <h5 className="font-body font-bold text-base mb-2">{stats.pendingOrganizationRequests} pending registrations</h5>
               <div className="flex gap-2 mt-4">
-                <button className="px-3 py-1 bg-on-surface text-surface font-label text-[10px] font-bold uppercase tracking-widest rounded-sm">Review</button>
+                <button className="px-4 py-1.5 bg-on-surface text-surface font-label text-[11px] font-bold uppercase tracking-widest rounded-md">Review</button>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      <section className="mt-16">
-        <h3 className="font-headline text-2xl mb-8">System Infrastructure</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-surface-container-low p-6 rounded-sm">
-            <div className="flex items-center justify-between mb-4">
-              <Database className="h-5 w-5 text-primary" />
-              <span className="w-2 h-2 bg-secondary rounded-full"></span>
-            </div>
-            <p className="font-label text-[10px] text-outline uppercase tracking-widest">Database Node 01</p>
-            <p className="font-body font-bold text-lg">HASH_VERIFIED_SQL</p>
-            <div className="mt-4 w-full bg-outline-variant/20 h-1">
-              <div className="bg-secondary h-full w-[45%]"></div>
-            </div>
-            <p className="font-label text-[10px] text-outline mt-2">45% Capacity Utilization</p>
-          </div>
-          
-          <div className="bg-surface-container-low p-6 rounded-sm">
-            <div className="flex items-center justify-between mb-4">
-              <Cloud className="h-5 w-5 text-primary" />
-              <span className="w-2 h-2 bg-secondary rounded-full"></span>
-            </div>
-            <p className="font-label text-[10px] text-outline uppercase tracking-widest">Archive Sync</p>
-            <p className="font-body font-bold text-lg">GLOBAL_REDUNDANCY</p>
-            <div className="mt-4 w-full bg-outline-variant/20 h-1">
-              <div className="bg-secondary h-full w-[88%]"></div>
-            </div>
-            <p className="font-label text-[10px] text-outline mt-2">88% Sync Completion</p>
-          </div>
-          
-          <div className="bg-surface-container-low p-6 rounded-sm">
-            <div className="flex items-center justify-between mb-4">
-              <Lock className="h-5 w-5 text-primary" />
-              <span className="w-2 h-2 bg-secondary rounded-full"></span>
-            </div>
-            <p className="font-label text-[10px] text-outline uppercase tracking-widest">Security Firewall</p>
-            <p className="font-body font-bold text-lg">AES_256_ACTIVE</p>
-            <div className="mt-4 w-full bg-outline-variant/20 h-1">
-              <div className="bg-secondary h-full w-full"></div>
-            </div>
-            <p className="font-label text-[10px] text-outline mt-2">Threat Mitigation: Locked</p>
-          </div>
-
-          <div className="bg-surface-container-low p-6 rounded-sm">
-            <div className="flex items-center justify-between mb-4">
-              <Zap className="h-5 w-5 text-tertiary-container" />
-              <span className="w-2 h-2 bg-tertiary-container rounded-full"></span>
-            </div>
-            <p className="font-label text-[10px] text-outline uppercase tracking-widest">API Latency</p>
-            <p className="font-body font-bold text-lg">EAST_US_1_SPIKE</p>
-            <div className="mt-4 w-full bg-outline-variant/20 h-1">
-              <div className="bg-tertiary-container h-full w-[72%]"></div>
-            </div>
-            <p className="font-label text-[10px] text-outline mt-2">142ms Latency Threshold</p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };
 
 // ============================================================================
-// Tab: Users
+// Tab: Users - Enhanced Table Typography
 // ============================================================================
 
 const UsersTab = () => {
@@ -530,9 +466,9 @@ const UsersTab = () => {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-6">
         <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-40">
             <SelectValue placeholder="Role" />
           </SelectTrigger>
           <SelectContent>
@@ -545,7 +481,7 @@ const UsersTab = () => {
         </Select>
 
         <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-40">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -561,7 +497,7 @@ const UsersTab = () => {
       </div>
 
       {loading && !result ? (
-        <div className="py-16 text-center text-muted-foreground">Loading...</div>
+        <div className="py-20 text-center text-muted-foreground text-base">Loading...</div>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-border">
@@ -569,7 +505,7 @@ const UsersTab = () => {
               <thead className="bg-muted/50">
                 <tr>
                   {["Name", "Email", "Role", "Status", "Posts", "Followers", "Joined", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-medium text-muted-foreground">
+                    <th key={h} className="px-4 py-4 text-left font-semibold text-muted-foreground text-sm">
                       {h}
                     </th>
                   ))}
@@ -578,24 +514,24 @@ const UsersTab = () => {
               <tbody className="divide-y divide-border">
                 {result?.data.map((u) => (
                   <tr key={u.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3 font-medium">{u.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline">{u.role}</Badge>
+                    <td className="px-4 py-4 font-semibold text-foreground">{u.name}</td>
+                    <td className="px-4 py-4 text-muted-foreground">{u.email}</td>
+                    <td className="px-4 py-4">
+                      <Badge variant="outline" className="text-xs">{u.role}</Badge>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-medium",
+                        "text-xs px-2 py-1 rounded-full font-medium",
                         u.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                       )}>
                         {u.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{u.postCount}</td>
-                    <td className="px-4 py-3">{u.followerCount}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(u.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
+                    <td className="px-4 py-4 text-foreground">{u.postCount}</td>
+                    <td className="px-4 py-4 text-foreground">{u.followerCount}</td>
+                    <td className="px-4 py-4 text-muted-foreground text-sm">{formatDate(u.createdAt)}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex gap-2">
                         <Button size="sm" variant="ghost" onClick={() => void openDetail(u.id)} title="View">
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -633,11 +569,11 @@ const UsersTab = () => {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>User Details</DialogTitle>
+            <DialogTitle className="text-xl font-bold">User Details</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
                 {([
                   ["Name", selectedUser.name],
                   ["Email", selectedUser.email],
@@ -653,15 +589,15 @@ const UsersTab = () => {
                   ["Joined", formatDate(selectedUser.createdAt)],
                 ] as [string, string | number][]).map(([k, v]) => (
                   <div key={k}>
-                    <p className="text-xs text-muted-foreground">{k}</p>
-                    <p className="font-medium">{String(v)}</p>
+                    <p className="text-xs text-muted-foreground font-medium">{k}</p>
+                    <p className="font-semibold text-sm">{String(v)}</p>
                   </div>
                 ))}
               </div>
               {selectedUser.journalistExternalId && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Journalist ID</p>
-                  <p className="font-mono text-xs">{selectedUser.journalistExternalId}</p>
+                  <p className="text-xs text-muted-foreground font-medium">Journalist ID</p>
+                  <p className="font-mono text-sm">{selectedUser.journalistExternalId}</p>
                 </div>
               )}
             </div>
@@ -672,8 +608,8 @@ const UsersTab = () => {
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-bold">Delete User</DialogTitle>
+            <DialogDescription className="text-sm">
               This action cannot be undone. The user and all their data will be permanently deleted.
             </DialogDescription>
           </DialogHeader>
@@ -688,7 +624,7 @@ const UsersTab = () => {
 };
 
 // ============================================================================
-// Tab: Posts
+// Tab: Posts - Enhanced Table Typography
 // ============================================================================
 
 const PostsTab = () => {
@@ -756,9 +692,9 @@ const PostsTab = () => {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-6">
         <Select value={modFilter} onValueChange={(v) => { setModFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Moderation" />
           </SelectTrigger>
           <SelectContent>
@@ -774,7 +710,7 @@ const PostsTab = () => {
       </div>
 
       {loading && !result ? (
-        <div className="py-16 text-center text-muted-foreground">Loading...</div>
+        <div className="py-20 text-center text-muted-foreground text-base">Loading...</div>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-border">
@@ -782,7 +718,7 @@ const PostsTab = () => {
               <thead className="bg-muted/50">
                 <tr>
                   {["Title", "Author", "Moderation", "Date", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-medium text-muted-foreground">
+                    <th key={h} className="px-4 py-4 text-left font-semibold text-muted-foreground text-sm">
                       {h}
                     </th>
                   ))}
@@ -791,21 +727,21 @@ const PostsTab = () => {
               <tbody className="divide-y divide-border">
                 {result?.data.map((p) => (
                   <tr key={p.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3 max-w-48 truncate font-medium" title={p.title}>
+                    <td className="px-4 py-4 max-w-48 truncate font-semibold text-foreground" title={p.title}>
                       {p.title}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.authorName}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4 text-muted-foreground">{p.authorName}</td>
+                    <td className="px-4 py-4">
                       <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-medium",
+                        "text-xs px-2 py-1 rounded-full font-medium",
                         moderationColor[normalizeModerationStatus(p.moderationStatus)] ?? "bg-gray-100 text-gray-600"
                       )}>
                         {moderationStatusLabel(p.moderationStatus)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(p.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
+                    <td className="px-4 py-4 text-muted-foreground text-sm">{formatDate(p.createdAt)}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex gap-2">
                         <Button size="sm" variant="ghost" onClick={() => void openDetail(p.id)} title="View">
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -844,15 +780,15 @@ const PostsTab = () => {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Post Details</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Post Details</DialogTitle>
           </DialogHeader>
           {selectedPost && (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-5 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">Title</p>
-                <p className="font-semibold text-base">{selectedPost.title}</p>
+                <p className="text-xs text-muted-foreground font-medium mb-1">Title</p>
+                <p className="font-semibold text-lg">{selectedPost.title}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 {([
                   ["Author", selectedPost.authorName],
                   ["Author Role", selectedPost.authorRole],
@@ -869,29 +805,29 @@ const PostsTab = () => {
                   ["Created", formatDate(selectedPost.createdAt)],
                 ] as [string, string | number][]).map(([k, v]) => (
                   <div key={k}>
-                    <p className="text-xs text-muted-foreground">{k}</p>
-                    <p className="font-medium">{String(v)}</p>
+                    <p className="text-xs text-muted-foreground font-medium">{k}</p>
+                    <p className="font-semibold text-sm">{String(v)}</p>
                   </div>
                 ))}
               </div>
               {selectedPost.tags.length > 0 && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Tags</p>
-                  <div className="flex flex-wrap gap-1">
+                  <p className="text-xs text-muted-foreground font-medium mb-2">Tags</p>
+                  <div className="flex flex-wrap gap-2">
                     {selectedPost.tags.map((t) => (
-                      <Badge key={t} variant="secondary">{t}</Badge>
+                      <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
                     ))}
                   </div>
                 </div>
               )}
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Content</p>
-                <p className="text-sm whitespace-pre-wrap bg-muted/30 rounded p-3">{selectedPost.content}</p>
+                <p className="text-xs text-muted-foreground font-medium mb-2">Content</p>
+                <p className="text-sm whitespace-pre-wrap bg-muted/30 rounded-lg p-4 leading-relaxed">{selectedPost.content}</p>
               </div>
               {selectedPost.moderationNotes && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Moderation Notes</p>
-                  <p className="text-sm">{selectedPost.moderationNotes}</p>
+                  <p className="text-xs text-muted-foreground font-medium mb-1">Moderation Notes</p>
+                  <p className="text-sm bg-muted/20 rounded-lg p-3">{selectedPost.moderationNotes}</p>
                 </div>
               )}
             </div>
@@ -902,11 +838,11 @@ const PostsTab = () => {
       <Dialog open={!!moderationDialog} onOpenChange={() => setModerationDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Moderation Status</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Update Moderation Status</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Status</Label>
+              <Label className="text-sm font-semibold">Status</Label>
               <Select value={modStatus} onValueChange={setModStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -926,8 +862,8 @@ const PostsTab = () => {
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Post</DialogTitle>
-            <DialogDescription>This post will be permanently deleted.</DialogDescription>
+            <DialogTitle className="text-xl font-bold">Delete Post</DialogTitle>
+            <DialogDescription className="text-sm">This post will be permanently deleted.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
@@ -940,7 +876,7 @@ const PostsTab = () => {
 };
 
 // ============================================================================
-// Tab: Journalists
+// Tab: Journalists - Enhanced Cards Typography
 // ============================================================================
 
 const JournalistsTab = () => {
@@ -997,39 +933,39 @@ const JournalistsTab = () => {
 
   return (
     <div>
-      <div className="flex gap-3 mb-4">
-        <Button variant={subTab === "pending" ? "default" : "outline"} size="sm" onClick={() => setSubTab("pending")}>
+      <div className="flex gap-3 mb-6">
+        <Button variant={subTab === "pending" ? "default" : "outline"} size="default" onClick={() => setSubTab("pending")}>
           Pending ({pending.length})
         </Button>
-        <Button variant={subTab === "rejected" ? "default" : "outline"} size="sm" onClick={() => setSubTab("rejected")}>
+        <Button variant={subTab === "rejected" ? "default" : "outline"} size="default" onClick={() => setSubTab("rejected")}>
           Rejected ({rejected.length})
         </Button>
       </div>
 
       {subTab === "pending" && (
         loadingPending ? (
-          <div className="py-16 text-center text-muted-foreground">Loading...</div>
+          <div className="py-20 text-center text-muted-foreground text-base">Loading...</div>
         ) : pending.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground">No pending journalist requests.</div>
+          <div className="py-20 text-center text-muted-foreground text-base">No pending journalist requests.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {pending.map((j) => (
-              <div key={j.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                    <UserCheck className="h-5 w-5 text-accent" />
+              <div key={j.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                    <UserCheck className="h-6 w-6 text-accent" />
                   </div>
                   <div>
-                    <p className="font-medium">{j.name}</p>
+                    <p className="font-bold text-foreground text-base">{j.name}</p>
                     <p className="text-sm text-muted-foreground">{j.email}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Press ID: {j.journalistExternalId} &middot; {formatDate(j.registeredAt)}
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    size="sm"
+                    size="default"
                     className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={async () => {
                       try {
@@ -1044,14 +980,14 @@ const JournalistsTab = () => {
                       }
                     }}
                   >
-                    <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                    <CheckCircle className="h-4 w-4 mr-2" /> Approve
                   </Button>
                   <Button
-                    size="sm"
+                    size="default"
                     variant="destructive"
                     onClick={() => { setReviewDialog(j); setApprove(false); setRejectionReason(""); }}
                   >
-                    <XCircle className="h-4 w-4 mr-1" /> Reject
+                    <XCircle className="h-4 w-4 mr-2" /> Reject
                   </Button>
                 </div>
               </div>
@@ -1062,30 +998,30 @@ const JournalistsTab = () => {
 
       {subTab === "rejected" && (
         loadingRejected ? (
-          <div className="py-16 text-center text-muted-foreground">Loading...</div>
+          <div className="py-20 text-center text-muted-foreground text-base">Loading...</div>
         ) : rejected.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground">No rejected journalist requests.</div>
+          <div className="py-20 text-center text-muted-foreground text-base">No rejected journalist requests.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {rejected.map((j) => (
-              <div key={j.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                    <XCircle className="h-5 w-5 text-red-500" />
+              <div key={j.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                    <XCircle className="h-6 w-6 text-red-500" />
                   </div>
                   <div>
-                    <p className="font-medium">{j.name}</p>
+                    <p className="font-bold text-foreground text-base">{j.name}</p>
                     <p className="text-sm text-muted-foreground">{j.email}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Press ID: {j.journalistId} &middot; {formatDate(j.registeredAt)}
                     </p>
                     {j.rejectionReason && (
-                      <p className="text-xs text-red-500 mt-0.5">Reason: {j.rejectionReason}</p>
+                      <p className="text-xs text-red-500 mt-1">Reason: {j.rejectionReason}</p>
                     )}
                   </div>
                 </div>
                 <Button
-                  size="sm"
+                  size="default"
                   variant="outline"
                   onClick={async () => {
                     try {
@@ -1097,7 +1033,7 @@ const JournalistsTab = () => {
                     }
                   }}
                 >
-                  <RefreshCw className="h-4 w-4 mr-1" /> Reopen
+                  <RefreshCw className="h-4 w-4 mr-2" /> Reopen
                 </Button>
               </div>
             ))}
@@ -1108,28 +1044,29 @@ const JournalistsTab = () => {
       <Dialog open={!!reviewDialog} onOpenChange={() => setReviewDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{approve ? "Approve" : "Reject"} Journalist Request</DialogTitle>
+            <DialogTitle className="text-xl font-bold">{approve ? "Approve" : "Reject"} Journalist Request</DialogTitle>
             {reviewDialog && (
-              <DialogDescription>{reviewDialog.name} ({reviewDialog.email})</DialogDescription>
+              <DialogDescription className="text-sm">{reviewDialog.name} ({reviewDialog.email})</DialogDescription>
             )}
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex gap-3">
-              <Button size="sm" variant={approve ? "default" : "outline"} onClick={() => setApprove(true)}>
-                <CheckCircle className="h-4 w-4 mr-1" /> Approve
+              <Button size="default" variant={approve ? "default" : "outline"} onClick={() => setApprove(true)}>
+                <CheckCircle className="h-4 w-4 mr-2" /> Approve
               </Button>
-              <Button size="sm" variant={!approve ? "destructive" : "outline"} onClick={() => setApprove(false)}>
-                <XCircle className="h-4 w-4 mr-1" /> Reject
+              <Button size="default" variant={!approve ? "destructive" : "outline"} onClick={() => setApprove(false)}>
+                <XCircle className="h-4 w-4 mr-2" /> Reject
               </Button>
             </div>
             {!approve && (
               <div>
-                <Label>Rejection Reason</Label>
+                <Label className="text-sm font-semibold">Rejection Reason</Label>
                 <Textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Reason for rejection..."
                   rows={3}
+                  className="mt-1"
                 />
               </div>
             )}
@@ -1147,7 +1084,7 @@ const JournalistsTab = () => {
 };
 
 // ============================================================================
-// Tab: Organizations
+// Tab: Organizations - Enhanced Cards Typography
 // ============================================================================
 
 const OrganizationsTab = () => {
@@ -1204,39 +1141,39 @@ const OrganizationsTab = () => {
 
   return (
     <div>
-      <div className="flex gap-3 mb-4">
-        <Button variant={subTab === "pending" ? "default" : "outline"} size="sm" onClick={() => setSubTab("pending")}>
+      <div className="flex gap-3 mb-6">
+        <Button variant={subTab === "pending" ? "default" : "outline"} size="default" onClick={() => setSubTab("pending")}>
           Pending ({pending.length})
         </Button>
-        <Button variant={subTab === "rejected" ? "default" : "outline"} size="sm" onClick={() => setSubTab("rejected")}>
+        <Button variant={subTab === "rejected" ? "default" : "outline"} size="default" onClick={() => setSubTab("rejected")}>
           Rejected ({rejected.length})
         </Button>
       </div>
 
       {subTab === "pending" && (
         loadingPending ? (
-          <div className="py-16 text-center text-muted-foreground">Loading...</div>
+          <div className="py-20 text-center text-muted-foreground text-base">Loading...</div>
         ) : pending.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground">No pending organization requests.</div>
+          <div className="py-20 text-center text-muted-foreground text-base">No pending organization requests.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {pending.map((org) => (
-              <div key={org.userId} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-primary" />
+              <div key={org.userId} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Building2 className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{org.name}</p>
+                    <p className="font-bold text-foreground text-base">{org.name}</p>
                     <p className="text-sm text-muted-foreground">{org.email}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       License: {org.license} &middot; {formatDate(org.registeredAt)}
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    size="sm"
+                    size="default"
                     className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={async () => {
                       try {
@@ -1251,14 +1188,14 @@ const OrganizationsTab = () => {
                       }
                     }}
                   >
-                    <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                    <CheckCircle className="h-4 w-4 mr-2" /> Approve
                   </Button>
                   <Button
-                    size="sm"
+                    size="default"
                     variant="destructive"
                     onClick={() => { setReviewDialog(org.userId); setApprove(false); setRejectionReason(""); }}
                   >
-                    <XCircle className="h-4 w-4 mr-1" /> Reject
+                    <XCircle className="h-4 w-4 mr-2" /> Reject
                   </Button>
                 </div>
               </div>
@@ -1269,21 +1206,21 @@ const OrganizationsTab = () => {
 
       {subTab === "rejected" && (
         loadingRejected ? (
-          <div className="py-16 text-center text-muted-foreground">Loading...</div>
+          <div className="py-20 text-center text-muted-foreground text-base">Loading...</div>
         ) : rejected.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground">No rejected organization requests.</div>
+          <div className="py-20 text-center text-muted-foreground text-base">No rejected organization requests.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {rejected.map((org) => (
-              <div key={org.userId} className="bg-card border border-border rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                    <XCircle className="h-5 w-5 text-red-500" />
+              <div key={org.userId} className="bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                    <XCircle className="h-6 w-6 text-red-500" />
                   </div>
                   <div>
-                    <p className="font-medium">{org.name}</p>
+                    <p className="font-bold text-foreground text-base">{org.name}</p>
                     <p className="text-sm text-muted-foreground">{org.email}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       License: {org.license} &middot; {formatDate(org.registeredAt)}
                     </p>
                   </div>
@@ -1297,25 +1234,26 @@ const OrganizationsTab = () => {
       <Dialog open={!!reviewDialog} onOpenChange={() => setReviewDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{approve ? "Approve" : "Reject"} Organization</DialogTitle>
+            <DialogTitle className="text-xl font-bold">{approve ? "Approve" : "Reject"} Organization</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex gap-3">
-              <Button size="sm" variant={approve ? "default" : "outline"} onClick={() => setApprove(true)}>
-                <CheckCircle className="h-4 w-4 mr-1" /> Approve
+              <Button size="default" variant={approve ? "default" : "outline"} onClick={() => setApprove(true)}>
+                <CheckCircle className="h-4 w-4 mr-2" /> Approve
               </Button>
-              <Button size="sm" variant={!approve ? "destructive" : "outline"} onClick={() => setApprove(false)}>
-                <XCircle className="h-4 w-4 mr-1" /> Reject
+              <Button size="default" variant={!approve ? "destructive" : "outline"} onClick={() => setApprove(false)}>
+                <XCircle className="h-4 w-4 mr-2" /> Reject
               </Button>
             </div>
             {!approve && (
               <div>
-                <Label>Rejection Reason</Label>
+                <Label className="text-sm font-semibold">Rejection Reason</Label>
                 <Textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Reason for rejection..."
                   rows={3}
+                  className="mt-1"
                 />
               </div>
             )}
@@ -1333,7 +1271,7 @@ const OrganizationsTab = () => {
 };
 
 // ============================================================================
-// Tab: Wallets
+// Tab: Wallets - Enhanced Typography
 // ============================================================================
 
 const formatCurrency = (amount: number) =>
@@ -1402,10 +1340,10 @@ const WalletsTab = () => {
     setAdjusting(true);
     try {
       await adminWalletService.adjustBalance({
-  userId: adjustDialog.userId,
-  amount,
-  ...(adjustDescription.trim() && { description: adjustDescription })
-});
+        userId: adjustDialog.userId,
+        amount,
+        ...(adjustDescription.trim() && { description: adjustDescription })
+      });
 
       toast.success("Balance adjusted successfully");
       setAdjustDialog(null);
@@ -1435,7 +1373,7 @@ const WalletsTab = () => {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
@@ -1444,19 +1382,19 @@ const WalletsTab = () => {
             placeholder="Search by user name or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 py-2 text-sm"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={loadWallets} disabled={loading}>
-          <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+        <Button variant="outline" size="default" onClick={loadWallets} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-muted-foreground">Loading wallets...</div>
+        <div className="py-20 text-center text-muted-foreground text-base">Loading wallets...</div>
       ) : filteredWallets.length === 0 ? (
-        <div className="py-16 text-center text-muted-foreground">
+        <div className="py-20 text-center text-muted-foreground text-base">
           {search ? "No wallets matching your search." : "No wallets found."}
         </div>
       ) : (
@@ -1465,30 +1403,30 @@ const WalletsTab = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">User</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Last Updated</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left py-4 px-4 font-semibold text-muted-foreground text-sm">User</th>
+                  <th className="text-right py-4 px-4 font-semibold text-muted-foreground text-sm">Balance</th>
+                  <th className="text-left py-4 px-4 font-semibold text-muted-foreground text-sm">Last Updated</th>
+                  <th className="text-right py-4 px-4 font-semibold text-muted-foreground text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredWallets.map((w) => (
                   <tr key={w.walletId} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                    <td className="py-3 px-4">
+                    <td className="py-4 px-4">
                       <div>
-                        <p className="font-medium">{w.userName}</p>
-                        <p className="text-xs text-muted-foreground">{w.userId}</p>
+                        <p className="font-semibold text-foreground">{w.userName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{w.userId}</p>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <span className={cn("font-semibold", w.balance >= 0 ? "text-green-600" : "text-red-600")}>
+                    <td className="py-4 px-4 text-right">
+                      <span className={cn("font-bold text-base", w.balance >= 0 ? "text-green-600" : "text-red-600")}>
                         {formatCurrency(w.balance)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground text-xs">
+                    <td className="py-4 px-4 text-muted-foreground text-xs">
                       {formatDateTime(w.updatedAt)}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-4 px-4 text-right">
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
@@ -1522,24 +1460,24 @@ const WalletsTab = () => {
       <Dialog open={!!selectedWallet} onOpenChange={() => setSelectedWallet(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <Wallet className="h-5 w-5 text-accent" />
               Transaction History
             </DialogTitle>
             {selectedWallet && (
-              <DialogDescription>
-                {selectedWallet.userName} &middot; Balance: {formatCurrency(selectedWallet.balance)}
+              <DialogDescription className="text-sm">
+                {selectedWallet.userName} &middot; Balance: <span className="font-semibold">{formatCurrency(selectedWallet.balance)}</span>
               </DialogDescription>
             )}
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
             {loadingTx ? (
-              <div className="py-8 text-center text-muted-foreground">Loading transactions...</div>
+              <div className="py-8 text-center text-muted-foreground text-sm">Loading transactions...</div>
             ) : transactions.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">No transactions found.</div>
+              <div className="py-8 text-center text-muted-foreground text-sm">No transactions found.</div>
             ) : (
               transactions.map((tx) => (
-                <div key={tx.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                <div key={tx.id} className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border">
                   <div className={cn(
                     "mt-0.5 p-1.5 rounded-full",
                     tx.amount >= 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
@@ -1548,12 +1486,12 @@ const WalletsTab = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{tx.description || tx.type}</p>
-                      <span className={cn("font-semibold text-sm whitespace-nowrap", tx.amount >= 0 ? "text-green-600" : "text-red-600")}>
+                      <p className="font-semibold text-sm truncate">{tx.description || tx.type}</p>
+                      <span className={cn("font-bold text-sm whitespace-nowrap", tx.amount >= 0 ? "text-green-600" : "text-red-600")}>
                         {tx.amount >= 0 ? "+" : ""}{formatCurrency(tx.amount)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                       <Badge variant="outline" className="text-[10px] py-0 px-1.5">{tx.type}</Badge>
                       {tx.actorName && <span>by {tx.actorName}</span>}
                       <span>&middot;</span>
@@ -1571,37 +1509,39 @@ const WalletsTab = () => {
       <Dialog open={!!adjustDialog} onOpenChange={() => setAdjustDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <DollarSign className="h-5 w-5 text-accent" />
               Adjust Balance
             </DialogTitle>
             {adjustDialog && (
-              <DialogDescription>
-                {adjustDialog.userName} &middot; Current balance: {formatCurrency(adjustDialog.balance)}
+              <DialogDescription className="text-sm">
+                {adjustDialog.userName} &middot; Current balance: <span className="font-semibold">{formatCurrency(adjustDialog.balance)}</span>
               </DialogDescription>
             )}
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <Label>Amount</Label>
+              <Label className="text-sm font-semibold">Amount</Label>
               <Input
                 type="number"
                 step="0.01"
                 placeholder="Enter amount (positive to add, negative to deduct)"
                 value={adjustAmount}
                 onChange={(e) => setAdjustAmount(e.target.value)}
+                className="mt-1"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Use a positive number to credit, negative to debit.
               </p>
             </div>
             <div>
-              <Label>Description (optional)</Label>
+              <Label className="text-sm font-semibold">Description (optional)</Label>
               <Textarea
                 placeholder="Reason for adjustment (optional)..."
                 value={adjustDescription}
                 onChange={(e) => setAdjustDescription(e.target.value)}
                 rows={3}
+                className="mt-1"
               />
             </div>
           </div>
@@ -1611,7 +1551,7 @@ const WalletsTab = () => {
               {adjusting ? (
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
               ) : (
-                <DollarSign className="h-4 w-4 mr-1" />
+                <DollarSign className="h-4 w-4 mr-2" />
               )}
               Confirm Adjustment
             </Button>
@@ -1623,7 +1563,7 @@ const WalletsTab = () => {
 };
 
 // ============================================================================
-// Tab: Donations (all platform donations)
+// Tab: Donations (all platform donations) - Enhanced Typography
 // ============================================================================
 
 const DonationsTab = () => {
@@ -1656,20 +1596,20 @@ const DonationsTab = () => {
   const totalAmount = donations.reduce((sum, d) => sum + d.amount, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="bg-card border border-border rounded-xl p-6">
           <p className="text-sm text-muted-foreground mb-1">Total Donations</p>
-          <p className="text-2xl font-bold text-foreground">{donations.length}</p>
+          <p className="text-3xl font-bold text-foreground">{donations.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-6">
           <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
-          <p className="text-2xl font-bold text-emerald-500">${totalAmount.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-emerald-500">${totalAmount.toFixed(2)}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-6">
           <p className="text-sm text-muted-foreground mb-1">Avg Donation</p>
-          <p className="text-2xl font-bold text-foreground">
+          <p className="text-3xl font-bold text-foreground">
             ${donations.length > 0 ? (totalAmount / donations.length).toFixed(2) : "0.00"}
           </p>
         </div>
@@ -1683,20 +1623,20 @@ const DonationsTab = () => {
             placeholder="Search by sender, recipient, or message..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 py-2 text-sm"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={loadDonations} disabled={loading}>
-          <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+        <Button variant="outline" size="default" onClick={loadDonations} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="py-16 text-center text-muted-foreground">Loading donations...</div>
+        <div className="py-20 text-center text-muted-foreground text-base">Loading donations...</div>
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center text-muted-foreground">
+        <div className="py-20 text-center text-muted-foreground text-base">
           {search ? "No donations matching your search." : "No donations found."}
         </div>
       ) : (
@@ -1705,29 +1645,29 @@ const DonationsTab = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Sender</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Recipient</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Amount</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Message</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
+                  <th className="text-left py-4 px-4 font-semibold text-muted-foreground text-sm">Sender</th>
+                  <th className="text-left py-4 px-4 font-semibold text-muted-foreground text-sm">Recipient</th>
+                  <th className="text-right py-4 px-4 font-semibold text-muted-foreground text-sm">Amount</th>
+                  <th className="text-left py-4 px-4 font-semibold text-muted-foreground text-sm">Message</th>
+                  <th className="text-left py-4 px-4 font-semibold text-muted-foreground text-sm">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((d) => (
                   <tr key={d.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                    <td className="py-3 px-4">
-                      <p className="font-medium">{d.senderName}</p>
+                    <td className="py-4 px-4">
+                      <p className="font-semibold text-foreground">{d.senderName}</p>
                     </td>
-                    <td className="py-3 px-4">
-                      <p className="font-medium">{d.recipientName}</p>
+                    <td className="py-4 px-4">
+                      <p className="font-semibold text-foreground">{d.recipientName}</p>
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-semibold text-emerald-500">${d.amount.toFixed(2)}</span>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold text-emerald-500 text-base">${d.amount.toFixed(2)}</span>
                     </td>
-                    <td className="py-3 px-4">
-                      <p className="text-muted-foreground truncate max-w-[200px]">{d.message || "—"}</p>
+                    <td className="py-4 px-4">
+                      <p className="text-muted-foreground truncate max-w-[200px] text-sm">{d.message || "—"}</p>
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground text-xs whitespace-nowrap">
+                    <td className="py-4 px-4 text-muted-foreground text-xs whitespace-nowrap">
                       {new Date(d.createdAt).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "short",
@@ -1748,7 +1688,7 @@ const DonationsTab = () => {
 };
 
 // ============================================================================
-// Tab: Reports
+// Tab: Reports - Enhanced Typography
 // ============================================================================
 
 const ReportsTab = () => {
@@ -1795,55 +1735,55 @@ const ReportsTab = () => {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Posts reported by users</p>
-        <Button variant="outline" size="sm" onClick={() => void loadReports()} disabled={loading}>
-          <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+        <Button variant="outline" size="default" onClick={() => void loadReports()} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">Reported Posts</h3>
-          <span className="text-xs text-muted-foreground">Total: {reportedPosts.length}</span>
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-lg text-foreground">Reported Posts</h3>
+          <span className="text-sm text-muted-foreground">Total: {reportedPosts.length}</span>
         </div>
 
         {loading && reportedPosts.length === 0 ? (
-          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">Loading reported posts...</div>
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">Loading reported posts...</div>
         ) : reportedPosts.length === 0 ? (
-          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No reported posts found.</div>
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No reported posts found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/60 text-left text-muted-foreground">
-                  <th className="py-2 pr-3">Post ID</th>
-                  <th className="py-2 pr-3">Title</th>
-                  <th className="py-2 pr-3">Author ID</th>
-                  <th className="py-2 pr-3">Reports</th>
-                  <th className="py-2">Actions</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Post ID</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Title</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Author ID</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Reports</th>
+                  <th className="py-3 font-semibold text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {reportedPosts.map((report) => (
                   <tr key={report.postId} className="border-b border-border/40">
-                    <td className="py-2 pr-3 font-medium text-foreground">#{report.postId}</td>
-                    <td className="py-2 pr-3 text-foreground max-w-[300px] truncate" title={report.title}>
+                    <td className="py-3 pr-3 font-semibold text-foreground">#{report.postId}</td>
+                    <td className="py-3 pr-3 text-foreground max-w-[300px] truncate" title={report.title}>
                       {report.title}
                     </td>
-                    <td className="py-2 pr-3 text-muted-foreground">{report.authorId}</td>
-                    <td className="py-2 pr-3">
-                      <Badge variant="secondary">{report.totalReports}</Badge>
+                    <td className="py-3 pr-3 text-muted-foreground">{report.authorId}</td>
+                    <td className="py-3 pr-3">
+                      <Badge variant="secondary" className="text-xs">{report.totalReports}</Badge>
                     </td>
-                    <td className="py-2">
+                    <td className="py-3">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => void openPostReportDetails(report.postId)}
                       >
-                        <Eye className="h-4 w-4 mr-1" />
+                        <Eye className="h-4 w-4 mr-2" />
                         View
                       </Button>
                     </td>
@@ -1858,30 +1798,30 @@ const ReportsTab = () => {
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Post Report Details</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-bold">Post Report Details</DialogTitle>
+            <DialogDescription className="text-sm">
               {selectedPostReport ? `Reports submitted for post #${selectedPostReport.postId}` : "Report details"}
             </DialogDescription>
           </DialogHeader>
 
           {detailsLoading ? (
-            <div className="py-8 text-center text-muted-foreground">Loading details...</div>
+            <div className="py-8 text-center text-muted-foreground text-sm">Loading details...</div>
           ) : !selectedPostReport || selectedPostReport.reports.length === 0 ? (
-            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">No report details found.</div>
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No report details found.</div>
           ) : (
-            <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
+            <div className="max-h-[420px] overflow-y-auto space-y-4 pr-1">
               {selectedPostReport.reports.map((item: PostReportItem) => (
-                <div key={item.id} className="rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-foreground">Report #{item.id}</span>
+                <div key={item.id} className="rounded-lg border border-border p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-bold text-foreground">Report #{item.id}</span>
                     <span className="text-xs text-muted-foreground">Reporter: {item.reporterName}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-1">Role: {item.reporterRole}</p>
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <p className="text-xs text-muted-foreground mb-2">Role: {item.reporterRole}</p>
+                  <p className="text-xs text-muted-foreground mb-3">
                     Reported at: {new Date(item.reportedAt).toLocaleString()}
                   </p>
-                  <p className="text-xs text-muted-foreground mb-1">Reason</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{item.reason || "No reason provided."}</p>
+                  <p className="text-xs text-muted-foreground mb-1 font-semibold">Reason</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/20 rounded-lg p-3">{item.reason || "No reason provided."}</p>
                 </div>
               ))}
             </div>
@@ -1924,7 +1864,6 @@ const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "wallets", label: "Wallets", icon: Wallet },
   { id: "donations", label: "Donations", icon: Send },
 ];
-
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();

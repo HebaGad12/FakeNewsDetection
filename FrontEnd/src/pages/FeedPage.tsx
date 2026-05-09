@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -218,19 +216,6 @@ const FeedPage = () => {
               </div>
             </div>
             
-            {/* Top Contributors */}
-            <div className="bg-muted p-6 rounded-sm">
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-6">Top Contributors</h4>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center font-bold text-primary">A</div>
-                  <div>
-                    <p className="text-xs font-bold">Arjun Mehta</p>
-                    <p className="text-[10px] text-muted-foreground">Environmental Intelligence</p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 

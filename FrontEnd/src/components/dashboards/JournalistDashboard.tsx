@@ -11,7 +11,6 @@ import {
   PlusCircle,
   Eye,
   TrendingUp,
-  BadgeCheck,
   Wallet,
   Filter,
   Download,
@@ -36,7 +35,11 @@ import {
   MessageSquare,
   Flag,
   BarChart2,
-  Check
+  Check,
+  Home,
+  LogOut,
+  Shield,
+  ChevronRight
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -507,48 +510,94 @@ const JournalistDashboard = () => {
   return (
     <div className="bg-background text-on-surface min-h-screen font-body">
       {/* SideNavBar */}
-      <aside className="bg-[#F9F9F9] dark:bg-stone-950 text-[#5B5E66] dark:text-stone-300 font-sans text-sm font-medium h-screen w-64 fixed left-0 top-0 flex flex-col p-4 gap-2 z-40 border-r border-[#EAEAEA] dark:border-stone-800 hidden md:flex">
-        <div className="mb-8 px-2 mt-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-lg flex items-center justify-center flex-shrink-0">
-              {profile.name.substring(0, 2).toUpperCase()}
+      <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex">
+
+        {/* ── Brand ── */}
+        <div className="px-5 pt-7 pb-5 border-b border-white/5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+              <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <h2 className="text-on-surface font-bold text-sm leading-tight truncate w-36">{profile.name}</h2>
-              <p className="text-xs text-on-surface-variant font-normal truncate w-36">{profile.role || "Verified Journalist"}</p>
+              <h1 className="text-white font-bold text-sm leading-tight tracking-wide">Journalist Portal</h1>
+              <p className="text-blue-400/60 text-[10px] font-mono uppercase tracking-widest mt-0.5">The Veritas Archive</p>
+            </div>
+          </div>
+
+          {/* User badge */}
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-[11px] font-bold uppercase">
+                {profile.name.substring(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-xs font-semibold truncate">{profile.name}</p>
+              <p className="text-white/35 text-[10px] font-mono truncate">{profile.role || "Verified Journalist"}</p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 flex flex-col gap-1">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as Tab)}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-sm transition-transform active:scale-[0.98] w-full text-left",
-                activeTab === item.id
-                  ? "bg-stone-200 dark:bg-stone-800 text-[#2D3435] dark:text-white"
-                  : "text-[#5B5E66] dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors"
-              )}
-            >
-              <item.icon className="w-5 h-5" strokeWidth={2} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+        {/* ── Nav Items ── */}
+        <nav className="flex-1 flex flex-col gap-0.5 px-3 py-4 overflow-y-auto">
+          <p className="text-white/20 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as Tab)}
+                className={cn(
+                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                  isActive
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                    : "text-white/45 hover:text-white hover:bg-white/6"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+                )}
+                <item.icon className={cn(
+                  "w-4 h-4 flex-shrink-0 transition-colors",
+                  isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+                )} strokeWidth={2} />
+                <span className="flex-1">{item.label}</span>
+                {isActive && <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />}
+              </button>
+            );
+          })}
         </nav>
 
-        <button
-          onClick={() => setActiveTab("create")}
-          className="mt-auto bg-primary text-on-primary py-3 px-4 rounded-sm font-label text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition-opacity active:opacity-80"
-        >
-          <PlusCircle className="w-4 h-4" />
-          New Investigation
-        </button>
-        
-        <Link to="/" className="mt-4 text-xs font-label uppercase tracking-widest text-[#5B5E66] text-center hover:opacity-80">
-          Return Home
-        </Link>
+        {/* ── Footer Buttons ── */}
+        <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
+          {/* New Investigation CTA */}
+          <button
+            onClick={() => setActiveTab("create")}
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold w-full transition-all duration-150 bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50"
+          >
+            <PlusCircle className="w-4 h-4 flex-shrink-0 transition-transform group-hover:rotate-90 duration-200" />
+            <span className="flex-1 text-left">New Investigation</span>
+          </button>
+
+          {/* Go to Home */}
+          <button
+            onClick={() => navigate("/")}
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+          >
+            <Home className="w-4 h-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
+            <span className="flex-1 text-left">Go to Home</span>
+            <ArrowUpRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={() => navigate("/login")}
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+          >
+            <LogOut className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1 text-left">Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Canvas */}
@@ -594,19 +643,7 @@ const JournalistDashboard = () => {
                   </p>
                 </div>
               </div>
-              <div className="bg-surface-container-low p-6 flex flex-col justify-between">
-                <div className="flex justify-between items-start mb-4">
-                  <span className="font-label text-xs font-bold text-on-surface-variant uppercase tracking-wider">Credibility Rating</span>
-                  <BadgeCheck className="w-5 h-5 text-secondary" />
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-4xl font-headline font-extrabold text-on-surface">98</h3>
-                  <span className="text-lg text-on-surface-variant font-light">/100</span>
-                </div>
-                <div className="mt-4 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
-                  <div className="bg-secondary h-full w-[98%]"></div>
-                </div>
-              </div>
+
               <div className="bg-surface-container-lowest p-6 flex flex-col justify-between border-l-4 border-primary">
                 <div className="flex justify-between items-start mb-4">
                   <span className="font-label text-xs font-bold text-on-surface-variant uppercase tracking-wider">Revenue Earned</span>
@@ -683,18 +720,7 @@ const JournalistDashboard = () => {
             </section>
 
             {/* Quick Action Area */}
-            <section className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="relative overflow-hidden bg-on-surface text-surface p-10 min-h-[300px] flex flex-col justify-end">
-                <div className="absolute top-0 right-0 p-8 opacity-20">
-                  <Megaphone className="w-[120px] h-[120px]" strokeWidth={1} />
-                </div>
-                <span className="bg-tertiary text-on-tertiary px-3 py-1 text-[10px] font-label uppercase font-bold w-fit mb-4">Urgent Assignment</span>
-                <h3 className="font-headline text-3xl font-bold mb-4">Lead Investigation: Market Corrections</h3>
-                <p className="text-surface-variant text-sm md:text-base mb-6 max-w-sm">Sources indicate anomalous trading events globally. Provide verified brief to subscribers.</p>
-                <button onClick={() => setActiveTab("create")} className="bg-surface text-on-surface px-6 py-3 font-label text-xs uppercase font-bold tracking-widest w-fit hover:bg-primary-fixed transition-colors">
-                  Accept Briefing
-                </button>
-              </div>
+            <section className="mt-12 grid grid-cols-1 gap-8">
               <div className="bg-surface-container-low p-10 flex flex-col items-center justify-center text-center border-2 border-dashed border-outline-variant">
                 <FileText className="w-12 h-12 text-primary-dim opacity-50 mb-6" />
                 <h3 className="font-headline text-2xl font-bold mb-2 text-on-surface">Create New Investigation</h3>

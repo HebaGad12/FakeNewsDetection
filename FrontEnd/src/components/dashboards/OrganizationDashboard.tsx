@@ -23,7 +23,15 @@ import {
   Building2,
   RefreshCw,
   LogOut,
+  Home,
+  Shield,
+  ChevronRight,
+  LayoutDashboard,
+  Newspaper,
+  Users as UsersIcon,
+  Heart as HeartIcon,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,84 +99,98 @@ interface SideNavBarProps {
 }
 
 const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarProps) => {
+  const navigate = useNavigate();
+
   const navItems = [
-    { id: "overview" as Tab, icon: "dashboard", label: "Dashboard" },
-    { id: "journalists" as Tab, icon: "people", label: "Journalists" },
-    { id: "posts" as Tab, icon: "newspaper", label: "Posts" },
-    { id: "followers" as Tab, icon: "favorite", label: "Followers" },
-    { id: "wallet" as Tab, icon: "account_balance_wallet", label: "Wallet" },
+    { id: "overview"   as Tab, icon: LayoutDashboard, label: "Dashboard"   },
+    { id: "journalists" as Tab, icon: UsersIcon,       label: "Journalists" },
+    { id: "posts"      as Tab, icon: Newspaper,        label: "Posts"       },
+    { id: "followers"  as Tab, icon: HeartIcon,        label: "Followers"   },
+    { id: "wallet"     as Tab, icon: Wallet,           label: "Wallet"      },
   ];
 
+  const initials = profile?.name
+    ? profile.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : "ORG";
+
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 bg-white dark:bg-stone-950 flex flex-col p-4 gap-2 z-40 border-r border-stone-200/50 dark:border-stone-800/50">
-      {/* Logo & Title */}
-      <div className="mb-8 px-2 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-sm">
-          <Building2 className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h2 className="font-headline font-bold text-lg leading-tight text-on-surface dark:text-stone-50">
-            Organization
-          </h2>
-          <p className="font-label text-[10px] uppercase tracking-widest text-outline dark:text-stone-500">
-            Management
-          </p>
-        </div>
-      </div>
+    <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl">
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onTabChange(item.id)}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-sm font-sans text-sm font-medium transition-all",
-              activeTab === item.id
-                ? "bg-stone-200 dark:bg-stone-800 text-on-surface dark:text-white scale-[0.98]"
-                : "text-primary dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-900"
-            )}
-          >
-            <span className="material-symbols-outlined text-lg" data-icon={item.icon}>
-              {item.icon === "dashboard" && "🎯"}
-              {item.icon === "people" && "👥"}
-              {item.icon === "newspaper" && "📰"}
-              {item.icon === "favorite" && "❤️"}
-              {item.icon === "account_balance_wallet" && "💳"}
-            </span>
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      {/* ── Brand ── */}
+      <div className="px-5 pt-7 pb-5 border-b border-white/5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+            <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h1 className="text-white font-bold text-sm leading-tight tracking-wide">Organization</h1>
+            <p className="text-blue-400/60 text-[10px] font-mono uppercase tracking-widest mt-0.5">Management Portal</p>
+          </div>
+        </div>
 
-      {/* Bottom Section */}
-      <div className="mt-auto space-y-3 border-t border-outline-variant/10 dark:border-stone-800 pt-4">
+        {/* User badge */}
         {profile && (
-          <div className="px-2 flex items-center gap-3 pb-3">
-            <div className="w-8 h-8 rounded-full bg-primary/15 text-primary font-bold text-xs flex items-center justify-center flex-shrink-0">
-              {profile.name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2)}
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-[11px] font-bold">{initials}</span>
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="font-sans text-xs font-bold truncate text-on-surface dark:text-stone-50">
-                {profile.name}
-              </p>
-              <p className="font-label text-[10px] text-outline dark:text-stone-500 truncate">
-                {profile.email}
-              </p>
+            <div className="min-w-0">
+              <p className="text-white text-xs font-semibold truncate">{profile.name}</p>
+              <p className="text-white/35 text-[10px] font-mono truncate">{profile.email}</p>
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Nav Items ── */}
+      <nav className="flex-1 flex flex-col gap-0.5 px-3 py-4 overflow-y-auto">
+        <p className="text-white/20 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
+        {navItems.map(({ id, icon: Icon, label }) => {
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => onTabChange(id)}
+              className={cn(
+                "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                isActive
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                  : "text-white/45 hover:text-white hover:bg-white/6"
+              )}
+            >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+              )}
+              <Icon className={cn(
+                "h-4 w-4 flex-shrink-0 transition-colors",
+                isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+              )} />
+              <span className="flex-1">{label}</span>
+              {isActive && <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* ── Footer Buttons ── */}
+      <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
+        {/* Go to Home */}
+        <button
+          onClick={() => navigate("/")}
+          className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+        >
+          <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
+          <span className="flex-1 text-left">Go to Home</span>
+          <ArrowUpRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+        </button>
+
+        {/* Logout */}
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 text-primary dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-900 rounded-sm font-sans text-sm font-medium transition-colors"
+          className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
         >
-          <LogOut className="w-4 h-4" />
-          Logout
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          <span className="flex-1 text-left">Logout</span>
         </button>
       </div>
     </aside>
@@ -794,46 +816,8 @@ const OrganizationDashboard = () => {
             <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
               {/* Bento Grid */}
               <section className="grid grid-cols-12 gap-6 mb-12">
-                {/* Large Metric Card */}
-                <div className="col-span-12 lg:col-span-7 bg-surface-container-lowest dark:bg-stone-900 p-8 relative overflow-hidden flex flex-col justify-between min-h-[320px] rounded-lg border border-outline-variant/20 dark:border-stone-800">
-                  <div className="relative z-10">
-                    <h3 className="font-label text-xs font-bold uppercase tracking-widest text-primary mb-6">
-                      Newsroom Overview
-                    </h3>
-                    <div className="flex items-baseline gap-4">
-                      <span className="font-headline text-7xl font-bold tracking-tighter text-on-surface dark:text-white">
-                        {((analytics.approvedPosts / (analytics.totalPosts || 1)) * 100).toFixed(1)}%
-                      </span>
-                      <span className="font-label text-sm text-secondary font-bold flex items-center">
-                        ↗ {fmt(analytics.totalLikesReceived)} Engagement
-                      </span>
-                    </div>
-                    <p className="mt-4 font-body text-outline dark:text-stone-500 max-w-md text-sm">
-                      Verification accuracy across all published posts. Integrity maintained through continuous audit.
-                    </p>
-                  </div>
-                  <div className="relative z-10 flex gap-12 border-t border-outline-variant/10 dark:border-stone-800 pt-6">
-                    <div>
-                      <p className="font-label text-[10px] uppercase text-outline dark:text-stone-500 mb-1">Articles Verified</p>
-                      <p className="font-headline text-2xl font-bold text-on-surface dark:text-white">{analytics.totalPosts}</p>
-                    </div>
-                    <div>
-                      <p className="font-label text-[10px] uppercase text-outline dark:text-stone-500 mb-1">Active Journalists</p>
-                      <p className="font-headline text-2xl font-bold text-on-surface dark:text-white">{analytics.activeJournalistCount}</p>
-                    </div>
-                    <div>
-                      <p className="font-label text-[10px] uppercase text-outline dark:text-stone-500 mb-1">Avg. Likes</p>
-                      <p className="font-headline text-2xl font-bold text-on-surface dark:text-white">
-                        {analytics.totalPosts > 0 ? fmt(Math.round(analytics.totalLikesReceived / analytics.totalPosts)) : 0}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Subtle Gradient Background Overlay */}
-                  <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-primary-container/20 dark:from-stone-900/50 to-transparent" />
-                </div>
-
-                {/* Side Metric */}
-                <div className="col-span-12 lg:col-span-5 bg-primary dark:bg-primary-dim p-8 text-white flex flex-col justify-between rounded-lg border border-primary/50">
+                {/* Organization Status Card - full width now */}
+                <div className="col-span-12 bg-primary dark:bg-primary-dim p-8 text-white flex flex-col justify-between rounded-lg border border-primary/50">
                   <div>
                     <h3 className="font-headline text-2xl font-bold mb-2">Organization Status</h3>
                     <p className="font-body text-white/80 text-sm">

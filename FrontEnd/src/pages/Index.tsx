@@ -1,5 +1,3 @@
-
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -36,12 +34,7 @@ const SECTIONS = [
 
 
  
-const QUICK_STATS = [
-  { value: "99.2%", label: "Detection Accuracy", color: "emerald" },
-  { value: "50K+", label: "Verified Articles", color: "blue" },
-  { value: "10K+", label: "Journalists", color: "purple" },
-  { value: "2M+", label: "Readers", color: "orange" },
-];
+
 
 const Index = () => {
   const [allPosts, setAllPosts] = useState<Post[]>([]);
@@ -142,7 +135,7 @@ const Index = () => {
       <Header />
 
       <main>
-        {/* ========== TOP BAR: Quick Stats ========== */}
+        {/* ========== TOP BAR ========== */}
         <div className="bg-slate-50 border-b border-slate-200 py-3">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -151,14 +144,6 @@ const Index = () => {
                 <span className="text-slate-600">
                   <span className="font-semibold text-slate-900">AI-Powered</span> Truth Detection
                 </span>
-              </div>
-              <div className="flex items-center gap-6 text-sm">
-                {QUICK_STATS.map((stat) => (
-                  <div key={stat.label} className="flex items-center gap-1">
-                    <span className="font-bold text-slate-900">{stat.value}</span>
-                    <span className="text-slate-500">{stat.label}</span>
-                  </div>
-                ))}
               </div>
               <Link to="/feed" className="text-sm text-red-600 hover:underline font-medium">
                 View All News →

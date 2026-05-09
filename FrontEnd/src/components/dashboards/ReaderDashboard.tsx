@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Archive,
@@ -14,6 +14,12 @@ import {
   Clock,
   TrendingUp,
   Send,
+  Home,
+  LogOut,
+  Shield,
+  ChevronRight,
+  ExternalLink,
+  UserMinus,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { userService } from "@/services";
@@ -41,6 +47,7 @@ const formatDate = (date: string) => {
 
 const ReaderDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [userProfile, setUserProfile] = useState<UserProfileExtended | null>(null);
@@ -57,6 +64,16 @@ const ReaderDashboard = () => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Refresh following list when returning from a public profile page
+  useEffect(() => {
+    const state = location.state as { refreshFollowing?: boolean } | null;
+    if (state?.refreshFollowing) {
+      loadDashboardData();
+      // Clear the state so it doesn't re-trigger on tab changes
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
@@ -133,40 +150,85 @@ const ReaderDashboard = () => {
   return (
     <div className="bg-background text-on-surface min-h-screen font-body">
       {/* SideNavBar */}
-      <aside className="bg-[#F9F9F9] dark:bg-stone-950 text-[#5B5E66] dark:text-stone-300 font-sans text-sm font-medium h-screen w-64 fixed left-0 top-0 flex flex-col p-4 gap-2 z-40 border-r border-[#EAEAEA] dark:border-stone-800 hidden md:flex">
-        <div className="mb-8 px-2 mt-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-lg flex items-center justify-center flex-shrink-0">
-              {userProfile?.name?.substring(0, 2).toUpperCase() || user?.name?.substring(0, 2).toUpperCase() || "U"}
+      <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex">
+
+        {/* ── Brand ── */}
+        <div className="px-5 pt-7 pb-5 border-b border-white/5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+              <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <h2 className="text-on-surface font-bold text-sm leading-tight truncate w-36">{userProfile?.name || user?.name}</h2>
-              <p className="text-xs text-on-surface-variant font-normal truncate w-36">Reader Account</p>
+              <h1 className="text-white font-bold text-sm leading-tight tracking-wide">Reader Portal</h1>
+              <p className="text-blue-400/60 text-[10px] font-mono uppercase tracking-widest mt-0.5">The Veritas Archive</p>
+            </div>
+          </div>
+
+          {/* User badge */}
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-[11px] font-bold uppercase">
+                {userProfile?.name?.substring(0, 2).toUpperCase() || user?.name?.substring(0, 2).toUpperCase() || "U"}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-xs font-semibold truncate">{userProfile?.name || user?.name}</p>
+              <p className="text-white/35 text-[10px] font-mono">Reader Account</p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 flex flex-col gap-1">
-          {navItems.map((item) => (
-            <button
-               key={item.id}
-               onClick={() => setActiveTab(item.id as Tab)}
-               className={cn(
-                 "flex items-center gap-3 px-3 py-2.5 rounded-sm transition-transform active:scale-[0.98] w-full text-left",
-                 activeTab === item.id
-                   ? "bg-stone-200 dark:bg-stone-800 text-[#2D3435] dark:text-white"
-                   : "text-[#5B5E66] dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors"
-               )}
-            >
-              <item.icon className="w-5 h-5" strokeWidth={2} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+        {/* ── Nav Items ── */}
+        <nav className="flex-1 flex flex-col gap-0.5 px-3 py-4">
+          <p className="text-white/20 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as Tab)}
+                className={cn(
+                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                  isActive
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                    : "text-white/45 hover:text-white hover:bg-white/6"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+                )}
+                <item.icon className={cn(
+                  "w-4 h-4 flex-shrink-0 transition-colors",
+                  isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+                )} strokeWidth={2} />
+                <span className="flex-1">{item.label}</span>
+                {isActive && <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />}
+              </button>
+            );
+          })}
         </nav>
 
-        <Link to="/feed" className="mt-auto text-xs font-label uppercase tracking-widest text-[#5B5E66] text-center hover:opacity-80 pb-4">
-          Return to Feed
-        </Link>
+        {/* ── Footer Buttons ── */}
+        <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
+          {/* Go to Home */}
+          <button
+            onClick={() => navigate("/")}
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+          >
+            <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
+            <span className="flex-1 text-left">Go to Home</span>
+            <ExternalLink className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={() => { if (typeof window !== "undefined") navigate("/login"); }}
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+          >
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1 text-left">Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Canvas */}
@@ -436,54 +498,74 @@ const ReaderDashboard = () => {
             {activeTab === "following" && (
               <section>
                 <div className="flex items-baseline justify-between mb-6">
-                  <h2 className="font-display text-2xl font-bold">Followed & Interests</h2>
-                  <span className="text-xs text-muted-foreground">{following.length} connections</span>
+                  <div>
+                    <h2 className="font-display text-2xl font-bold">Following</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">{following.length} connections</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {following.map((f) => (
-                    <div key={f.id} className="p-4 bg-card border border-border rounded-lg flex flex-col items-center text-center gap-3 hover:shadow-md transition-all cursor-pointer relative group"
-                      onClick={() => navigate(`/profile/${f.id}`)}>
-                      <div className="w-14 h-14 bg-muted flex items-center justify-center rounded-full overflow-hidden">
-                        {f.avatar ? (
-                          <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <User className="text-muted-foreground w-6 h-6"/>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-0.5 items-center">
-                        <span className="text-sm font-bold text-foreground line-clamp-1">{f.name}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                          {f.organizationName || f.role}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <Users className="h-3 w-3" /> {f.followersCount} followers
-                        </span>
-                      </div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUnfollow(f.id);
-                        }}
-                        className="absolute inset-0 bg-background/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all text-xs font-bold text-rose-600 rounded-lg"
-                      >
-                        Unfollow
-                      </button>
-                    </div>
-                  ))}
 
-                  {following.length === 0 && (
-                    <div className="col-span-full p-12 text-center bg-card border border-border rounded-lg">
-                      <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground">You are not following anyone yet.</p>
-                      <button 
-                        onClick={() => navigate("/feed")}
-                        className="mt-4 text-xs uppercase tracking-widest text-primary font-bold hover:underline"
+                {following.length === 0 ? (
+                  <div className="p-12 text-center bg-card border border-border rounded-xl">
+                    <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-foreground mb-1">Not following anyone yet</p>
+                    <p className="text-xs text-muted-foreground mb-4">Discover journalists and follow their work</p>
+                    <button
+                      onClick={() => navigate("/feed")}
+                      className="text-xs uppercase tracking-widest text-primary font-bold hover:underline"
+                    >
+                      Discover Journalists →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {following.map((f) => (
+                      <div
+                        key={f.id}
+                        className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 hover:border-blue-500/30 hover:shadow-md transition-all"
                       >
-                        Discover Journalists →
-                      </button>
-                    </div>
-                  )}
-                </div>
+                        {/* Top: avatar + info */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-muted flex items-center justify-center rounded-full overflow-hidden flex-shrink-0">
+                            {f.avatar ? (
+                              <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="text-muted-foreground w-5 h-5" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-foreground truncate">{f.name}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                              {f.organizationName || f.role}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Users className="h-3 w-3" /> {f.followersCount} followers
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Bottom: action buttons */}
+                        <div className="flex gap-2 pt-1 border-t border-border">
+                          {/* View journalist profile */}
+                          <button
+                            onClick={() => navigate(`/profiles/${f.id}`, { state: { from: "dashboard" } })}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 transition-all text-xs font-semibold"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            View Profile
+                          </button>
+                          {/* Unfollow */}
+                          <button
+                            onClick={() => handleUnfollow(f.id)}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-500/20 hover:border-rose-500 transition-all text-xs font-semibold"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                            Unfollow
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
