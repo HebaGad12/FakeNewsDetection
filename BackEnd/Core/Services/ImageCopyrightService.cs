@@ -32,7 +32,7 @@ namespace Services
             try
             {
                 using var content = BuildImageMultipart(imageBytes, fileName);
-                var response = await _http.PostAsync("/images/check?check_web=false", content);
+                var response = await _http.PostAsync("/images/check?check_web=true", content);
 
                 if (!response.IsSuccessStatusCode)
                     return new CopyrightCheckResult(false, new List<CopyrightMatch>());
@@ -41,12 +41,20 @@ namespace Services
                 if (result is null)
                     return new CopyrightCheckResult(false, new List<CopyrightMatch>());
 
-                // Merge local_matches for the caller (web_matches will be empty here)
                 var matches = result.LocalMatches?.Select(m => new CopyrightMatch(
                     m.Id ?? "",
                     m.Similarity,
                     m.Path ?? ""
                 )).ToList() ?? new List<CopyrightMatch>();
+
+                if (result.WebMatches != null)
+                {
+                    matches.AddRange(result.WebMatches.Select(m => new CopyrightMatch(
+                        m.Source ?? "",
+                        m.Similarity,
+                        m.Url ?? ""
+                    )));
+                }
 
                 return new CopyrightCheckResult(result.IsDuplicate, matches);
             }

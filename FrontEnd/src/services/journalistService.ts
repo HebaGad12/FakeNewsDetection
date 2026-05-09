@@ -209,6 +209,13 @@ class JournalistService {
   async getFollowers(): Promise<JournalistFollowerResponse[]> {
     return await apiClient.get<JournalistFollowerResponse[]>("/journalist/followers");
   }
+
+  /**
+   * Analyze text for grammar or facts
+   */
+  async analyzeText(text: string, mode: "grammar" | "factcheck"): Promise<{ text: string; mode: string; analysis: string }> {
+    return await apiClient.post("/chat", { text, mode });
+  }
 }
 
 export const journalistService = new JournalistService();

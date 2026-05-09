@@ -115,6 +115,12 @@ namespace FakeNewsDetection.web
                 client.Timeout     = TimeSpan.FromSeconds(30);
             });
 
+            builder.Services.AddHttpClient<IChatAnalyzerService, ChatAnalyzerService>(client =>
+            {
+                client.BaseAddress = new Uri(pythonUrl);
+                client.Timeout     = TimeSpan.FromSeconds(30);
+            });
+
             builder.Services.AddHttpClient<IImageCopyrightService, ImageCopyrightService>(client =>
             {
                 client.BaseAddress = new Uri(pythonUrl);
