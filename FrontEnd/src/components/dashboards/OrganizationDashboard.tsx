@@ -87,10 +87,11 @@ interface SideNavBarProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   profile?: OrgProfileResponse | null;
+  avatarUrl?: string;
   onLogout?: () => void;
 }
 
-const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarProps) => {
+const SideNavBar = ({ activeTab, onTabChange, profile, avatarUrl, onLogout }: SideNavBarProps) => {
   const navItems = [
     { id: "overview" as Tab, icon: "dashboard", label: "Dashboard" },
     { id: "journalists" as Tab, icon: "people", label: "Journalists" },
@@ -145,13 +146,17 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarPro
       <div className="mt-auto space-y-3 border-t border-outline-variant/10 dark:border-stone-800 pt-4">
         {profile && (
           <div className="px-2 flex items-center gap-3 pb-3">
-            <div className="w-8 h-8 rounded-full bg-primary/15 text-primary font-bold text-xs flex items-center justify-center flex-shrink-0">
-              {profile.name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2)}
+            <div className="w-8 h-8 rounded-full bg-primary/15 text-primary font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+              ) : (
+                profile.name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)
+              )}
             </div>
             <div className="overflow-hidden flex-1">
               <p className="font-sans text-xs font-bold truncate text-on-surface dark:text-stone-50">
@@ -649,7 +654,7 @@ function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
 
 const OrganizationDashboard = () => {
   // FIX #4: حذف useNavigate لأنه غير مستخدم
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [orgId, setOrgId] = useState<string>("");
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -752,6 +757,7 @@ const OrganizationDashboard = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         profile={profile}
+        avatarUrl={user?.avatar}
         onLogout={logout}
       />
 

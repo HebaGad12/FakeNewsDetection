@@ -136,8 +136,12 @@ const ReaderDashboard = () => {
       <aside className="bg-[#F9F9F9] dark:bg-stone-950 text-[#5B5E66] dark:text-stone-300 font-sans text-sm font-medium h-screen w-64 fixed left-0 top-0 flex flex-col p-4 gap-2 z-40 border-r border-[#EAEAEA] dark:border-stone-800 hidden md:flex">
         <div className="mb-8 px-2 mt-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-lg flex items-center justify-center flex-shrink-0">
-              {userProfile?.name?.substring(0, 2).toUpperCase() || user?.name?.substring(0, 2).toUpperCase() || "U"}
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={userProfile?.name || user?.name || "Profile"} className="w-full h-full object-cover" />
+              ) : (
+                userProfile?.name?.substring(0, 2).toUpperCase() || user?.name?.substring(0, 2).toUpperCase() || "U"
+              )}
             </div>
             <div>
               <h2 className="text-on-surface font-bold text-sm leading-tight truncate w-36">{userProfile?.name || user?.name}</h2>

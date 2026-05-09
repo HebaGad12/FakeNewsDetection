@@ -1,4 +1,6 @@
 import apiClient from "./apiClient";
+import { API_BASE_URL } from "@/lib/constants";
+import { getAuthToken } from "@/lib/authStorage";
 import {
   UserProfileExtended,
   EditProfileRequest,
@@ -83,6 +85,68 @@ class UserService {
    */
   async getActivity(): Promise<UserActivity[]> {
     return await apiClient.get<UserActivity[]>("/user/activity");
+  }
+
+  /**
+   * Upload a profile picture for the given user
+   * @param userId - UUID of the user
+   * @param file - Image file to upload
+   */
+  async uploadPicture(userId: string, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append("file", file);
+    await apiClient.post(`/user/${userId}/upload-picture`, formData);
+  }
+
+  /**
+   * Fetch the user's profile picture as a blob URL.
+   * Uses the auth token since the endpoint requires authentication.
+   * Returns null if no picture exists (404).
+   * Includes retry logic with exponential backoff for freshly uploaded images.
+   * @param userId - UUID of the user
+   */
+  async fetchPictureBlobUrl(userId: string): Promise<string | null> {
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const token = getAuthToken();
+        const response = await fetch(`${API_BASE_URL}/user/${userId}/picture`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        
+        // If successful, return blob URL
+        if (response.ok) {
+          const blob = await response.blob();
+          return URL.createObjectURL(blob);
+        }
+        
+        // If 404, image doesn't exist (don't retry)
+        if (response.status === 404) {
+          return null;
+        }
+        
+        // For other errors, retry with exponential backoff
+        throw new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Don't retry on last attempt
+        if (attempt < maxRetries - 1) {
+          // Exponential backoff: 100ms, 200ms, 400ms
+          const delay = Math.pow(2, attempt) * 100;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    // Log failure after all retries exhausted
+    console.warn(
+      `Failed to fetch picture for user ${userId} after ${maxRetries} attempts:`,
+      lastError
+    );
+    return null;
   }
 }
 

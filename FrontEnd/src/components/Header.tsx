@@ -22,6 +22,7 @@ import { publicProfileService, userService } from "@/services";
 import journalistService from "@/services/journalistService";
 import type { ProfileSearchItem } from "@/services/publicProfileService";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -43,9 +44,15 @@ export function Header() {
   const [searchResults, setSearchResults] = useState<ProfileSearchItem[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [followLoadingId, setFollowLoadingId] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
+
+  // Reset avatar error when user changes (e.g., after upload)
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar]);
 
   const handleLogout = () => {
     logout();
@@ -188,7 +195,16 @@ export function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
-                      <User className="h-4 w-4" />
+                      {user?.avatar && !avatarError ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="h-5 w-5 rounded-full object-cover"
+                          onError={() => setAvatarError(true)}
+                        />
+                      ) : (
+                        <User className="h-4 w-4" />
+                      )}
                       {user?.name || "Account"}
                     </Button>
                   </DropdownMenuTrigger>

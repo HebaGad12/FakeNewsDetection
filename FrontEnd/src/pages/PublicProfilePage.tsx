@@ -1,21 +1,73 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, MessageCircle, UserCircle2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import publicProfileService, { PublicProfile } from "@/services/publicProfileService";
+import { userService } from "@/services";
 import { toast } from "sonner";
 
 const PublicProfilePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const avatarBlobUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadAvatar = async () => {
+      if (!profile?.id) return;
+
+      setAvatarLoadError(false);
+
+      if (user?.id === profile.id && user.avatar) {
+        if (avatarBlobUrlRef.current) {
+          URL.revokeObjectURL(avatarBlobUrlRef.current);
+          avatarBlobUrlRef.current = null;
+        }
+        if (isActive) {
+          setAvatarUrl(user.avatar);
+        }
+        return;
+      }
+
+      const blobUrl = await userService.fetchPictureBlobUrl(profile.id);
+
+      if (!isActive) {
+        if (blobUrl && blobUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(blobUrl);
+        }
+        return;
+      }
+
+      if (avatarBlobUrlRef.current) {
+        URL.revokeObjectURL(avatarBlobUrlRef.current);
+      }
+
+      avatarBlobUrlRef.current = blobUrl;
+      setAvatarUrl(blobUrl);
+    };
+
+    loadAvatar();
+
+    return () => {
+      isActive = false;
+      if (avatarBlobUrlRef.current) {
+        URL.revokeObjectURL(avatarBlobUrlRef.current);
+        avatarBlobUrlRef.current = null;
+      }
+    };
+  }, [profile?.id, user?.id, user?.avatar]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -50,6 +102,16 @@ const PublicProfilePage = () => {
     return <LoadingSpinner fullScreen message="Loading profile..." />;
   }
 
+  const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    return parts
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
       <Header />
@@ -63,26 +125,43 @@ const PublicProfilePage = () => {
           <div>
             {/* Header Section */}
             <div className="mb-16">
-              <h1 className="font-display text-4xl sm:text-5xl font-extrabold text-foreground tracking-tight mb-4">
-                {profile.name}
-              </h1>
-              <p className="font-sans text-muted-foreground leading-relaxed max-w-2xl text-lg sm:text-xl">
-                {profile.bio || "Investigative Contributor"}
-                {profile.organization && ` â€¢ ${profile.organization}`}
-              </p>
-              <div className="flex flex-wrap gap-8 sm:gap-16 border-t border-border pt-6 mt-8">
-                 <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Contributions</p>
-                    <p className="font-display text-2xl">{profile.totalPosts}</p>
-                 </div>
-                 <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Network Base</p>
-                    <p className="font-display text-2xl">{profile.followers || "0"}</p>
-                 </div>
-                 <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Authentication Check</p>
-                    <p className="font-display text-2xl border-l-[3px] border-emerald-500 pl-3">Verified Source</p>
-                 </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border border-border">
+                  {avatarUrl && !avatarLoadError ? (
+                    <AvatarImage
+                      src={avatarUrl}
+                      alt={`${profile.name} avatar`}
+                      onError={() => setAvatarLoadError(true)}
+                    />
+                  ) : null}
+                  <AvatarFallback className="bg-muted text-muted-foreground font-display text-lg">
+                    {getInitials(profile.name)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1">
+                  <h1 className="font-display text-4xl sm:text-5xl font-extrabold text-foreground tracking-tight mb-4">
+                    {profile.name}
+                  </h1>
+                  <p className="font-sans text-muted-foreground leading-relaxed max-w-2xl text-lg sm:text-xl">
+                    {profile.bio || "Investigative Contributor"}
+                    {profile.organization && ` â€¢ ${profile.organization}`}
+                  </p>
+                  <div className="flex flex-wrap gap-8 sm:gap-16 border-t border-border pt-6 mt-8">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Contributions</p>
+                      <p className="font-display text-2xl">{profile.totalPosts}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Network Base</p>
+                      <p className="font-display text-2xl">{profile.followers || "0"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Authentication Check</p>
+                      <p className="font-display text-2xl border-l-[3px] border-emerald-500 pl-3">Verified Source</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

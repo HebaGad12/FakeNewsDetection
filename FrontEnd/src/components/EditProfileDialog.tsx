@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { User } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Camera, User } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,12 +22,15 @@ interface EditProfileDialogProps {
 }
 
 export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps) {
-  const { user } = useAuth();
+  const { user, refreshAvatar, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
   });
+  const [pictureFile, setPictureFile] = useState<File | null>(null);
+  const [picturePreview, setPicturePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load current profile data when dialog opens
   useEffect(() => {
@@ -36,8 +39,50 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
         name: user.name || "",
         email: user.email || "",
       });
+      setPictureFile(null);
+      setPicturePreview(null);
+      setAvatarLoadError(false);
     }
   }, [open, user]);
+
+  const handlePictureSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB");
+      return;
+    }
+
+    setAvatarLoadError(false);
+
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPicturePreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload immediately to the server
+    if (user?.id) {
+      try {
+        await userService.uploadPicture(user.id, file);
+        // Create a blob URL from the file for instant display everywhere
+        const localBlobUrl = URL.createObjectURL(file);
+        await refreshAvatar(localBlobUrl);
+        toast.success("Profile picture updated!");
+      } catch {
+        toast.error("Failed to upload profile picture.");
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +101,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
     setIsLoading(true);
 
     try {
+
       // Use appropriate service based on user role
       if (user?.role === "journalist") {
         await journalistService.editProfile(formData);
@@ -73,8 +119,8 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       
       onOpenChange(false);
       
-      // Reload the page to reflect changes
-      window.location.reload();
+      // Refresh user data in auth context (preserves avatar blob URL)
+      await refreshUser();
     } catch (error: unknown) {
       console.error("Profile update error:", error);
 
@@ -97,8 +143,14 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
         email: user.email || "",
       });
     }
+    setPictureFile(null);
+    setPicturePreview(null);
     onOpenChange(false);
   };
+
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+
+  const currentAvatar = picturePreview || (!avatarLoadError ? user?.avatar : null);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -111,6 +163,39 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            {/* Profile Picture */}
+            <div className="flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="group relative h-20 w-20 rounded-full overflow-hidden border-2 border-border hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                {currentAvatar ? (
+                  <img
+                    src={currentAvatar}
+                    alt="Profile"
+                    className="h-full w-full object-cover"
+                    onError={() => setAvatarLoadError(true)}
+                  />
+                ) : (
+                  <div className="h-full w-full bg-muted flex items-center justify-center">
+                    <User className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-white" />
+                </div>
+              </button>
+              <p className="text-xs text-muted-foreground">Click to change photo</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePictureSelect}
+                className="hidden"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input
