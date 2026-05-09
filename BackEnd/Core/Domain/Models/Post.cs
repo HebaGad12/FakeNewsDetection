@@ -1,6 +1,7 @@
 using Domain.Enums;
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Domain.Models
 {
@@ -9,7 +10,11 @@ namespace Domain.Models
         public Guid Id { get; set; }
 
         public Guid AuthorId { get; set; }
+        public Guid? CommunityId { get; set; }
+        [JsonIgnore]
         public User Author { get; set; } = null!;
+        [JsonIgnore]
+        public Community Community { get; set; }
 
         // FK to User with Role=Organization (nullable - only set when journalist is org member)
         public Guid? OrganizationId { get; set; }

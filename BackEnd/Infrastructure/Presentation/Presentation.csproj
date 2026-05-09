@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="ZendeskApi_v2" Version="3.12.4" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Core\ServiceAbstraction\ServicesAbstraction.csproj" />
     <ProjectReference Include="..\..\Core\Services\Services.csproj" />
     <ProjectReference Include="..\Persistence\Persistence.csproj" />

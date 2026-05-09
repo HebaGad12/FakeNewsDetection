@@ -20,8 +20,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { publicProfileService, userService } from "@/services";
 import journalistService from "@/services/journalistService";
+import notificationsService, { NotificationDto } from "@/services/notificationsService";
+import { useNotificationSignalR } from "@/hooks/useNotificationSignalR";
 import type { ProfileSearchItem } from "@/services/publicProfileService";
 import { toast } from "sonner";
+import { useEffect, useCallback } from "react";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -43,9 +46,55 @@ export function Header() {
   const [searchResults, setSearchResults] = useState<ProfileSearchItem[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [followLoadingId, setFollowLoadingId] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+  
+  const [notifications, setNotifications] = useState<NotificationDto[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
+
+  // Reset avatar error when user changes (e.g., after upload)
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar]);
+
+  const loadNotifications = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const data = await notificationsService.getNotifications();
+      setNotifications(data);
+      const countRes = await notificationsService.getUnreadCount();
+      setUnreadCount(countRes.count);
+    } catch (err) {
+      console.error("Failed to load notifications", err);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  useNotificationSignalR({
+    onReceiveNotification: (notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+      toast(notification.title, { description: notification.message });
+    },
+  });
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await notificationsService.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Failed to mark as read", err);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -123,8 +172,9 @@ export function Header() {
         )
       );
       toast.success("Profile followed successfully");
-    } catch (error: any) {
-      if (error?.response?.status === 409) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } };
+      if (err?.response?.status === 409) {
         setFollowingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
         toast.error("You are already following this profile");
       } else {
@@ -179,15 +229,59 @@ export function Header() {
             >
               <Search className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" aria-label="Notifications">
-              <Bell className="h-5 w-5" />
-            </Button>
+
+            {isAuthenticated && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground" aria-label="Notifications">
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">No notifications yet.</div>
+                  ) : (
+                    notifications.map((n) => (
+                      <DropdownMenuItem 
+                        key={n.id} 
+                        className={cn("flex flex-col items-start gap-1 p-3 cursor-pointer", !n.isRead && "bg-muted/50")}
+                        onClick={() => !n.isRead && handleMarkAsRead(n.id)}
+                      >
+                        <div className="flex justify-between w-full items-center">
+                          <span className="font-semibold text-sm">{n.title}</span>
+                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-blue-500"></span>}
+                        </div>
+                        <span className="text-xs text-muted-foreground line-clamp-2">{n.message}</span>
+                        <span className="text-[10px] text-muted-foreground/70">{new Date(n.createdAt).toLocaleDateString()}</span>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {isAuthenticated ? (
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
-                      <User className="h-4 w-4" />
+                      {user?.avatar && !avatarError ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="h-5 w-5 rounded-full object-cover"
+                          onError={() => setAvatarError(true)}
+                        />
+                      ) : (
+                        <User className="h-4 w-4" />
+                      )}
                       {user?.name || "Account"}
                     </Button>
                   </DropdownMenuTrigger>

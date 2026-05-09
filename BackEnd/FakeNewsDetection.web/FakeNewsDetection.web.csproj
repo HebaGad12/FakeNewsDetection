@@ -25,6 +25,10 @@
 
 	<ItemGroup>
 		<Folder Include="Controllers\" />
+		<Folder Include="media\Uploads\Users\968fba73-4331-43da-a6f4-b4ab3bbec073\" />
+		<Folder Include="uploads\posts\" />
+		<Folder Include="wwwroot\uploads\communities\" />
+		<Folder Include="wwwroot\uploads\posts\" />
 	</ItemGroup>
 
 </Project>

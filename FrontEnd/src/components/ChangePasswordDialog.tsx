@@ -63,12 +63,12 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
         confirmPassword: "",
       });
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Password change error:", error);
-      
-      // Handle different error scenarios
-      const status = error.response?.status;
-      const message = error.response?.data?.message;
+
+      const err = error as { response?: { status?: number; data?: { message?: string } } };
+      const status = err.response?.status;
+      const message = err.response?.data?.message;
       
       if (status === 401 || status === 400) {
         toast.error("Current password is incorrect. Please try again.");

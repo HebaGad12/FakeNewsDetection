@@ -10,6 +10,7 @@ export { default as apiClient } from "./apiClient";
 export { default as adminService } from "./adminService";
 export { default as adminWalletService } from "./adminWalletService";
 export { default as authService } from "./authService";
+export { default as communityService } from "./commnityServices";
 export { default as donationService } from "./donationService";
 export { default as journalistService } from "./journalistService";
 export { default as liveService } from "./liveService";

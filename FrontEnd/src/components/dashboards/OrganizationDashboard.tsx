@@ -95,6 +95,7 @@ interface SideNavBarProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   profile?: OrgProfileResponse | null;
+  avatarUrl?: string;
   onLogout?: () => void;
 }
 
@@ -671,7 +672,7 @@ function TransactionRow({ tx }: { tx: OrgWalletTransactionResponse }) {
 
 const OrganizationDashboard = () => {
   // FIX #4: حذف useNavigate لأنه غير مستخدم
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [orgId, setOrgId] = useState<string>("");
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -774,6 +775,7 @@ const OrganizationDashboard = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         profile={profile}
+        avatarUrl={user?.avatar}
         onLogout={logout}
       />
 

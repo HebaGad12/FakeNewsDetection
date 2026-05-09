@@ -6,6 +6,13 @@ namespace Services
 {
     /// <summary>
     /// Calls the Python FastAPI image copyright endpoints.
+    ///
+    /// CheckAsync  → POST /images/check?check_web=false   (local DB only, no web search)
+    /// StoreAsync  → POST /images/store?check_web=true    (local DB + web search before storing)
+    /// RemoveAsync → DELETE /images/delete                (unchanged)
+    ///
+    /// Both Check and Store now send the image as multipart/form-data file upload
+    /// instead of a JSON path, matching the updated grad.py API.
     /// </summary>
     public class ImageCopyrightService : IImageCopyrightService
     {
@@ -16,14 +23,16 @@ namespace Services
             _http = http;
         }
 
-        public async Task<CopyrightCheckResult> CheckAsync(string imagePath)
+        /// <summary>
+        /// Checks the image against the local vector DB only (check_web=false).
+        /// Called for every image upload regardless of the IsCopyrighted flag.
+        /// </summary>
+        public async Task<CopyrightCheckResult> CheckAsync(byte[] imageBytes, string fileName)
         {
             try
             {
-                var response = await _http.PostAsJsonAsync("/images/check", new ImageCheckRequest
-                {
-                    ImagePath = imagePath
-                });
+                using var content = BuildImageMultipart(imageBytes, fileName);
+                var response = await _http.PostAsync("/images/check?check_web=true", content);
 
                 if (!response.IsSuccessStatusCode)
                     return new CopyrightCheckResult(false, new List<CopyrightMatch>());
@@ -32,11 +41,20 @@ namespace Services
                 if (result is null)
                     return new CopyrightCheckResult(false, new List<CopyrightMatch>());
 
-                var matches = result.Matches?.Select(m => new CopyrightMatch(
+                var matches = result.LocalMatches?.Select(m => new CopyrightMatch(
                     m.Id ?? "",
                     m.Similarity,
                     m.Path ?? ""
                 )).ToList() ?? new List<CopyrightMatch>();
+
+                if (result.WebMatches != null)
+                {
+                    matches.AddRange(result.WebMatches.Select(m => new CopyrightMatch(
+                        m.Source ?? "",
+                        m.Similarity,
+                        m.Url ?? ""
+                    )));
+                }
 
                 return new CopyrightCheckResult(result.IsDuplicate, matches);
             }
@@ -47,19 +65,41 @@ namespace Services
             }
         }
 
-        public async Task StoreAsync(string imagePath, string imageId)
+        /// <summary>
+        /// Stores the image in the vector DB after running both local + web checks (check_web=true).
+        /// Only called for images where the journalist marks IsCopyrighted = true.
+        /// Rejected by the Python API if either check finds a duplicate.
+        /// </summary>
+        public async Task<CopyrightCheckResult> StoreAsync(byte[] imageBytes, string fileName, string imageId)
         {
             try
             {
-                await _http.PostAsJsonAsync("/images/store", new ImageStoreRequest
+                using var multipart = BuildStoreMultipart(imageBytes, fileName, imageId);
+                var response = await _http.PostAsync("/images/store?check_web=true", multipart);
+
+                // 409 = rejected (local DB or web duplicate found)
+                // FastAPI wraps HTTPException detail as: { "detail": { ... } }
+                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
                 {
-                    ImagePath = imagePath,
-                    ImageId   = imageId
-                });
+                    var envelope = await response.Content.ReadFromJsonAsync<FastApiErrorEnvelope>();
+                    var rejection = envelope?.Detail;
+                    var matches = new List<CopyrightMatch>();
+
+                    foreach (var m in rejection?.LocalMatches ?? new())
+                        matches.Add(new CopyrightMatch(m.Id ?? "", m.Similarity, m.Path ?? ""));
+
+                    foreach (var m in rejection?.WebMatches ?? new())
+                        matches.Add(new CopyrightMatch(m.Source ?? "", m.Similarity, m.Url ?? ""));
+
+                    return new CopyrightCheckResult(true, matches);
+                }
+
+                return new CopyrightCheckResult(false, new List<CopyrightMatch>());
             }
             catch
             {
-                // Fire-and-forget — don't block the response if storing fails
+                // Fail open — if Python is down, allow the image
+                return new CopyrightCheckResult(false, new List<CopyrightMatch>());
             }
         }
 
@@ -69,12 +109,8 @@ namespace Services
             {
                 using var request = new HttpRequestMessage(HttpMethod.Delete, "/images/delete")
                 {
-                    Content = JsonContent.Create(new ImageDeleteRequest
-                    {
-                        ImageId = imageId
-                    })
+                    Content = JsonContent.Create(new ImageDeleteRequest { ImageId = imageId })
                 };
-
                 await _http.SendAsync(request);
             }
             catch
@@ -83,36 +119,56 @@ namespace Services
             }
         }
 
-        // ── Request / Response shapes matching grad.py ──────────────────────
+        // ── Multipart helpers ───────────────────────────────────────────────
 
-        private class ImageCheckRequest
+        /// <summary>Builds a multipart body with just the image file (for /images/check).</summary>
+        private static MultipartFormDataContent BuildImageMultipart(byte[] imageBytes, string fileName)
         {
-            [JsonPropertyName("image_path")]
-            public string ImagePath { get; set; } = "";
+            var content = new MultipartFormDataContent();
+            var imageContent = new ByteArrayContent(imageBytes);
+            imageContent.Headers.ContentType =
+                new System.Net.Http.Headers.MediaTypeHeaderValue(GetMimeType(fileName));
+            content.Add(imageContent, "image", fileName);
+            return content;
         }
 
-        private class ImageStoreRequest
+        /// <summary>Builds a multipart body with image + image_id form field (for /images/store).</summary>
+        private static MultipartFormDataContent BuildStoreMultipart(
+            byte[] imageBytes, string fileName, string imageId)
         {
-            [JsonPropertyName("image_path")]
-            public string ImagePath { get; set; } = "";
-
-            [JsonPropertyName("image_id")]
-            public string ImageId { get; set; } = "";
+            var content = BuildImageMultipart(imageBytes, fileName);
+            content.Add(new StringContent(imageId), "image_id");
+            return content;
         }
+
+        private static string GetMimeType(string fileName)
+        {
+            var ext = Path.GetExtension(fileName).ToLowerInvariant();
+            return ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png"            => "image/png",
+                ".webp"           => "image/webp",
+                ".gif"            => "image/gif",
+                _                 => "application/octet-stream"
+            };
+        }
+
+        // ── Response shapes matching updated grad.py ────────────────────────
 
         private class ImageCheckResponse
         {
             [JsonPropertyName("is_duplicate")]
             public bool IsDuplicate { get; set; }
 
-            [JsonPropertyName("matches")]
-            public List<ImageMatchItem>? Matches { get; set; }
-        }
+            [JsonPropertyName("checked_web")]
+            public bool CheckedWeb { get; set; }
 
-        private class ImageDeleteRequest
-        {
-            [JsonPropertyName("image_id")]
-            public string ImageId { get; set; } = "";
+            [JsonPropertyName("local_matches")]
+            public List<ImageMatchItem>? LocalMatches { get; set; }
+
+            [JsonPropertyName("web_matches")]
+            public List<WebMatchItem>? WebMatches { get; set; }
         }
 
         private class ImageMatchItem
@@ -125,6 +181,42 @@ namespace Services
 
             [JsonPropertyName("path")]
             public string? Path { get; set; }
+        }
+
+        private class WebMatchItem
+        {
+            [JsonPropertyName("url")]
+            public string? Url { get; set; }
+
+            [JsonPropertyName("similarity")]
+            public double Similarity { get; set; }
+
+            [JsonPropertyName("source")]
+            public string? Source { get; set; }
+
+            [JsonPropertyName("title")]
+            public string? Title { get; set; }
+        }
+
+        private class ImageDeleteRequest
+        {
+            [JsonPropertyName("image_id")]
+            public string ImageId { get; set; } = "";
+        }
+
+        private class FastApiErrorEnvelope
+        {
+            [JsonPropertyName("detail")]
+            public StoreRejectionDetail? Detail { get; set; }
+        }
+
+        private class StoreRejectionDetail
+        {
+            [JsonPropertyName("local_matches")]
+            public List<ImageMatchItem>? LocalMatches { get; set; }
+
+            [JsonPropertyName("web_matches")]
+            public List<WebMatchItem>? WebMatches { get; set; }
         }
     }
 }

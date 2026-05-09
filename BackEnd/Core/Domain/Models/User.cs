@@ -1,6 +1,7 @@
-using Domain.Enums;
+﻿using Domain.Enums;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Models
 {
@@ -14,6 +15,7 @@ namespace Domain.Models
         public bool IsActive { get; set; } = true;
         public RegistrationStatus RegistrationStatus { get; set; } = RegistrationStatus.Approved;
         public string? RejectionReason { get; set; }
+        public string? ProfilePictureUrl { get; set; }
 
         // Journalist-specific
         public string? JournalistExternalId { get; set; }
@@ -34,8 +36,12 @@ namespace Domain.Models
         public ICollection<ModerationAction> ModerationActions { get; set; } = new List<ModerationAction>();
         public ICollection<Follow> Followers { get; set; } = new List<Follow>();
         public ICollection<Follow> Followees { get; set; } = new List<Follow>();
+        public ICollection<Membership> Memberships { get; set; } = new List<Membership>();
+
 
         // Organization-specific navigations (only populated when Role=Organization)
         public ICollection<User> OrgMembers { get; set; } = new List<User>();
+        [InverseProperty("Creator")]
+        public ICollection<Community> CommunitiesCreated { get; set; } = new List<Community>();
     }
 }

@@ -39,7 +39,10 @@ import {
   Home,
   LogOut,
   Shield,
-  ChevronRight
+  ChevronRight,
+  Zap,
+  RefreshCw,
+  CheckCircle
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -76,6 +79,9 @@ import donationService, {
   DonationRecord,
 } from "@/services/donationService";
 import { postsService } from "@/services/postsService";
+import { communityService } from "@/services";
+import type { CommunityDto } from "@/services/commnityServices";
+import { useAuth } from "@/contexts/AuthContext";
 
 // --- Types -------------------------------------------------------------------
 
@@ -116,6 +122,13 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const selectedMediaRef = useRef<SelectedMedia[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  
+  // AI Assistant states
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
+  const [aiMode, setAiMode] = useState<"grammar" | "factcheck">("grammar");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState("");
+  const [aiText, setAiText] = useState("");
 
   const ALLOWED_IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"];
   const ALLOWED_VIDEO_EXTS = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv"];
@@ -332,13 +345,102 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         />
       </div>
       <div>
-        <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">Content</label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-sm font-label font-bold text-on-surface block">Content</label>
+          <button 
+            onClick={() => {
+              setShowAiAssistant(!showAiAssistant);
+              if (!showAiAssistant && content && !aiText) {
+                setAiText(content);
+              }
+            }}
+            className="text-xs flex items-center gap-1 font-semibold text-primary hover:text-primary-dim transition-colors"
+          >
+            <Zap className="w-3 h-3" />
+            AI Assistant
+          </button>
+        </div>
+        
+        {showAiAssistant && (
+          <div className="mb-3 p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col gap-3 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+            <div className="flex justify-between items-center relative z-10">
+              <h4 className="text-sm font-bold flex items-center gap-2 text-on-surface">
+                <Shield className="w-4 h-4 text-primary" />
+                TruthTrack AI
+              </h4>
+              <button onClick={() => setShowAiAssistant(false)} className="text-on-surface-variant hover:text-on-surface">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="flex gap-2 relative z-10">
+              <button 
+                onClick={() => setAiMode("grammar")}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${aiMode === 'grammar' ? 'bg-primary text-white' : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-high'}`}
+              >
+                Grammar Check
+              </button>
+              <button 
+                onClick={() => setAiMode("factcheck")}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${aiMode === 'factcheck' ? 'bg-primary text-white' : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-high'}`}
+              >
+                Fact Check
+              </button>
+            </div>
+            
+            <Textarea
+              value={aiText}
+              onChange={(e) => setAiText(e.target.value)}
+              placeholder="Paste text to analyze..."
+              rows={3}
+              className="bg-surface-container-lowest border-outline-variant/30 relative z-10"
+            />
+            
+            <Button 
+              onClick={async () => {
+                if (!aiText.trim()) return;
+                setAiLoading(true);
+                setAiResult("");
+                try {
+                  const res = await journalistService.analyzeText(aiText, aiMode);
+                  setAiResult(res.analysis);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } catch (err: any) {
+                  setAiResult("Analysis failed. Please try again.");
+                } finally {
+                  setAiLoading(false);
+                }
+              }}
+              disabled={aiLoading || !aiText.trim()}
+              size="sm"
+              className="relative z-10 w-full"
+            >
+              {aiLoading ? (
+                <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
+              ) : (
+                <><Search className="w-4 h-4 mr-2" /> Analyze Text</>
+              )}
+            </Button>
+            
+            {aiResult && (
+              <div className="mt-2 p-3 bg-surface-container-lowest rounded-md border border-outline-variant/20 max-h-60 overflow-y-auto text-sm whitespace-pre-wrap relative z-10 font-body leading-relaxed">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-outline-variant/20 font-bold text-primary">
+                  <CheckCircle className="w-4 h-4" />
+                  Analysis Result
+                </div>
+                {aiResult}
+              </div>
+            )}
+          </div>
+        )}
+        
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Write your story..."
-          rows={8}
-          className="bg-surface-container-lowest border-outline-variant/30"
+          rows={showAiAssistant ? 4 : 8}
+          className="bg-surface-container-lowest border-outline-variant/30 transition-all duration-300"
         />
       </div>
       <div>
@@ -463,6 +565,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
 
 const JournalistDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [profile, setProfile] = useState<JournalistResponse | null>(null);
   const [posts, setPosts] = useState<JournalistPostResponse[]>([]);
@@ -470,6 +573,8 @@ const JournalistDashboard = () => {
   const [followers, setFollowers] = useState<JournalistFollowerResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [myWallet, setMyWallet] = useState<WalletResponse | null>(null);
+  const [myCommunities, setMyCommunities] = useState<CommunityDto[]>([]);
+  const [communitySearch, setCommunitySearch] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -483,6 +588,11 @@ const JournalistDashboard = () => {
         setPosts(po);
         setFollowing(fo);
         setFollowers(fl);
+
+        // Fetch communities created by this journalist
+        if (p?.id) {
+          communityService.getByJournalist(p.id).then(setMyCommunities).catch(() => {});
+        }
       })
       .finally(() => setLoading(false));
 
@@ -758,31 +868,126 @@ const JournalistDashboard = () => {
         )}
 
         {activeTab === "community" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+            {/* My Communities Section */}
             <div className="bg-surface-container-low p-6">
-              <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><UserCheck className="w-6 h-6"/> Observing Network ({following.length})</h3>
-              <div className="space-y-4">
-                {following.map(f => (
-                  <div key={f.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-sm text-on-surface">{f.name}</p>
-                      <p className="text-xs text-on-surface-variant">{f.role}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-headline text-2xl font-bold flex items-center gap-2 text-on-surface">
+                  <MessageSquare className="w-6 h-6" /> My Communities ({myCommunities.length})
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/communities")}
+                  className="text-xs font-label uppercase tracking-widest font-bold"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Create New
+                </Button>
               </div>
-            </div>
-            <div className="bg-surface-container-low p-6">
-              <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><Users className="w-6 h-6"/> Broadcast Receivers ({followers.length})</h3>
-              <div className="space-y-4">
-                {followers.map(f => (
-                  <div key={f.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-sm text-on-surface">{f.name}</p>
-                      <p className="text-xs text-on-surface-variant">{f.role}</p>
+              {myCommunities.length > 0 && (
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-on-surface-variant" />
+                  <Input
+                    placeholder="Search your communities..."
+                    value={communitySearch}
+                    onChange={(e) => setCommunitySearch(e.target.value)}
+                    className="pl-10 h-10 bg-surface-container-lowest border-outline-variant/30 text-sm"
+                  />
+                </div>
+              )}
+              {(() => {
+                const filtered = myCommunities.filter((c) =>
+                  c.name.toLowerCase().includes(communitySearch.toLowerCase())
+                );
+                if (myCommunities.length === 0) {
+                  return (
+                    <div className="text-center py-10 border-2 border-dashed border-outline-variant/30 rounded-lg">
+                      <Users className="w-10 h-10 text-on-surface-variant/40 mx-auto mb-3" />
+                      <p className="text-sm text-on-surface-variant mb-3">You haven't created any communities yet.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/communities")}
+                      >
+                        Go to Communities
+                      </Button>
                     </div>
+                  );
+                }
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-sm text-on-surface-variant">
+                      No communities match "{communitySearch}"
+                    </div>
+                  );
+                }
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filtered.map((community) => (
+                    <div
+                      key={community.id}
+                      className="bg-surface-container-lowest border border-outline-variant/20 p-5 rounded-sm flex flex-col justify-between gap-4 hover:shadow-md transition-shadow group cursor-pointer"
+                      onClick={() => navigate(`/communities/${community.id}`)}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-headline text-lg font-bold text-on-surface group-hover:text-primary transition-colors truncate">
+                            {community.name}
+                          </h4>
+                          <span className={cn(
+                            "text-[10px] font-label uppercase font-bold tracking-wider px-2 py-0.5 rounded-full flex-shrink-0",
+                            community.isOpen
+                              ? "bg-secondary-container text-on-secondary-container"
+                              : "bg-surface-container-highest text-on-surface-variant"
+                          )}>
+                            {community.isOpen ? "Open" : "Closed"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant line-clamp-2">{community.description}</p>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-label uppercase tracking-widest text-outline font-semibold pt-3 border-t border-outline-variant/10">
+                        <span className="text-primary font-bold group-hover:underline">View Community →</span>
+                      </div>
+                    </div>
+                  ))}
                   </div>
-                ))}
+                );
+              })()}
+            </div>
+
+            {/* Following / Followers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-surface-container-low p-6">
+                <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><UserCheck className="w-6 h-6"/> Observing Network ({following.length})</h3>
+                <div className="space-y-4">
+                  {following.map(f => (
+                    <div key={f.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-sm text-on-surface">{f.name}</p>
+                        <p className="text-xs text-on-surface-variant">{f.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {following.length === 0 && (
+                    <p className="text-sm text-on-surface-variant">Not observing anyone yet.</p>
+                  )}
+                </div>
+              </div>
+              <div className="bg-surface-container-low p-6">
+                <h3 className="font-headline text-2xl font-bold mb-6 flex items-center gap-2 text-on-surface"><Users className="w-6 h-6"/> Broadcast Receivers ({followers.length})</h3>
+                <div className="space-y-4">
+                  {followers.map(f => (
+                    <div key={f.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-sm text-on-surface">{f.name}</p>
+                        <p className="text-xs text-on-surface-variant">{f.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {followers.length === 0 && (
+                    <p className="text-sm text-on-surface-variant">No broadcast receivers yet.</p>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>

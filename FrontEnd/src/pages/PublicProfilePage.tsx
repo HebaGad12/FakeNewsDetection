@@ -107,6 +107,16 @@ const PublicProfilePage = () => {
 
   const isOwnProfile = user?.id === id;
 
+  const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    return parts
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f8f6]">
       <Header />
