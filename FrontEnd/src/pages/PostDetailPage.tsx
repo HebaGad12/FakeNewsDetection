@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -17,10 +17,14 @@ import {
   CheckCircle2,
   Clock,
   User,
+  Calendar,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
+import { ReadingProgress } from "@/components/ReadingProgress";
+import { ActionBar } from "@/components/ActionBar";
+import { StoryGallery } from "@/components/StoryGallery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -216,6 +220,7 @@ export default function PostDetailPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950">
+      <ReadingProgress />
       <Header />
 
       {/* Article breadcrumb */}
@@ -227,205 +232,134 @@ export default function PostDetailPage() {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="w-full pb-8">
         <motion.article
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mx-auto max-w-3xl"
+          className="w-full flex-1"
         >
-          {/* Category tag */}
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex items-center gap-2 mb-5">
-              <div className="h-3 w-0.5 bg-red-600" />
-              <span className="text-xs font-bold tracking-widest uppercase text-red-600">{post.tags[0]}</span>
-            </div>
-          )}
+          {/* HERO */}
+          <section className="relative h-[60vh] min-h-[460px] w-full overflow-hidden mb-0">
+            {post.media && post.media.length > 0 ? (
+              <img
+                src={postsService.getImageUrl(post.media[0].path)}
+                alt={post.title}
+                className="absolute inset-0 h-full w-full object-cover animate-in fade-in zoom-in duration-1000"
+              />
+            ) : (
+              <div className="absolute inset-0 h-full w-full bg-zinc-900 dark:bg-black" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-white/20 dark:from-zinc-950 dark:via-zinc-950/80 dark:to-zinc-950/20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-transparent to-transparent dark:from-zinc-950/70" />
 
-          {/* Headline */}
-          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-zinc-900 dark:text-white leading-tight mb-5">
-            {post.title}
-          </h1>
-
-          {/* Meta bar — author, date, credibility */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-b border-zinc-200 dark:border-zinc-800 py-4 mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-zinc-900 dark:bg-white flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 text-white dark:text-zinc-900" />
-              </div>
-              <div>
-                <p className="font-semibold text-zinc-900 dark:text-white text-sm">{post.authorName}</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">{post.organizationName || "Independent Journalist"}</p>
-              </div>
+            <div className="relative mx-auto flex h-full max-w-5xl flex-col justify-end px-4 pb-10 sm:px-6 sm:pb-12">
+              {post.tags && post.tags.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 fill-mode-both">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-red-600/40 bg-red-600/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+                    {post.tags[0]}
+                  </span>
+                </div>
+              )}
+              <h1 className="mt-6 max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-zinc-900 dark:text-white animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both sm:text-5xl md:text-6xl">
+                {post.title}
+              </h1>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{formattedDate}</p>
-                <p className="text-xs text-zinc-400 flex items-center gap-1 justify-end mt-0.5">
-                  <Clock className="h-3 w-3" /> {readTime} min read
-                </p>
+          </section>
+
+          {/* Publisher strip */}
+          <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-900/40 animate-in fade-in duration-700 delay-300 fill-mode-both mb-8">
+            <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-4 px-4 py-5 sm:px-6">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+                <div className="flex items-center gap-3">
+                  <Link to={`/profiles/${post.authorId}`} className="flex h-11 w-11 items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
+                    <span className="font-serif text-base font-semibold">
+                      {post.authorName.charAt(0).toUpperCase()}
+                    </span>
+                  </Link>
+                  <div className="leading-tight">
+                    <div className="flex items-center gap-1.5">
+                      <Link to={`/profiles/${post.authorId}`} className="text-sm font-semibold text-zinc-900 dark:text-white hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                        {post.authorName}
+                      </Link>
+                    </div>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">{post.organizationName || "Independent Journalist"}</span>
+                  </div>
+                </div>
+                <div className="hidden h-8 w-px bg-zinc-200 dark:bg-zinc-800 sm:block" />
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{formattedDate}</span>
+                  <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{readTime} min read</span>
+                </div>
               </div>
-              {/* Delete / Report */}
-              {/* Delete — post owner */}
-              {user && post.authorId === user.id && (
-                <button
-                  onClick={handleDeletePost}
-                  disabled={isDeleting}
-                  className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                  title="Delete post"
-                >
-                  {isDeleting ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                </button>
-              )}
-              {/* Delete — admin */}
-              {isAdmin && (
-                <button
-                  onClick={() => setShowAdminDeleteDialog(true)}
-                  disabled={isDeleting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wide transition-colors disabled:opacity-50"
-                  title="Admin: Delete post"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete Post
-                </button>
-              )}
-              {isReader && user && post.authorId !== user.id && (
-                <button
-                  onClick={handleOpenReport}
-                  className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
-                  title="Report post"
-                >
-                  <Flag className="h-4 w-4" />
-                </button>
-              )}
+
+              <div className="flex items-center gap-2">
+                {/* Delete — post owner */}
+                {user && post.authorId === user.id && (
+                  <button
+                    onClick={handleDeletePost}
+                    disabled={isDeleting}
+                    className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-full transition-colors"
+                    title="Delete post"
+                  >
+                    {isDeleting ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </button>
+                )}
+                {/* Delete — admin */}
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdminDeleteDialog(true)}
+                    disabled={isDeleting}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/10 hover:bg-red-600/20 text-red-600 rounded-full text-xs font-bold uppercase tracking-wide transition-colors disabled:opacity-50"
+                    title="Admin: Delete post"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Post
+                  </button>
+                )}
+                {isReader && user && post.authorId !== user.id && (
+                  <button
+                    onClick={handleOpenReport}
+                    className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-full transition-colors"
+                    title="Report post"
+                  >
+                    <Flag className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Credibility badge */}
-          {post.verificationStatus && (
-            <div className="mb-8">
-              <CredibilityBadge
-                level={
-                  post.verificationStatus.toLowerCase() === "fake" ? "fake" :
-                  post.verificationStatus.toLowerCase() === "questionable" ? "questionable" : "verified"
-                }
-              />
-            </div>
-          )}
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col lg:flex-row gap-10">
+            {/* Main Content Area */}
+            <div className="flex-1 max-w-3xl lg:max-w-none mx-auto lg:mx-0 w-full">
 
-          {/* Media Gallery */}
-          {post.media && post.media.length > 0 && (
-            <div className="mb-8 -mx-4 sm:mx-0">
-              {post.media.length === 1 ? (
-                <div className="cursor-zoom-in overflow-hidden" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}>
-                  <img
-                    src={postsService.getImageUrl(post.media[0].path)}
-                    alt={post.title}
-                    className="w-full h-80 object-cover hover:scale-[1.02] transition-transform duration-500"
+              {/* Credibility badge */}
+              {post.verificationStatus && (
+                <div className="mb-8">
+                  <CredibilityBadge
+                    level={
+                      post.verificationStatus.toLowerCase() === "fake" ? "fake" :
+                      post.verificationStatus.toLowerCase() === "questionable" ? "questionable" : "verified"
+                    }
                   />
-                  <p className="text-xs text-zinc-400 mt-2 px-4 sm:px-0">Click to expand</p>
-                </div>
-              ) : post.media.length === 2 ? (
-                <div className="grid grid-cols-2 gap-1">
-                  {post.media.map((m, i) => (
-                    <div key={m.mediaId} className="relative overflow-hidden cursor-zoom-in group" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
-                      <img src={postsService.getImageUrl(m.path)} alt={`${post.title} ${i + 1}`} className="h-64 w-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : post.media.length === 3 ? (
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="relative overflow-hidden cursor-zoom-in group row-span-2" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}>
-                    <img src={postsService.getImageUrl(post.media[0].path)} alt={`${post.title} 1`} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 min-h-[320px]" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
-                  {post.media.slice(1).map((m, i) => (
-                    <div key={m.mediaId} className="relative overflow-hidden cursor-zoom-in group" onClick={() => { setLightboxIndex(i + 1); setLightboxOpen(true); }}>
-                      <img src={postsService.getImageUrl(m.path)} alt={`${post.title} ${i + 2}`} className="h-40 w-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="relative overflow-hidden cursor-zoom-in group" onClick={() => { setLightboxIndex(activeImageIndex); setLightboxOpen(true); }}>
-                    <motion.img
-                      key={activeImageIndex}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      src={postsService.getImageUrl(post.media[activeImageIndex].path)}
-                      alt={`${post.title} ${activeImageIndex + 1}`}
-                      className="h-80 w-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex - 1 + post.media.length) % post.media.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors">
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex + 1) % post.media.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors">
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 font-mono">
-                      {activeImageIndex + 1}/{post.media.length}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 overflow-x-auto">
-                    {post.media.map((m, i) => (
-                      <button key={m.mediaId} onClick={() => setActiveImageIndex(i)} className={cn("flex-shrink-0 w-16 h-12 overflow-hidden border-2 transition-all", i === activeImageIndex ? "border-red-600" : "border-transparent opacity-50 hover:opacity-80")}>
-                        <img src={postsService.getImageUrl(m.path)} alt={`thumb ${i + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Lightbox */}
-          {lightboxOpen && post.media && post.media.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
-              onClick={() => setLightboxOpen(false)}
-            >
-              <button onClick={() => setLightboxOpen(false)} className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-              {post.media.length > 1 && (
-                <>
-                  <button onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + post.media.length) % post.media.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
-                    <ChevronLeft className="h-6 w-6" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % post.media.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
-                    <ChevronRight className="h-6 w-6" />
-                  </button>
-                </>
+              {/* Media Gallery */}
+              {post.media && post.media.length > 0 && (
+                <StoryGallery 
+                  images={post.media.map(m => ({
+                    src: postsService.getImageUrl(m.path),
+                    alt: post.title || "Post media",
+                    caption: post.title,
+                    credit: post.authorName
+                  }))} 
+                />
               )}
-              <motion.img
-                key={lightboxIndex}
-                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                src={postsService.getImageUrl(post.media[lightboxIndex].path)}
-                alt={`${post.title} ${lightboxIndex + 1}`}
-                className="max-h-[88vh] max-w-full object-contain shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              />
-              {post.media.length > 1 && (
-                <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 text-white text-xs px-3 py-1 font-mono">
-                  {lightboxIndex + 1} / {post.media.length}
-                </span>
-              )}
-            </motion.div>
-          )}
 
-          {/* Article body — newspaper typography */}
-          <motion.div
+              {/* Article body — newspaper typography */}
+              <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
             className="prose prose-zinc dark:prose-invert max-w-none"
           >
@@ -439,34 +373,15 @@ export default function PostDetailPage() {
           {/* Interaction bar */}
           {user?.role !== "admin" && (
             <div className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-3">
-              <button
-                onClick={toggleLike}
-                disabled={isLiking || isLoading}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 border text-sm font-semibold transition-all",
-                  isLiked
-                    ? "border-red-600 bg-red-50 dark:bg-red-950/20 text-red-600"
-                    : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-900 dark:hover:border-white"
-                )}
-              >
-                <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
-                {likesCount} Likes
-              </button>
-
-              <div className="flex items-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-500 dark:text-zinc-400">
-                <MessageCircle className="h-4 w-4" />
-                {comments.length} Comments
-              </div>
-
-              {user && (
-                <button
-                  onClick={handleOpenReport}
-                  className="flex items-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-500 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-500 transition-all font-medium"
-                >
-                  <Flag className="h-4 w-4" />
-                  Report
-                </button>
-              )}
+              <ActionBar
+                likesCount={likesCount}
+                isLiked={isLiked}
+                onToggleLike={toggleLike}
+                commentsCount={comments.length}
+                isLiking={isLiking || isLoading}
+                canReport={!!user && isReader}
+                onReport={handleOpenReport}
+              />
             </div>
           )}
 
@@ -484,36 +399,46 @@ export default function PostDetailPage() {
 
             {/* Comment form */}
             {user?.role !== "admin" && (
-              <div className="border border-zinc-200 dark:border-zinc-800 p-4 mb-6">
+              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5 shadow-sm mb-10">
                 {commentError && (
-                  <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-3 mb-3 text-sm text-red-700 dark:text-red-400">
+                  <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-3 mb-4 text-sm text-red-700 dark:text-red-400">
                     {commentError}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Share your thoughts on this article..."
-                    value={commentInput}
-                    onChange={(e) => { setCommentInput(e.target.value); setCommentError(null); }}
-                    onKeyPress={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
-                    disabled={isCommenting}
-                    className="flex-1 rounded-none border-zinc-300 dark:border-zinc-700 focus:border-red-600 focus:ring-0"
-                  />
-                  <Button
-                    onClick={handleAddComment}
-                    disabled={!commentInput.trim() || isCommenting}
-                    className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-none"
-                  >
-                    {isCommenting ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
+                <div className="flex gap-3 sm:gap-4">
+                  <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-red-600/10 text-red-600 font-semibold ring-1 ring-zinc-200 dark:ring-zinc-800">
+                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                  <div className="flex-1">
+                    <textarea
+                      placeholder="Add to the conversation. Be respectful and stay on topic."
+                      value={commentInput}
+                      onChange={(e) => { setCommentInput(e.target.value); setCommentError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
+                      disabled={isCommenting}
+                      className="w-full min-h-[88px] resize-none bg-transparent p-0 text-[15px] focus:outline-none focus:ring-0 placeholder:text-zinc-500 border-0"
+                    />
+                    <div className="mt-3 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                      <span className="text-xs text-zinc-500">Markdown supported</span>
+                      <Button
+                        onClick={handleAddComment}
+                        disabled={!commentInput.trim() || isCommenting}
+                        size="sm"
+                        className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold"
+                      >
+                        {isCommenting ? <Loader className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Post comment
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Comments list */}
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-200 dark:border-zinc-800">
+            <div className="mt-10 space-y-8">
               {comments.length === 0 ? (
-                <div className="p-10 text-center">
+                <div className="p-10 text-center rounded-2xl border border-zinc-200 dark:border-zinc-800 border-dashed">
                   <MessageCircle className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">No comments yet. Be the first to share your perspective.</p>
                 </div>
@@ -522,62 +447,96 @@ export default function PostDetailPage() {
                   <motion.div
                     key={comment.id}
                     initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                    className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                    className="group"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-7 h-7 bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                            <User className="h-3.5 w-3.5 text-zinc-500" />
-                          </div>
-                          <div>
-                            <span className="font-semibold text-zinc-900 dark:text-white text-sm">{comment.authorName}</span>
-                            <span className="text-zinc-400 text-xs ml-2">{comment.authorRole}</span>
-                          </div>
-                          <span className="text-xs text-zinc-400 ml-auto">
-                            {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed pl-9">{comment.content}</p>
+                    <div className="flex gap-3 sm:gap-4">
+                      <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
+                        {comment.authorName.charAt(0).toUpperCase()}
                       </div>
-                      <button
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className="p-1.5 text-zinc-300 hover:text-red-600 dark:text-zinc-700 dark:hover:text-red-500 transition-colors flex-shrink-0"
-                        title="Delete comment"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-foreground">{comment.authorName}</span>
-                          {comment.authorRole === "Journalist" && (
-                            <span className="bg-primary/10 text-primary text-[8px] px-2 py-0.5 rounded-sm font-bold uppercase tracking-widest flex items-center gap-0.5">
-                              <CheckCircle2 className="h-2.5 w-2.5" /> Verified
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 justify-between">
+                          <div className="flex items-baseline gap-x-2 gap-y-0.5">
+                            <span className="text-sm font-semibold text-zinc-900 dark:text-white">{comment.authorName}</span>
+                            {comment.authorRole === "Journalist" && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-red-600/10 text-red-600 font-bold uppercase tracking-wider">
+                                Verified
+                              </span>
+                            )}
+                            <span className="text-xs text-zinc-500">
+                              {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                             </span>
+                          </div>
+                          {(user?.role === "admin" || user?.name === comment.authorName) && (
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-600 transition-all focus:opacity-100"
+                              title="Delete comment"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           )}
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {new Date(comment.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                          </span>
                         </div>
-                        <button
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
-                          title="Delete comment"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
+                          {comment.content}
+                        </p>
+                        <div className="mt-3 flex items-center gap-1 text-xs text-zinc-500">
+                          <button className="flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 -ml-2">
+                            <Heart className="h-3.5 w-3.5" />
+                            <span className="tabular-nums">0</span>
+                          </button>
+                          <button className="flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100">
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            Reply
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-base text-foreground/80 leading-relaxed font-serif">
-                        {comment.content}
-                      </p>
                     </div>
                   </motion.div>
                 ))
               )}
             </div>
           </motion.section>
+            </div>
+
+            {/* Right Sidebar - About the Author */}
+            <aside className="hidden lg:block w-80 flex-shrink-0">
+              <div className="sticky top-24 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6">
+                <h3 className="font-serif text-lg font-semibold text-zinc-900 dark:text-white mb-4">About the Author</h3>
+                <div className="flex items-center gap-4 mb-4">
+                  <Link to={`/profiles/${post.authorId}`} className="flex h-16 w-16 items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
+                    <span className="font-serif text-2xl font-semibold">
+                      {post.authorName.charAt(0).toUpperCase()}
+                    </span>
+                  </Link>
+                  <div>
+                    <Link to={`/profiles/${post.authorId}`} className="font-semibold text-zinc-900 dark:text-white text-lg hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                      {post.authorName}
+                    </Link>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{post.organizationName || "Independent Journalist"}</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
+                  Investigative reporting focused on uncovering misinformation, systemic fraud, and maintaining accountability in public information.
+                </p>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
+                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">12.4K</p>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Followers</p>
+                  </div>
+                  <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
+                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">47</p>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Reports</p>
+                  </div>
+                </div>
+                
+                <Button className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold">
+                  Follow {post.authorName.split(' ')[0]}
+                </Button>
+              </div>
+            </aside>
+          </div>
         </motion.article>
       </main>
 
