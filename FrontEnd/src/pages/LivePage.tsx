@@ -237,286 +237,412 @@ const LivePage = () => {
     <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
       <Header />
 
-      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 py-8 w-full flex-grow flex flex-col">
-        
+      <main className="flex-grow flex flex-col w-full">
         {/* Error banner */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mb-6 flex items-center justify-between px-4 py-3 rounded-sm bg-destructive/10 border border-destructive/20 text-destructive text-sm"
-            >
-              <div className="flex items-center gap-3">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                {error}
-              </div>
-              <button onClick={() => setError(null)} className="opacity-70 hover:opacity-100 uppercase text-[10px] tracking-widest font-bold">Close</button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Global Controls / Status */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <h1 className="font-display text-3xl font-bold text-primary">Editorial Intelligence</h1>
-            <div className="flex items-center gap-4">
-              <span className={cn("text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 px-3 py-1 rounded-sm border", isConnected ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/10" : "border-amber-500/30 text-amber-600 bg-amber-500/10")}>
-                <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-emerald-500" : "bg-amber-500")} />
-                {isConnected ? "Network Connected" : "Connecting..."}
-              </span>
-              
-              {isJournalist && (
-                <div className="flex items-center gap-2">
-                  {myLiveId ? (
-                    <Button variant="destructive" size="sm" onClick={handleEndLive} disabled={isTogglingLive} className="h-8 text-xs uppercase tracking-widest font-bold">
-                      {isTogglingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <StopCircle className="h-3.5 w-3.5 mr-1.5" />}
-                      End Broadcast
-                    </Button>
-                  ) : (
-                    <Button size="sm" onClick={handleStartLive} disabled={isTogglingLive} className="h-8 text-xs uppercase tracking-widest font-bold bg-primary hover:bg-primary/90 text-primary-foreground">
-                      {isTogglingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Radio className="h-3.5 w-3.5 mr-1.5" />}
-                      Initialize Broadcast
-                    </Button>
-                  )}
+        <div className="max-w-[1440px] w-full mx-auto px-4 sm:px-6">
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mt-4 flex items-center justify-between px-4 py-3 rounded-sm bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {error}
                 </div>
-              )}
-            </div>
+                <button onClick={() => setError(null)} className="opacity-70 hover:opacity-100 uppercase text-[10px] tracking-widest font-bold">Close</button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Main Stage (If watching a stream) */}
-        {activeStream && (
-          <div className="flex flex-col lg:flex-row gap-8 mb-12">
-            {/* Left Column: Video and Intel */}
-            <div className="flex-grow lg:w-2/3 xl:w-[70%] flex flex-col">
-              {/* Video Player Section */}
-              <section className="relative bg-zinc-950 rounded-lg overflow-hidden shadow-2xl border border-border flex-shrink-0 z-10 w-full" style={{minHeight: "50vh"}}>
-                <div className="aspect-video w-full flex items-center justify-center relative bg-black/50">
-                  
-                  {/* WebRTC Video Mount */}
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    className={cn("w-full h-full object-cover transition-opacity duration-500", isWatching ? "opacity-100" : "opacity-0")}
-                  />
-
-                  {/* Overlays if NOT active */}
-                  {!isWatching && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-                      <div className="flex flex-col items-center justify-center gap-4 text-center">
-                          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-                              <Radio className="h-8 w-8 text-white/40 animate-pulse" />
-                          </div>
-                          <p className="text-white/50 text-sm font-sans tracking-wide">Synchronizing with source feed…</p>
-                          <p className="text-white/30 text-[10px] uppercase tracking-widest font-bold">State: {webRTCState}</p>
-                      </div>
+        {!activeStream ? (
+          <>
+            {/* Page Header styled from live-hub */}
+            <section className="border-b border-border bg-secondary/30">
+              <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+                <div className="flex flex-col-reverse md:flex-row md:items-end justify-between gap-6">
+                  <div className="max-w-2xl">
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground shadow-sm">
+                      <span className="w-2 h-2 bg-destructive rounded-full animate-pulse-slow" />
+                      Now streaming · {liveSessions.length} live
                     </div>
-                  )}
-                  
-                  {/* Overlay UI (always visible to float above video) */}
-                  <div className="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none">
-                    <div className="flex justify-between items-start pointer-events-auto">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button onClick={handleLeaveWatch} className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 font-sans text-xs font-bold uppercase tracking-widest rounded-sm flex items-center gap-1.5 transition-colors backdrop-blur-md border border-white/10">
-                          <ArrowLeft className="w-3.5 h-3.5" /> Back to grid
-                        </button>
-                        <span className={cn("text-white px-3 py-1 font-sans text-[10px] font-bold tracking-widest rounded-sm", isWatching ? "bg-destructive animate-pulse-slow" : "bg-white/20")}>
-                          {isWatching ? "LIVE" : "STANDBY"}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-white/90 font-sans text-xs bg-black/40 px-3 py-1 rounded-sm backdrop-blur-md">
-                          <Eye className="w-3.5 h-3.5" />
-                          <span className="tracking-wider uppercase font-bold text-[10px]">{viewerCount} VIEWERS</span>
+                    <h1 className="font-display text-5xl leading-[1.05] text-foreground sm:text-6xl">
+                      Live News &<br />
+                      <span className="italic text-foreground/80">Investigations</span>
+                    </h1>
+                    <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                      Join live investigations, exclusive interviews, and breaking news
+                      streams from our reporters around the world — in real time.
+                    </p>
+                  </div>
+
+                  {/* Move Global Controls here when not watching */}
+                  <div className="flex flex-col items-start md:items-end gap-4">
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 px-3 py-1 rounded-sm border", isConnected ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/10" : "border-amber-500/30 text-amber-600 bg-amber-500/10")}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-emerald-500" : "bg-amber-500")} />
+                      {isConnected ? "Network Connected" : "Connecting..."}
+                    </span>
+                    
+                    {isJournalist && (
+                      <div className="flex items-center gap-2">
+                        {myLiveId ? (
+                          <Button variant="destructive" size="sm" onClick={handleEndLive} disabled={isTogglingLive} className="h-9 px-4 text-xs uppercase tracking-widest font-bold">
+                            {isTogglingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <StopCircle className="h-3.5 w-3.5 mr-1.5" />}
+                            End Broadcast
+                          </Button>
+                        ) : (
+                          <Button size="sm" onClick={handleStartLive} disabled={isTogglingLive} className="h-9 px-4 text-xs uppercase tracking-widest font-bold bg-primary hover:bg-primary/90 text-primary-foreground">
+                            {isTogglingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Radio className="h-3.5 w-3.5 mr-1.5" />}
+                            Initialize Broadcast
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Grid Content */}
+            <div className="mx-auto max-w-[1440px] w-full px-4 py-10 sm:px-6 lg:px-8">
+              {isLoadingSessions ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                      <div className="aspect-video w-full bg-muted/60 animate-pulse" />
+                      <div className="space-y-3 p-5">
+                        <div className="h-6 w-3/4 rounded bg-muted/60 animate-pulse" />
+                        <div className="h-4 w-1/2 rounded bg-muted/60 animate-pulse" />
+                        <div className="flex items-center gap-3 pt-3 mt-4 border-t border-border mt-auto">
+                          <div className="h-9 w-9 rounded-full bg-muted/60 animate-pulse" />
+                          <div className="h-4 w-1/3 rounded bg-muted/60 animate-pulse" />
                         </div>
                       </div>
                     </div>
-                    <div className="space-y-2 pointer-events-auto">
-                      <h1 className="font-display text-4xl sm:text-5xl text-white tracking-tight leading-tight filter drop-shadow-md">
-                          Live with {broadcasterName}
-                      </h1>
-                      <p className="font-sans text-white/80 text-sm max-w-2xl filter drop-shadow-md">
-                          Streaming direct from source. Official verification protocols engaged.
-                      </p>
+                  ))}
+                </div>
+              ) : liveSessions.length === 0 ? (
+                <div className="relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-16 text-center sm:py-24 shadow-sm mt-4">
+                  <div className="relative mx-auto flex max-w-md flex-col items-center">
+                    <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border bg-background shadow-sm">
+                      <Radio className="h-9 w-9 text-muted-foreground" />
                     </div>
+                    <h2 className="font-display text-3xl text-foreground sm:text-4xl">
+                      No Live Sessions Right Now
+                    </h2>
+                    <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+                      Live investigations, exclusive interviews, and breaking news streams
+                      from our reporters will appear here the moment they go on air.
+                    </p>
                   </div>
                 </div>
-              </section>
-
-              {/* Source Verification Info */}
-              <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-90 hover:opacity-100 transition-opacity">
-                <div className="md:col-span-2 bg-card p-6 rounded-sm border-l-4 border-secondary shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <CheckCircle2 className="w-6 h-6 text-secondary fill-secondary/20" />
-                    <h3 className="font-display text-xl text-foreground">Source Verification Info</h3>
-                  </div>
-                  <p className="font-sans text-muted-foreground leading-relaxed text-sm">
-                    This stream is securely attached via the <span className="font-semibold text-foreground">Veritas WebRTC Toolkit</span>. The source has been cross-referenced. Journalist identity is verified.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-6">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold border-b border-border pb-1 mb-1">LATENCY</span>
-                      <span className="font-sans text-sm font-bold text-foreground">Sub-second</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold border-b border-border pb-1 mb-1">ENCRYPTION</span>
-                      <span className="font-sans text-sm font-bold text-foreground">DTLS-SRTP E2EE</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold border-b border-border pb-1 mb-1">RELIABILITY</span>
-                      <span className="font-sans text-sm font-bold text-secondary">{isConnected ? "High Trust" : "Connecting..."}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card p-6 rounded-sm shadow-sm border border-border">
-                  <h4 className="font-sans text-xs font-bold text-muted-foreground mb-4 tracking-widest uppercase flex items-center justify-between">
-                      Metadata <Radio className="w-3.5 h-3.5"/>
-                  </h4>
-                  <ul className="space-y-4">
-                    <li className="flex justify-between items-center border-b border-border/50 pb-2">
-                      <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">SIGNAL</span>
-                      <span className="text-[10px] font-bold font-mono text-foreground text-right">{isConnected ? "ACTIVE" : "PENDING"}</span>
-                    </li>
-                    <li className="flex justify-between items-center border-b border-border/50 pb-2">
-                      <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">LIVE ID</span>
-                      <span className="text-[10px] font-bold font-mono text-foreground tracking-tighter truncate max-w-[90px] text-right" title={activeStream.liveId}>{activeStream.liveId || "N/A"}</span>
-                    </li>
-                    <li className="flex justify-between items-center">
-                      <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">WEBRTC</span>
-                      <span className="text-[10px] font-bold font-mono text-accent text-right uppercase tracking-widest">{webRTCState}</span>
-                    </li>
-                  </ul>
-                </div>
-              </section>
-            </div>
-
-            {/* Right Column: Chat Box */}
-            <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-md border border-border shadow-lg overflow-hidden relative">
-              <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30">
-                  <div>
-                      <h3 className="font-sans font-bold text-foreground flex items-center gap-2 text-[10px] uppercase tracking-widest">
-                          <MessageSquare className="w-4 h-4 text-accent"/> Intelligence Protocol
-                      </h3>
-                      <p className="text-[10px] text-muted-foreground mt-1">Live Encrypted Chat Feed</p>
-                  </div>
-                  <div className="flex items-center gap-2 bg-background px-2 py-1 rounded border border-border">
-                      <Users className="w-3.5 h-3.5 text-muted-foreground"/>
-                      <span className="text-[10px] font-bold font-mono text-foreground">{(chatMessages.length + 1).toString().padStart(3, '0')}</span>
-                  </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background/50 scrollbar-thin">
-                  {chatMessages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 space-y-3">
-                        <MessageSquare className="w-10 h-10"/>
-                        <p className="text-[10px] uppercase tracking-widest font-bold">Secure connection established.</p>
-                    </div>
-                  ) : (
-                    chatMessages.map((msg, i) => (
-                      <motion.div key={i} className="group" initial={{opacity:0, y:10}} animate={{opacity:1, y:0}}>
-                        <div className="flex items-start gap-3">
-                          <div className="w-7 h-7 rounded-sm bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold text-accent">{msg.senderName.charAt(0).toUpperCase()}</span>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <AnimatePresence>
+                    {liveSessions.map((card, i) => (
+                      <motion.div
+                        key={card.liveId}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all hover:-translate-y-1 cursor-pointer"
+                        onClick={() => handleWatch(card)}
+                      >
+                        <div className="relative aspect-video overflow-hidden bg-muted">
+                          <img
+                            src={card.journalistAvatar}
+                            alt={card.journalistName}
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          />
+                          <div
+                            aria-hidden
+                            className="absolute inset-0 transition-opacity duration-300 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-80 group-hover:opacity-90"
+                          />
+                          <div className="absolute left-3 top-3 flex items-center gap-2">
+                            <span className="flex items-center gap-1.5 rounded-md bg-black/60 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur shadow-sm">
+                              <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse-slow"></span>
+                              LIVE
+                            </span>
                           </div>
-                          <div className="flex-1">
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
-                                  {msg.senderName}
-                                  <span className="font-mono text-border font-normal text-[9px] tracking-tight">
-                                      {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
-                                  </span>
-                              </p>
-                              <p className="text-sm text-foreground mt-0.5 leading-snug">
-                                  {msg.text}
-                              </p>
+                          <div className="absolute bottom-3 left-3 text-xs font-semibold text-white/90 drop-shadow-md">
+                            {formatDuration(card.startedAt)}
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                             <div className="bg-primary/90 rounded-full p-3 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                               <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                             </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-1 flex-col gap-4 p-5">
+                          <div className="space-y-1">
+                            <h3 className="font-display text-xl leading-snug text-foreground transition-colors group-hover:text-primary">
+                              {card.journalistName} Broadcast
+                            </h3>
+                            <p className="text-sm leading-relaxed text-muted-foreground uppercase tracking-widest text-[10px] font-semibold">
+                              ID: {card.journalistId || card.liveId.slice(0, 8)}
+                            </p>
+                          </div>
+
+                          <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4">
+                            <div className="flex items-center gap-2.5">
+                              <img
+                                src={card.journalistAvatar}
+                                alt={card.journalistName}
+                                className="h-8 w-8 rounded-full border border-border object-cover"
+                              />
+                              <span className="font-semibold text-foreground text-sm">
+                                {card.journalistName}
+                              </span>
+                            </div>
+                            <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground transition-all group-hover:bg-primary group-hover:text-primary-foreground">
+                              Join <ArrowLeft className="w-3 h-3 ml-1 rotate-180" />
+                            </span>
                           </div>
                         </div>
                       </motion.div>
-                    ))
-                  )}
-                  <div ref={chatEndRef} />
-              </div>
-
-              <div className="p-3 border-t border-border bg-card">
-                  <div className="flex gap-2">
-                      <input
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSendComment()}
-                        placeholder="Transmit message..."
-                        disabled={!isConnected}
-                        className="flex-1 bg-background border border-border rounded-sm px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <button
-                        onClick={handleSendComment}
-                        disabled={!chatInput.trim() || !isConnected}
-                        className="w-11 h-11 shrink-0 rounded-sm bg-primary hover:bg-primary/90 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <Send className="h-4 w-4 text-primary-foreground -ml-0.5" />
-                      </button>
-                  </div>
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {/* Directory Grid (Related Intel) */}
-        {!activeStream && (
-          <div className="flex justify-between items-center mb-6 mt-4">
-            <h2 className="font-display text-2xl text-foreground">Active Intelligence Channels</h2>
-            {isLoadingSessions && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-          </div>
-        )}
-        {activeStream && (
-          <h3 className="font-display text-xl text-foreground mt-6 mb-4 border-t border-border pt-8">Related Intel</h3>
-        )}
-
-        {liveSessions.length === 0 && !isLoadingSessions ? (
-           <div className="bg-card border border-border rounded-sm p-12 flex flex-col items-center justify-center text-center">
-             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4 border border-border/50">
-               <Radio className="h-8 w-8 text-muted-foreground/50" />
-             </div>
-             <h2 className="text-lg font-semibold text-foreground mb-2 font-display">No ongoing transmissions</h2>
-             <p className="text-sm text-muted-foreground max-w-sm">
-               The global network is currently silent. Verified broadcasts will appear here automatically.
-             </p>
-           </div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-            <AnimatePresence>
-              {liveSessions.filter(card => card.liveId !== activeStream?.liveId).map((card) => (
-                <motion.div
-                  key={card.liveId}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="group cursor-pointer flex flex-col"
-                  onClick={() => handleWatch(card)}
-                >
-                  <div className="relative aspect-video rounded-sm overflow-hidden mb-3 border border-border bg-black">
-                    <img
-                      src={card.journalistAvatar}
-                      alt={card.journalistName}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60 group-hover:opacity-80"
+          <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 w-full flex-grow flex flex-col">
+            {/* Global Controls / Status for Active Stream Mode */}
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border">
+                <h1 className="font-display text-3xl font-bold text-foreground">Editorial Intelligence</h1>
+                <div className="flex items-center gap-4">
+                  <span className={cn("text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 px-3 py-1 rounded-sm border", isConnected ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/10" : "border-amber-500/30 text-amber-600 bg-amber-500/10")}>
+                    <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-emerald-500" : "bg-amber-500")} />
+                    {isConnected ? "Network Connected" : "Connecting..."}
+                  </span>
+                  
+                  {isJournalist && (
+                    <div className="flex items-center gap-2">
+                      {myLiveId ? (
+                        <Button variant="destructive" size="sm" onClick={handleEndLive} disabled={isTogglingLive} className="h-8 text-xs uppercase tracking-widest font-bold">
+                          {isTogglingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <StopCircle className="h-3.5 w-3.5 mr-1.5" />}
+                          End Broadcast
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={handleStartLive} disabled={isTogglingLive} className="h-8 text-xs uppercase tracking-widest font-bold bg-primary hover:bg-primary/90 text-primary-foreground">
+                          {isTogglingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Radio className="h-3.5 w-3.5 mr-1.5" />}
+                          Initialize Broadcast
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-8 mb-12">
+              {/* Left Column: Video and Intel */}
+              <div className="flex-grow lg:w-2/3 xl:w-[70%] flex flex-col">
+                {/* Video Player Section */}
+                <section className="relative bg-zinc-950 rounded-2xl overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{minHeight: "50vh"}}>
+                  <div className="aspect-video w-full flex items-center justify-center relative bg-black/50">
+                    
+                    {/* WebRTC Video Mount */}
+                    <video
+                      ref={remoteVideoRef}
+                      autoPlay
+                      playsInline
+                      className={cn("w-full h-full object-cover transition-opacity duration-500", isWatching ? "opacity-100" : "opacity-0")}
                     />
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none group-hover:scale-110 transition-transform">
-                       <Play className="w-8 h-8 text-white/70 ml-1 drop-shadow-md" />
-                    </div>
-                    <div className="absolute top-2 left-2 bg-black/80 border border-white/10 text-white text-[10px] uppercase font-bold tracking-widest py-0.5 px-2 rounded-sm flex items-center gap-1.5 backdrop-blur-md">
-                      <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse-slow"></span> LIVE
-                    </div>
-                    <div className="absolute bottom-2 right-2 bg-black/80 border border-white/10 text-white text-[9px] uppercase font-bold tracking-widest py-0.5 px-2 rounded-sm backdrop-blur-md">
-                      {formatDuration(card.startedAt)}
+
+                    {/* Overlays if NOT active */}
+                    {!isWatching && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
+                        <div className="flex flex-col items-center justify-center gap-4 text-center">
+                            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                                <Radio className="h-8 w-8 text-white/40 animate-pulse" />
+                            </div>
+                            <p className="text-white/50 text-sm font-sans tracking-wide">Synchronizing with source feed…</p>
+                            <p className="text-white/30 text-[10px] uppercase tracking-widest font-bold">State: {webRTCState}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Overlay UI (always visible to float above video) */}
+                    <div className="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none">
+                      <div className="flex justify-between items-start pointer-events-auto">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button onClick={handleLeaveWatch} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 font-sans text-xs font-bold tracking-wide rounded-md flex items-center gap-1.5 transition-colors backdrop-blur-md border border-white/10">
+                            <ArrowLeft className="w-3.5 h-3.5" /> Back to directory
+                          </button>
+                          <span className={cn("text-white px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1.5", isWatching ? "bg-destructive/90 backdrop-blur" : "bg-white/20 backdrop-blur")}>
+                            {isWatching && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse-slow"></span>}
+                            {isWatching ? "LIVE" : "STANDBY"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-2 pointer-events-auto mt-auto flex items-end justify-between">
+                        <div>
+                          <h1 className="font-display text-4xl sm:text-5xl text-white tracking-tight leading-tight filter drop-shadow-md">
+                              Live with {broadcasterName}
+                          </h1>
+                          <p className="font-sans text-white/80 text-sm max-w-2xl filter drop-shadow-md mt-1">
+                              Streaming direct from source. Official verification protocols engaged.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <h4 className="font-display text-lg leading-snug group-hover:underline decoration-accent text-foreground">
-                     {card.journalistName} Broadcast
-                  </h4>
-                  <p className="font-sans text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
-                     Broadcaster ID: {card.journalistId || card.liveId.slice(0, 8)}
-                  </p>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                </section>
+
+                {/* Source Verification Info */}
+                <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-95 hover:opacity-100 transition-opacity">
+                  <div className="md:col-span-2 bg-card p-6 rounded-2xl border border-border shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <CheckCircle2 className="w-6 h-6 text-primary fill-primary/10" />
+                      <h3 className="font-display text-xl text-foreground">Source Verification Info</h3>
+                    </div>
+                    <p className="font-sans text-muted-foreground leading-relaxed text-sm">
+                      This stream is securely attached via the <span className="font-semibold text-foreground">Veritas WebRTC Toolkit</span>. The source has been cross-referenced. Journalist identity is verified.
+                    </p>
+                    <div className="mt-6 grid grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-1 p-3 bg-secondary/40 rounded-lg">
+                        <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">LATENCY</span>
+                        <span className="font-sans text-sm font-bold text-foreground">Sub-second</span>
+                      </div>
+                      <div className="flex flex-col gap-1 p-3 bg-secondary/40 rounded-lg">
+                        <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">ENCRYPTION</span>
+                        <span className="font-sans text-sm font-bold text-foreground">DTLS-SRTP E2EE</span>
+                      </div>
+                      <div className="flex flex-col gap-1 p-3 bg-secondary/40 rounded-lg">
+                        <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">RELIABILITY</span>
+                        <span className="font-sans text-sm font-bold text-primary">{isConnected ? "High Trust" : "Connecting..."}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+                    <h4 className="font-sans text-xs font-bold text-muted-foreground mb-4 tracking-widest uppercase flex items-center justify-between">
+                        Metadata <Radio className="w-3.5 h-3.5"/>
+                    </h4>
+                    <ul className="space-y-4">
+                      <li className="flex justify-between items-center border-b border-border/50 pb-2">
+                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">SIGNAL</span>
+                        <span className="text-[10px] font-bold font-mono text-foreground text-right">{isConnected ? "ACTIVE" : "PENDING"}</span>
+                      </li>
+                      <li className="flex justify-between items-center border-b border-border/50 pb-2">
+                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">LIVE ID</span>
+                        <span className="text-[10px] font-bold font-mono text-foreground tracking-tighter truncate max-w-[90px] text-right" title={activeStream.liveId}>{activeStream.liveId || "N/A"}</span>
+                      </li>
+                      <li className="flex justify-between items-center">
+                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">WEBRTC</span>
+                        <span className="text-[10px] font-bold font-mono text-primary text-right uppercase tracking-widest">{webRTCState}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </section>
+                
+                {/* Related Intel Grid right under the post if any exist */}
+                {liveSessions.length > 1 && (
+                  <div className="mt-12 pt-8 border-t border-border">
+                    <h3 className="font-display text-2xl text-foreground mb-6">More Live Sessions</h3>
+                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                      {liveSessions.filter(card => card.liveId !== activeStream.liveId).map((card) => (
+                        <div
+                          key={card.liveId}
+                          className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer"
+                          onClick={() => handleWatch(card)}
+                        >
+                          <div className="relative aspect-video overflow-hidden bg-muted">
+                            <img
+                              src={card.journalistAvatar}
+                              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                            <div className="absolute left-2 top-2">
+                              <span className="rounded bg-destructive/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-destructive-foreground">LIVE</span>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <h4 className="font-display text-lg leading-snug">{card.journalistName}</h4>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Chat Box */}
+              <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-2xl border border-border shadow-lg overflow-hidden relative">
+                <div className="p-5 border-b border-border flex justify-between items-center bg-muted/20">
+                    <div>
+                        <h3 className="font-sans font-bold text-foreground flex items-center gap-2 text-xs">
+                            <MessageSquare className="w-4 h-4 text-primary"/> Intelligence Protocol
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest">Encrypted Feed</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-background px-2.5 py-1.5 rounded-md border border-border shadow-sm">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground"/>
+                        <span className="text-[10px] font-bold font-mono text-foreground">{(chatMessages.length + 1).toString().padStart(3, '0')}</span>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-background/30 scrollbar-thin">
+                    {chatMessages.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 space-y-3">
+                          <MessageSquare className="w-10 h-10"/>
+                          <p className="text-[10px] uppercase tracking-widest font-bold">Secure connection established.</p>
+                      </div>
+                    ) : (
+                      chatMessages.map((msg, i) => (
+                        <motion.div key={i} className="group" initial={{opacity:0, y:10}} animate={{opacity:1, y:0}}>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-bold text-primary">{msg.senderName.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="flex-1 bg-muted/40 p-3 rounded-2xl rounded-tl-sm border border-border/50">
+                                <div className="flex justify-between items-center mb-1">
+                                    <p className="text-[10px] font-bold text-foreground tracking-wide">
+                                        {msg.senderName}
+                                    </p>
+                                    <span className="font-mono text-muted-foreground font-normal text-[9px]">
+                                        {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-foreground/90 leading-snug">
+                                    {msg.text}
+                                </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                    <div ref={chatEndRef} />
+                </div>
+
+                <div className="p-4 border-t border-border bg-card">
+                    <div className="flex gap-2 relative">
+                        <input
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleSendComment()}
+                          placeholder="Transmit message..."
+                          disabled={!isConnected}
+                          className="flex-1 bg-background border border-border rounded-full pl-4 pr-12 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <button
+                          onClick={handleSendComment}
+                          disabled={!chatInput.trim() || !isConnected}
+                          className="absolute right-1 top-1 w-8 h-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Send className="h-3.5 w-3.5 text-primary-foreground -ml-0.5" />
+                        </button>
+                    </div>
+                </div>
+              </aside>
+            </div>
           </div>
         )}
       </main>
