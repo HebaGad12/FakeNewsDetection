@@ -758,17 +758,18 @@ const JournalistDashboard = () => {
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
               <Menu className="w-5 h-5" />
             </button>
-                        <div>
+            <div>
               <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
-              Archive System v4.2
-            </span>
-            <h1 className="font-headline text-4xl text-on-surface font-bold">
-              {activeTab === "dashboard" && "The Veritas Archive"}
-              {activeTab === "archive" && "Your Published Intel"}
-              {activeTab === "community" && "Intelligence Network"}
-              {activeTab === "wallet" && "Financial Operations"}
-              {activeTab === "create" && "Draft Operation"}
-            </h1>
+                Archive System v4.2
+              </span>
+              <h1 className="font-headline text-4xl text-on-surface font-bold">
+                {activeTab === "dashboard" && "The Veritas Archive"}
+                {activeTab === "archive" && "Your Published Intel"}
+                {activeTab === "community" && "Intelligence Network"}
+                {activeTab === "wallet" && "Financial Operations"}
+                {activeTab === "create" && "Draft Operation"}
+              </h1>
+            </div>
           </div>
           <div className="flex gap-4 items-center">
             <div className="text-right">

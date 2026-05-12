@@ -103,9 +103,10 @@ interface SideNavBarProps {
   profile?: OrgProfileResponse | null;
   avatarUrl?: string;
   onLogout?: () => void;
+  isSidebarOpen: boolean;
 }
 
-const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarProps) => {
+const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen }: SideNavBarProps) => {
   const navigate = useNavigate();
 
   const navItems = [
@@ -931,6 +932,7 @@ const OrganizationDashboard = () => {
         profile={profile}
         avatarUrl={user?.avatar}
         onLogout={logout}
+        isSidebarOpen={isSidebarOpen}
       />
 
       {/* Main Content Area */}
@@ -941,13 +943,14 @@ const OrganizationDashboard = () => {
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
               <Menu className="w-5 h-5" />
             </button>
-                        <div>
+            <div>
               <span className="font-label text-xs uppercase tracking-[0.2em] text-outline dark:text-stone-500 mb-2 block">
-              Institutional Intelligence
-            </span>
-            <h1 className="font-headline text-5xl font-bold text-on-surface dark:text-white tracking-tight">
-              {profile?.name ?? "Organization Dashboard"}
-            </h1>
+                Institutional Intelligence
+              </span>
+              <h1 className="font-headline text-5xl font-bold text-on-surface dark:text-white tracking-tight">
+                {profile?.name ?? "Organization Dashboard"}
+              </h1>
+            </div>
           </div>
           <div className="flex gap-4 items-center">
             {analytics && (
