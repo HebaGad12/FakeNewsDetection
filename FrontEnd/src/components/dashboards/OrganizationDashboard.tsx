@@ -1,6 +1,7 @@
+import { OrganizationTasksPage } from "./organization-tasks-page";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
+import { Menu, 
   Users,
   FileText,
   Wallet,
@@ -33,7 +34,7 @@ import {
   ClipboardList,
   Calendar,
   AlertTriangle,
-} from "lucide-react";
+ } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -121,7 +122,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout }: SideNavBarPro
     : "ORG";
 
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl">
+    <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
 
       {/* ── Brand ── */}
       <div className="px-5 pt-7 pb-5 border-b border-white/5">
@@ -819,6 +820,7 @@ const OrganizationDashboard = () => {
   const [orgId, setOrgId] = useState<string>("");
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [profile, setProfile] = useState<OrgProfileResponse | null>(null);
   const [analytics, setAnalytics] = useState<OrgAnalyticsResponse | null>(null);
   const [journalists, setJournalists] = useState<OrgJournalistResponse[]>([]);
@@ -932,11 +934,15 @@ const OrganizationDashboard = () => {
       />
 
       {/* Main Content Area */}
-      <main className="ml-64 p-8 min-h-screen">
+      <main className={cn("transition-all duration-300 p-8 min-h-screen", isSidebarOpen ? "ml-64" : "ml-0")}>
         {/* Header */}
         <header className="flex justify-between items-end mb-12">
-          <div>
-            <span className="font-label text-xs uppercase tracking-[0.2em] text-outline dark:text-stone-500 mb-2 block">
+          <div className="flex items-start gap-3">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
+              <Menu className="w-5 h-5" />
+            </button>
+                        <div>
+              <span className="font-label text-xs uppercase tracking-[0.2em] text-outline dark:text-stone-500 mb-2 block">
               Institutional Intelligence
             </span>
             <h1 className="font-headline text-5xl font-bold text-on-surface dark:text-white tracking-tight">
@@ -1281,228 +1287,10 @@ const OrganizationDashboard = () => {
           )}
 
           {/* TASKS TAB */}
-          {activeTab === "tasks" && (
-            <motion.div key="tasks" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white">Task Assignments</h2>
-                <Button
-                  onClick={() => setShowAddTask(true)}
-                  className="bg-primary hover:bg-primary-dim text-white gap-2 h-11 px-6"
-                >
-                  <Plus className="h-4 w-4" /> Assign New Task
-                </Button>
-              </div>
-
-              {taskDashboard && (
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
-                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Total Active</p>
-                    <p className="text-2xl font-bold text-on-surface dark:text-white">{taskDashboard.totalActive}</p>
-                  </div>
-                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
-                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Pending Review</p>
-                    <p className="text-2xl font-bold text-tertiary-fixed">{taskDashboard.pendingReview}</p>
-                  </div>
-                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
-                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Completed</p>
-                    <p className="text-2xl font-bold text-emerald-500">{taskDashboard.completed}</p>
-                  </div>
-                  <div className="bg-surface-container dark:bg-stone-800 p-4 rounded-xl border border-outline-variant/20 dark:border-stone-700">
-                    <p className="text-outline dark:text-stone-400 text-xs font-medium mb-1">Completion Rate</p>
-                    <p className="text-2xl font-bold text-secondary-fixed">
-                      {taskDashboard.totalTasks ? Math.round((taskDashboard.completed / taskDashboard.totalTasks) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-lowest dark:bg-stone-900 overflow-hidden">
-                {tasks.length > 0 ? (
-                  <div className="divide-y divide-outline-variant/10 dark:divide-stone-800">
-                    {tasks.map((task) => (
-                      <div key={task.id} className="p-6 hover:bg-surface-container dark:hover:bg-stone-800/50 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={cn(
-                                "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
-                                task.priority === 3 ? "bg-red-500/10 text-red-500" :
-                                task.priority === 2 ? "bg-orange-500/10 text-orange-500" :
-                                task.priority === 1 ? "bg-blue-500/10 text-blue-500" :
-                                "bg-stone-500/10 text-stone-500"
-                              )}>
-                                {["Low", "Medium", "High", "Critical"][task.priority]} Priority
-                              </span>
-                              <span className={cn(
-                                "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
-                                task.status === 0 ? "bg-stone-500/10 text-stone-500" :
-                                task.status === 1 ? "bg-blue-500/10 text-blue-500" :
-                                task.status === 2 ? "bg-purple-500/10 text-purple-500" :
-                                task.status === 3 ? "bg-orange-500/10 text-orange-500" :
-                                task.status === 4 ? "bg-red-500/10 text-red-500" :
-                                (task.status === 5 || task.status === 7) ? "bg-emerald-500/10 text-emerald-500" :
-                                "bg-stone-500/10 text-stone-500"
-                              )}>
-                                {["Pending", "Accepted", "In Progress", "Submitted For Review", "Needs Revision", "Approved", "Rejected", "Completed", "Cancelled"][task.status] || "Unknown"}
-                              </span>
-                            </div>
-                            <h3 className="font-headline text-lg font-bold text-on-surface dark:text-white">{task.title}</h3>
-                          </div>
-                          <div className="text-right text-xs">
-                            <div className="flex items-center justify-end gap-1 text-outline dark:text-stone-400 mb-1">
-                              <Calendar className="w-3.5 h-3.5" />
-                              Due: {fmtDate(task.deadline)}
-                            </div>
-                            <p className="text-on-surface dark:text-stone-300 font-medium">{task.assignedJournalistName}</p>
-                          </div>
-                        </div>
-                        <p className="text-sm text-outline dark:text-stone-400 mb-4">{task.description}</p>
-                        
-                        {task.comments && task.comments.length > 0 && (
-                          <div className="mb-4 space-y-3 bg-surface-container-low dark:bg-stone-800/30 p-4 rounded-xl border border-outline-variant/10">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-outline">Task Activity & Comments</h4>
-                            {task.comments.map(comment => (
-                              <div key={comment.id} className="text-sm">
-                                <span className="font-bold text-on-surface dark:text-stone-300 mr-2">{comment.authorName}:</span>
-                                <span className="text-on-surface-variant dark:text-stone-400">{comment.content}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {task.status === 3 && (
-                          <div className="flex flex-col gap-3 mt-4 border-t border-outline-variant/10 dark:border-stone-800 pt-4">
-                            {!showRevisionInput[task.id] ? (
-                              <div className="flex gap-3">
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    organizationTaskService.updateTaskStatus(task.id, 5).then(() => {
-                                      toast.success("Task Approved successfully!");
-                                      organizationTaskService.getTasks().then(setTasks).catch(() => {});
-                                      organizationTaskService.getDashboard().then(setTaskDashboard).catch(() => {});
-                                    });
-                                  }}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                >
-                                  <Check className="w-4 h-4 mr-1" /> Approve Task
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setShowRevisionInput(p => ({...p, [task.id]: true}))}
-                                  className="text-orange-500 border-orange-500/50 hover:bg-orange-500/10"
-                                >
-                                  Request Modification
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-2">
-                                <textarea
-                                  value={revisionComments[task.id] || ""}
-                                  onChange={(e) => setRevisionComments(p => ({...p, [task.id]: e.target.value}))}
-                                  placeholder="Explain what needs to be modified..."
-                                  rows={2}
-                                  className="w-full rounded-lg border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-3 py-2 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-                                />
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    onClick={async () => {
-                                      const comment = revisionComments[task.id];
-                                      if (!comment) {
-                                        toast.error("Please provide a modification comment.");
-                                        return;
-                                      }
-                                      try {
-                                        await organizationTaskService.addComment(task.id, comment);
-                                        await organizationTaskService.updateTaskStatus(task.id, 4);
-                                        toast.success("Modification requested!");
-                                        setShowRevisionInput(p => ({...p, [task.id]: false}));
-                                        setRevisionComments(p => ({...p, [task.id]: ""}));
-                                        organizationTaskService.getTasks().then(setTasks).catch(() => {});
-                                        organizationTaskService.getDashboard().then(setTaskDashboard).catch(() => {});
-                                      } catch (err) {
-                                        toast.error("Failed to request modification.");
-                                      }
-                                    }}
-                                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                                  >
-                                    Submit Request
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setShowRevisionInput(p => ({...p, [task.id]: false}));
-                                      setRevisionComments(p => ({...p, [task.id]: ""}));
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-16 text-outline dark:text-stone-500">
-                    <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-25" />
-                    <p>No tasks assigned yet.</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+          {activeTab == "tasks" && (
+            <OrganizationTasksPage user={user} journalists={journalists} />
           )}
-
-          {/* WALLET TAB */}
-          {activeTab === "wallet" && (
-            <motion.div
-              key="wallet"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-5"
-            >
-              {/* Balance Card */}
-              {wallet && (
-                <div className="relative overflow-hidden rounded-lg bg-primary dark:bg-primary-dim p-8 text-white border border-primary/50">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
-                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-2xl" />
-                  <p className="text-white/70 text-sm mb-2">Current Balance</p>
-                  <p className="text-5xl font-bold text-white tracking-tight">{fmtCurrency(wallet.balance)}</p>
-                  <p className="text-white/50 text-xs mt-3">Last updated {fmtDate(wallet.updatedAt)}</p>
-                  <div className="mt-6 flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-white/60" />
-                    <span className="text-white/70 text-sm">{wallet.organizationName}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Transactions */}
-              <div className="rounded-lg border border-outline-variant/20 dark:border-stone-800 bg-surface-container-lowest dark:bg-stone-900 p-6">
-                <h3 className="font-headline text-2xl font-bold text-on-surface dark:text-white mb-6">
-                  Transaction History
-                </h3>
-                {transactions.length > 0 ? (
-                  <div>
-                    {transactions.map((tx) => (
-                      <TransactionRow key={tx.id} tx={tx} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-outline dark:text-stone-500">
-                    <Wallet className="h-10 w-10 mx-auto mb-3 opacity-25" />
-                    <p className="text-sm">No transactions yet.</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>
       </main>
 
       {/* Modals */}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
+import { Menu, 
   Archive,
   LayoutDashboard,
   Users,
@@ -20,7 +20,7 @@ import {
   ChevronRight,
   ExternalLink,
   UserMinus,
-} from "lucide-react";
+ } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { userService } from "@/services";
 import { UserOverview, FollowingUser, UserActivity, UserProfileExtended } from "@/services/types";
@@ -50,6 +50,7 @@ const ReaderDashboard = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfileExtended | null>(null);
   const [overview, setOverview] = useState<UserOverview | null>(null);
   const [following, setFollowing] = useState<FollowingUser[]>([]);
@@ -150,7 +151,7 @@ const ReaderDashboard = () => {
   return (
     <div className="bg-background text-on-surface min-h-screen font-body">
       {/* SideNavBar */}
-      <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex">
+      <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
 
         {/* ── Brand ── */}
         <div className="px-5 pt-7 pb-5 border-b border-white/5">
@@ -232,10 +233,14 @@ const ReaderDashboard = () => {
       </aside>
 
       {/* Main Content Canvas */}
-      <main className="md:ml-64 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0">
+      <main className={cn("transition-all duration-300 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0", isSidebarOpen ? "md:ml-64" : "ml-0")}>
         <header className="mb-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
-          <div>
-            <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
+          <div className="flex items-start gap-3">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
+              <Menu className="w-5 h-5" />
+            </button>
+                        <div>
+              <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
               {activeTab === "dashboard" && "Reader Interface"}
               {activeTab === "following" && "Intelligence Network"}
               {activeTab === "wallet" && "Financial Operations"}

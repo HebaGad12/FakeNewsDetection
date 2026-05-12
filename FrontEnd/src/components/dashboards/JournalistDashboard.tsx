@@ -1,7 +1,8 @@
+import { JournalistTasksPage } from "./journalist-tasks-page";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
+import { Menu, 
   LayoutDashboard,
   ShieldCheck,
   Radio,
@@ -51,7 +52,7 @@ import {
   ClipboardList,
   Calendar,
   AlertTriangle
-} from "lucide-react";
+ } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -599,6 +600,7 @@ const JournalistDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [profile, setProfile] = useState<JournalistResponse | null>(null);
   const [posts, setPosts] = useState<JournalistPostResponse[]>([]);
   const [following, setFollowing] = useState<JournalistFollowingResponse[]>([]);
@@ -655,7 +657,7 @@ const JournalistDashboard = () => {
   return (
     <div className="bg-background text-on-surface min-h-screen font-body">
       {/* SideNavBar */}
-      <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex">
+      <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
 
         {/* ── Brand ── */}
         <div className="px-5 pt-7 pb-5 border-b border-white/5">
@@ -750,10 +752,14 @@ const JournalistDashboard = () => {
       </aside>
 
       {/* Main Content Canvas */}
-      <main className="md:ml-64 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0">
+      <main className={cn("transition-all duration-300 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0", isSidebarOpen ? "md:ml-64" : "ml-0")}>
         <header className="mb-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
-          <div>
-            <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
+          <div className="flex items-start gap-3">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
+              <Menu className="w-5 h-5" />
+            </button>
+                        <div>
+              <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
               Archive System v4.2
             </span>
             <h1 className="font-headline text-4xl text-on-surface font-bold">
@@ -1049,115 +1055,7 @@ const JournalistDashboard = () => {
         )}
 
         {activeTab === "tasks" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface-container-low p-8">
-            <h2 className="font-headline text-3xl font-bold mb-8 text-on-surface">Assigned Tasks</h2>
-            
-            <div className="grid gap-6">
-              {tasks.length > 0 ? (
-                tasks.map(task => (
-                  <div key={task.id} className="bg-surface-container-lowest p-6 border border-outline-variant/30 transition-all hover:border-primary/50 relative">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={cn(
-                            "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
-                            task.priority === 3 ? "bg-red-500/10 text-red-500" :
-                            task.priority === 2 ? "bg-orange-500/10 text-orange-500" :
-                            task.priority === 1 ? "bg-blue-500/10 text-blue-500" :
-                            "bg-stone-500/10 text-stone-500"
-                          )}>
-                            {["Low", "Medium", "High", "Critical"][task.priority]} Priority
-                          </span>
-                          <span className={cn(
-                            "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
-                            task.status === 0 ? "bg-stone-500/10 text-stone-500" :
-                            task.status === 1 ? "bg-blue-500/10 text-blue-500" :
-                            task.status === 2 ? "bg-purple-500/10 text-purple-500" :
-                            task.status === 3 ? "bg-orange-500/10 text-orange-500" :
-                            task.status === 4 ? "bg-red-500/10 text-red-500" :
-                            (task.status === 5 || task.status === 7) ? "bg-emerald-500/10 text-emerald-500" :
-                            "bg-stone-500/10 text-stone-500"
-                          )}>
-                            {["Pending", "Accepted", "In Progress", "Submitted For Review", "Needs Revision", "Approved", "Rejected", "Completed", "Cancelled"][task.status] || "Unknown"}
-                          </span>
-                        </div>
-                        <h3 className="font-headline text-xl font-bold text-on-surface">{task.title}</h3>
-                        <p className="text-xs text-outline mt-1 font-label">From: {task.organizationName}</p>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-outline font-label bg-surface-container py-1 px-2">
-                        <Calendar className="w-3 h-3" />
-                        Due: {new Date(task.deadline).toLocaleDateString()}
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-on-surface-variant mb-6">{task.description}</p>
-
-                    {task.comments && task.comments.length > 0 && (
-                      <div className="mb-6 space-y-3 bg-surface-container/30 p-4 rounded-xl border border-outline-variant/10">
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-outline">Task Activity & Comments</h4>
-                        {task.comments.map(comment => (
-                          <div key={comment.id} className="text-sm">
-                            <span className="font-bold text-on-surface mr-2">{comment.authorName}:</span>
-                            <span className="text-on-surface-variant">{comment.content}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-3 border-t border-outline-variant/20 pt-4">
-                      {task.status === 0 && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => {
-                            journalistTaskService.updateTaskStatus(task.id, 1).then(() => {
-                              toast.success("Task Accepted");
-                              journalistTaskService.getTasks().then(setTasks).catch(() => {});
-                            });
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
-                        >
-                          Accept Task
-                        </Button>
-                      )}
-                      {task.status === 1 && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => {
-                            journalistTaskService.updateTaskStatus(task.id, 2).then(() => {
-                              toast.success("Task marked as In Progress");
-                              journalistTaskService.getTasks().then(setTasks).catch(() => {});
-                            });
-                          }}
-                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
-                        >
-                          Mark In Progress
-                        </Button>
-                      )}
-                      {(task.status === 2 || task.status === 4) && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => {
-                            journalistTaskService.updateTaskStatus(task.id, 3).then(() => {
-                              toast.success("Task submitted for review");
-                              journalistTaskService.getTasks().then(setTasks).catch(() => {});
-                            });
-                          }}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
-                        >
-                          Submit for Review
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-16 text-outline bg-surface-container-lowest border border-dashed border-outline-variant/50">
-                  <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                  <p className="font-label tracking-widest text-sm uppercase">No tasks assigned to you</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
+          <JournalistTasksPage user={user} />
         )}
 
       </main>
