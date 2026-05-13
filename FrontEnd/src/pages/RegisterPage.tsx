@@ -308,7 +308,7 @@ const RegisterPage = () => {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <Label>Business License Document *</Label>
                   <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
                     <input type="file" id="license-upload" className="hidden" accept=".pdf,.doc,.docx,.jpg,.png" />
@@ -318,7 +318,7 @@ const RegisterPage = () => {
                       <p className="text-xs text-muted-foreground mt-1">PDF, DOC, or image (max 10MB)</p>
                     </label>
                   </div>
-                </div>
+                </div> */}
                 <p className="text-xs text-muted-foreground">
                   Your organization will require admin approval before activation.
                 </p>

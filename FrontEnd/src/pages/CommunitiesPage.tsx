@@ -105,7 +105,7 @@ const CommunitiesPage = () => {
           category: community.creatorRole || "Community",
           image: community.imageUrl
             ? communityService.getImageUrl(community.imageUrl)
-            : DEFAULT_IMAGE,
+            : "",
           isPublic: community.isOpen,
         } as CommunityCard;
       })
@@ -417,18 +417,27 @@ const CommunitiesPage = () => {
                     </button> */}
                   </div>
 
-                  <div className="relative h-48 w-full overflow-hidden rounded-md bg-muted">
-                    <img
-                      src={community.image}
-                      alt={community.name}
-                      className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
-                    />
-                    <div className="absolute bottom-0 left-0 bg-primary/95 backdrop-blur-sm px-3 py-1.5 rounded-tr-md flex items-center gap-2">
-                      <span className="font-sans text-[10px] text-primary-foreground font-bold uppercase tracking-wider">
-                        {community.members.toLocaleString()} Active Leads
-                      </span>
+                  {community.image && (
+                    <div className="relative h-48 w-full overflow-hidden rounded-md bg-muted">
+                      <img
+                        src={community.image}
+                        alt={community.name}
+                        className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                      />
+                      <div className="absolute bottom-0 left-0 bg-primary/95 backdrop-blur-sm px-3 py-1.5 rounded-tr-md flex items-center gap-2">
+                        <span className="font-sans text-[10px] text-primary-foreground font-bold uppercase tracking-wider">
+                          {community.members.toLocaleString()} Active Leads
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {!community.image && (
+                     <div className="mb-2">
+                        <span className="font-sans text-[10px] text-primary font-bold uppercase tracking-wider">
+                          {community.members.toLocaleString()} Active Leads
+                        </span>
+                     </div>
+                  )}
 
                   <div className="space-y-4 flex-1">
                     <h3 className="font-sans text-xs font-bold uppercase text-muted-foreground tracking-wider border-b border-border pb-2">

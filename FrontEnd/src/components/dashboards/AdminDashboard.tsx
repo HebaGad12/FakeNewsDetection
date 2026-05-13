@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Menu, 
@@ -194,9 +194,10 @@ interface SideNavBarProps {
   onTabChange: (tab: Tab) => void;
   user?: { name?: string } | null;
   onLogout?: () => void;
+  isSidebarOpen: boolean;
 }
 
-const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps) => {
+const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: SideNavBarProps) => {
   const navigate = useNavigate();
 
   const navItems = [
@@ -302,7 +303,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps)
 // Tab: Overview - Enhanced Typography
 // ============================================================================
 
-const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
+const OverviewTab = ({ stats, isSidebarOpen, setIsSidebarOpen }: { stats: AdminDashboardStats | null, isSidebarOpen: boolean, setIsSidebarOpen: (v: boolean) => void }) => {
   if (!stats)
     return <div className="py-20 text-center text-muted-foreground text-base">Loading stats...</div>;
 
@@ -1891,7 +1892,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex">
-      <SideNavBar activeTab={activeTab} onTabChange={setActiveTab} user={user} onLogout={logout} />
+      <SideNavBar activeTab={activeTab} onTabChange={setActiveTab} user={user} onLogout={logout} isSidebarOpen={isSidebarOpen} />
 
       <main className={cn("transition-all duration-300 p-8 w-full min-h-screen bg-background", isSidebarOpen ? "ml-64" : "ml-0")}>
         <motion.div
@@ -1900,7 +1901,7 @@ const AdminDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} />}
+          {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
           {activeTab === "users" && <UsersTab />}
           {activeTab === "posts" && <PostsTab />}
           {activeTab === "journalists" && <JournalistsTab />}

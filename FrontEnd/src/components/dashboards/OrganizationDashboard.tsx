@@ -1,4 +1,5 @@
 import { OrganizationTasksPage } from "./organization-tasks-page";
+import { OrganizationFinancePage } from "./organization-finance-page";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, 
@@ -28,6 +29,7 @@ import { Menu,
   Shield,
   ChevronRight,
   LayoutDashboard,
+  BadgeDollarSign,
   Newspaper,
   Users as UsersIcon,
   Heart as HeartIcon,
@@ -54,7 +56,7 @@ import organizationTaskService, { OrganizationTaskResponse, OrganizationTaskDash
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "journalists" | "posts" | "followers" | "wallet" | "tasks";
+type Tab = "overview" | "journalists" | "posts" | "followers" | "finance" | "wallet" | "tasks";
 // FIX #3: استبدال "Rejected" بـ "Removed" ليتطابق مع الـ backend
 type PostFilter = "All" | "Pending" | "Approved" | "Removed";
 
@@ -106,7 +108,7 @@ interface SideNavBarProps {
   isSidebarOpen: boolean;
 }
 
-const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen }: SideNavBarProps) => {
+const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, avatarUrl }: SideNavBarProps) => {
   const navigate = useNavigate();
 
   const navItems = [
@@ -114,6 +116,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen }
     { id: "journalists" as Tab, icon: UsersIcon,       label: "Journalists" },
     { id: "posts"      as Tab, icon: Newspaper,        label: "Posts"       },
     { id: "followers"  as Tab, icon: HeartIcon,        label: "Followers"   },
+    { id: "finance"    as Tab, icon: BadgeDollarSign,  label: "Finance"     },
     { id: "wallet"     as Tab, icon: Wallet,           label: "Wallet"      },
     { id: "tasks"      as Tab, icon: ClipboardList,    label: "Tasks"       },
   ];
@@ -140,9 +143,13 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen }
         {/* User badge */}
         {profile && (
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-[11px] font-bold">{initials}</span>
-            </div>
+            {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
+            ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-[11px] font-bold">{initials}</span>
+                </div>
+            )}
             <div className="min-w-0">
               <p className="text-white text-xs font-semibold truncate">{profile.name}</p>
               <p className="text-white/35 text-[10px] font-mono truncate">{profile.email}</p>
@@ -1284,6 +1291,89 @@ const OrganizationDashboard = () => {
                   ) : (
                     <p className="text-center py-12 text-outline dark:text-stone-500 text-sm">No followers yet.</p>
                   )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* FINANCE TAB */}
+          {activeTab === "finance" && (
+            <motion.div key="finance" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+              <OrganizationFinancePage orgId={orgId} organizationWallet={wallet} />
+            </motion.div>
+          )}
+
+          {/* WALLET TAB */}
+          {activeTab === "wallet" && (
+            <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <StatCard
+                  icon={<Wallet className="h-5 w-5" />}
+                  label="Available Balance"
+                  value={fmtCurrency(wallet?.balance ?? 0)}
+                  accent
+                />
+                <StatCard
+                  icon={<ArrowDownLeft className="h-5 w-5" />}
+                  label="Total In"
+                  value={fmtCurrency(wallet?.totalCredit ?? 0)}
+                />
+                <StatCard
+                  icon={<ArrowUpRight className="h-5 w-5" />}
+                  label="Total Out"
+                  value={fmtCurrency(wallet?.totalDebit ?? 0)}
+                />
+              </div>
+
+              {/* Transactions + Journalists Wallet Info */}
+              <div className="grid grid-cols-12 gap-8">
+                {/* Transactions */}
+                <div className="col-span-12 lg:col-span-8">
+                  <div className="bg-surface-container-lowest dark:bg-stone-900 rounded-lg border border-outline-variant/20 dark:border-stone-800 p-6">
+                    <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white mb-6">Recent Transactions</h2>
+                    {transactions.length > 0 ? (
+                      <div>
+                        {transactions.slice(0, 8).map((tx) => (
+                          <TransactionRow key={tx.id} tx={tx} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-outline dark:text-stone-500">
+                        <Wallet className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                        <p>No transactions yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Journalists Financial Overview */}
+                <div className="col-span-12 lg:col-span-4">
+                  <div className="bg-surface-container-lowest dark:bg-stone-900 rounded-lg border border-outline-variant/20 dark:border-stone-800 p-6">
+                    <h2 className="font-headline text-2xl font-bold text-on-surface dark:text-white mb-6">Journalists Overview</h2>
+                    {journalists.length > 0 ? (
+                      <div className="space-y-4">
+                        {journalists.filter(j => j.isActive).map(j => (
+                          <div key={j.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-container dark:bg-stone-800">
+                            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container font-bold text-sm flex items-center justify-center flex-shrink-0">
+                                {j.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-on-surface dark:text-white text-sm truncate">{j.name}</p>
+                                <p className="text-xs text-outline dark:text-stone-500">Active Journalist</p>
+                            </div>
+                          </div>
+                        ))}
+                        {journalists.filter(j => j.isActive).length === 0 && (
+                            <p className="text-center py-6 text-outline dark:text-stone-500 text-sm">No active journalists to display.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-outline dark:text-stone-500 text-sm">
+                        <p>No journalists associated.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
