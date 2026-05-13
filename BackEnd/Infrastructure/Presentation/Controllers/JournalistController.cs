@@ -292,7 +292,9 @@ namespace Presentation.Controllers
                 CreatedAt = DateTime.UtcNow,
                 Tags = tags,
                 VerificationStatus = verificationStatus,
-                ModerationStatus = moderationStatus
+                ModerationStatus = moderationStatus,
+                IsDraft = req.IsDraft,        // ← ADD THIS
+                TaskId = req.TaskId           // ← ADD THIS
             };
 
             // ── Process media files ─────────────────────────────────────────

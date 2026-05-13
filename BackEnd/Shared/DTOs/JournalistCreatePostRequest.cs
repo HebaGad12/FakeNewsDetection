@@ -23,6 +23,8 @@ namespace Shared.DTOs
         /// Defaults to false for any index not provided.
         /// </summary>
         public List<bool>? IsCopyrightedFlags { get; set; }
+        public Guid? TaskId { get; set; }      // links this post to a task
+        public bool IsDraft { get; set; } = false;
     }
 }
  
