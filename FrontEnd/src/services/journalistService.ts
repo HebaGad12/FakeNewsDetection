@@ -31,6 +31,8 @@ export interface JournalistCreatePostRequest {
   tags: string[];
   images?: File[];
   isCopyrightedFlags?: boolean[];
+  isDraft?: boolean;
+  taskId?: string;
 }
 
 export interface JournalistPostResponse {
@@ -131,7 +133,6 @@ class JournalistService {
   formData.append("Tags", data.tags.join(","));
 }
 
-
     if (data.images) {
       for (const image of data.images) {
         formData.append("images", image);
@@ -142,6 +143,14 @@ class JournalistService {
       for (const flag of data.isCopyrightedFlags) {
         formData.append("IsCopyrightedFlags", String(flag));
       }
+    }
+
+    if (data.isDraft !== undefined) {
+      formData.append("IsDraft", String(data.isDraft));
+    }
+
+    if (data.taskId) {
+      formData.append("TaskId", data.taskId);
     }
 
     return await apiClient.post<{ postId: string; moderationStatus: string }>("/journalist/posts", formData);

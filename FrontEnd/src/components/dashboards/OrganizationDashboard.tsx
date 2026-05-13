@@ -1,5 +1,4 @@
 import { OrganizationTasksPage } from "./organization-tasks-page";
-import { OrganizationFinancePage } from "./organization-finance-page";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, 
@@ -56,7 +55,7 @@ import organizationTaskService, { OrganizationTaskResponse, OrganizationTaskDash
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "journalists" | "posts" | "followers" | "finance" | "wallet" | "tasks";
+type Tab = "overview" | "journalists" | "posts" | "followers" | "wallet" | "tasks";
 // FIX #3: استبدال "Rejected" بـ "Removed" ليتطابق مع الـ backend
 type PostFilter = "All" | "Pending" | "Approved" | "Removed";
 
@@ -116,7 +115,6 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
     { id: "journalists" as Tab, icon: UsersIcon,       label: "Journalists" },
     { id: "posts"      as Tab, icon: Newspaper,        label: "Posts"       },
     { id: "followers"  as Tab, icon: HeartIcon,        label: "Followers"   },
-    { id: "finance"    as Tab, icon: BadgeDollarSign,  label: "Finance"     },
     { id: "wallet"     as Tab, icon: Wallet,           label: "Wallet"      },
     { id: "tasks"      as Tab, icon: ClipboardList,    label: "Tasks"       },
   ];
@@ -1296,13 +1294,6 @@ const OrganizationDashboard = () => {
             </motion.div>
           )}
 
-          {/* FINANCE TAB */}
-          {activeTab === "finance" && (
-            <motion.div key="finance" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <OrganizationFinancePage orgId={orgId} organizationWallet={wallet} />
-            </motion.div>
-          )}
-
           {/* WALLET TAB */}
           {activeTab === "wallet" && (
             <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
@@ -1381,7 +1372,7 @@ const OrganizationDashboard = () => {
 
           {/* TASKS TAB */}
           {activeTab == "tasks" && (
-            <OrganizationTasksPage user={user} journalists={journalists} />
+            <OrganizationTasksPage user={user} journalists={journalists} onCreate={() => setShowAddTask(true)} />
           )}
           </AnimatePresence>
       </main>

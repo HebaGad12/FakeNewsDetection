@@ -1,7 +1,7 @@
 
 
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, Send, Image as ImageIcon, Bold, Italic, Link as LinkIcon, List, ListOrdered, Quote, Heading2, X, AlertCircle, TrendingUp, Sparkles, Mic, Heart, Globe, Flame, Video, Brain } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { journalistService } from "@/services/journalistService";
+import { journalistTaskService } from "@/services/journalistTask";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 import { MediaUpload, UploadedMedia } from "@/components/MediaUpload";
@@ -32,6 +33,8 @@ const categories = [
 const CreateArticlePage = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const taskId = searchParams.get("taskId");
 
   // Admins cannot create articles
   if (user?.role === "admin") {
@@ -58,9 +61,47 @@ const CreateArticlePage = () => {
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([]);
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isPublishing, setIsPublishing] = useState(false);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [taskLoading, setTaskLoading] = useState(!!taskId);
+
+  // Load task details if taskId is present
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (taskId) {
+      const loadTask = async () => {
+        try {
+          const task = await journalistTaskService.getTask(taskId);
+          setFormData(prev => ({
+            ...prev,
+            title: task.title,
+            excerpt: task.description
+          }));
+        } catch (err) {
+          console.error("Failed to load task details", err);
+          toast.error("Failed to load task details");
+        } finally {
+          setTaskLoading(false);
+        }
+      };
+      loadTask();
+    }
+  }, [taskId]);
 
   if (!isAuthenticated || !user || user.role !== "journalist") {
     return <Navigate to="/login" replace />;
+  }
+
+  if (taskLoading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex h-64 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        </main>
+      </div>
+    );
   }
 
   const handleMediaSelected = (media: UploadedMedia[]) => setUploadedMedia(media);
@@ -82,6 +123,8 @@ const CreateArticlePage = () => {
         tags: [formData.category],
         images: uploadedMedia.map((item) => item.file),
         isCopyrightedFlags: uploadedMedia.map((item) => (item.mediaType === "image" ? item.isCopyrighted : false)),
+        isDraft: !!taskId, // If from a task, mark as draft
+        taskId: taskId || undefined, // Include taskId if it exists
       });
       if (result.moderationStatus === "Approved") toast.success("Article published successfully!");
       else if (result.moderationStatus === "Pending") toast.success("Article submitted for approval!");

@@ -53,12 +53,14 @@ export function OrganizationTasksPage({
   user, 
   journalists, 
   refreshKey, 
-  onRefresh 
+  onRefresh,
+  onCreate,
 }: { 
   user: any; 
   journalists: any[]; 
   refreshKey?: number; 
   onRefresh?: () => void; 
+  onCreate?: () => void;
 }) {
   const role = "Organization";
   
@@ -146,7 +148,10 @@ export function OrganizationTasksPage({
             role={role}
             filters={filters}
             setFilters={setFilters}
-            onCreate={() => toast.success("Create task dialog to be implemented")}
+            onCreate={() => {
+              if (onCreate) onCreate();
+              else toast.success("Create task dialog to be implemented");
+            }}
             onReset={() => setFilters(defaultFilters)}
           />
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Search, RotateCcw, MoreHorizontal, CalendarDays } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, RotateCcw, MoreHorizontal, CalendarDays, CheckCircle2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -31,6 +32,15 @@ export function TasksTable({ tasks, selectedTaskId, onSelect, onUpdateStatus, us
   const [status, setStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
   const [deadline, setDeadline] = useState<string>("all");
+  const navigate = useNavigate();
+
+  const handleAcceptTask = (taskId: string) => {
+    if (onUpdateStatus) {
+      onUpdateStatus(taskId, 1); // Status 1 = Accepted
+      // Navigate to create article page with taskId
+      navigate(`/create-article?taskId=${taskId}`);
+    }
+  };
 
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
@@ -177,6 +187,12 @@ export function TasksTable({ tasks, selectedTaskId, onSelect, onUpdateStatus, us
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onSelect(task)}>View details</DropdownMenuItem>
+                        {task.status === 0 && (
+                          <DropdownMenuItem onClick={() => handleAcceptTask(task.id)} className="text-green-600">
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Accept Task
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => {
                           if(onUpdateStatus && task.status < 7) {
                             onUpdateStatus(task.id, task.status + 1);
