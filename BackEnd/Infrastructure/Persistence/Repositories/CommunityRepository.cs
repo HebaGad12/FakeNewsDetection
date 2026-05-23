@@ -7,13 +7,12 @@ using Microsoft.EntityFrameworkCore;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Persistence.Repositories
 {
-
     public class CommunityRepository : ICommunityRepository
     {
         private readonly AppDbContext _context;
@@ -22,10 +21,9 @@ namespace Persistence.Repositories
         public CommunityRepository(AppDbContext context, IWebHostEnvironment env)
         {
             _context = context;
-            _env = env;
+            _env     = env;
         }
 
-    
         public static async Task<string?> SaveImageAsync(IFormFile? image, IWebHostEnvironment env)
         {
             if (image == null || image.Length == 0) return null;
@@ -34,13 +32,13 @@ namespace Persistence.Repositories
             if (!allowedTypes.Contains(image.ContentType))
                 throw new InvalidOperationException("Only jpg, png, webp images are allowed.");
 
-            if (image.Length > 5 * 1024 * 1024) 
+            if (image.Length > 5 * 1024 * 1024)
                 throw new InvalidOperationException("Image must be less than 5MB.");
 
             var uploadsFolder = Path.Combine(env.WebRootPath, "uploads", "communities");
             Directory.CreateDirectory(uploadsFolder);
 
-            var ext = Path.GetExtension(image.FileName).ToLower();
+            var ext      = Path.GetExtension(image.FileName).ToLower();
             var fileName = $"{Guid.NewGuid()}{ext}";
             var filePath = Path.Combine(uploadsFolder, fileName);
 
@@ -57,18 +55,21 @@ namespace Persistence.Repositories
                 return new ApiResponse<CommunityDto> { Success = false, Message = "User not found." };
 
             if (creator.Role != Role.Journalist && creator.Role != Role.Organization)
-                return new ApiResponse<CommunityDto> { Success = false, Message = "Only journalists or organizations can create communities." };
+                return new ApiResponse<CommunityDto>
+                {
+                    Success = false,
+                    Message = "Only journalists or organizations can create communities."
+                };
 
             community.CreatedBy = createdByUserId;
-
             _context.Communities.Add(community);
 
             _context.Memberships.Add(new Membership
             {
-                UserId = createdByUserId,
+                UserId      = createdByUserId,
                 CommunityId = community.Id,
-                Role = "Admin",
-                JoinedAt = DateTime.UtcNow
+                Role        = "Admin",
+                JoinedAt    = DateTime.UtcNow
             });
 
             await _context.SaveChangesAsync();
@@ -77,7 +78,7 @@ namespace Persistence.Repositories
             {
                 Success = true,
                 Message = "Community created successfully.",
-                Data = new CommunityDto(
+                Data    = new CommunityDto(
                     community.Id,
                     community.Name,
                     community.Description,
@@ -93,16 +94,11 @@ namespace Persistence.Repositories
         public async Task<Community?> GetByIdAsync(Guid id) =>
             await _context.Communities
                 .Include(c => c.Creator)
-                .Include(c => c.Members)
-                    .ThenInclude(m => m.User)
-                .Include(c => c.Posts)
-                    .ThenInclude(p => p.Author)
-                        .ThenInclude(a => a.Organization)
-                .Include(c => c.Posts)
-                    .ThenInclude(p => p.Media)
+                .Include(c => c.Members).ThenInclude(m => m.User)
+                .Include(c => c.Posts).ThenInclude(p => p.Author).ThenInclude(a => a.Organization)
+                .Include(c => c.Posts).ThenInclude(p => p.Media)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-    
         public async Task<ApiResponse<string>> JoinAsync(Guid communityId, Guid userId)
         {
             var community = await _context.Communities.FindAsync(communityId);
@@ -119,17 +115,16 @@ namespace Persistence.Repositories
 
             _context.Memberships.Add(new Membership
             {
-                UserId = userId,
+                UserId      = userId,
                 CommunityId = communityId,
-                Role = "Member",
-                JoinedAt = DateTime.UtcNow
+                Role        = "Member",
+                JoinedAt    = DateTime.UtcNow
             });
 
             await _context.SaveChangesAsync();
             return new ApiResponse<string> { Success = true, Message = "Joined successfully." };
         }
 
-    
         public async Task<IEnumerable<MemberDto>> GetMembersAsync(Guid communityId)
         {
             var members = await _context.Memberships
@@ -137,24 +132,16 @@ namespace Persistence.Repositories
                 .Include(m => m.User)
                 .ToListAsync();
 
-            return members.Select(m => new MemberDto(
-                m.UserId,
-                m.User.Name,
-                m.Role,
-                m.JoinedAt,
-                m.IsBanned
-            ));
+            return members.Select(m => new MemberDto(m.UserId, m.User.Name, m.Role, m.JoinedAt, m.IsBanned));
         }
 
         public async Task<IEnumerable<PostDto>> GetPostsAsync(Guid communityId)
         {
             var posts = await _context.Posts
                 .Where(p => p.CommunityId == communityId)
-                .Include(p => p.Author)
-                    .ThenInclude(a => a.Organization)
+                .Include(p => p.Author).ThenInclude(a => a.Organization)
                 .Include(p => p.Media)
-                .Include(p => p.Interactions)
-                    .ThenInclude(i => i.User)
+                .Include(p => p.Interactions).ThenInclude(i => i.User)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -173,23 +160,16 @@ namespace Persistence.Repositories
                     .Where(i => i.Type == InteractionType.Comment)
                     .OrderBy(i => i.CreatedAt)
                     .Select(i => new CommentDto(
-                        i.Id,
-                        i.UserId,
-                        i.User.Name,
-                        i.User.Role.ToString(),
-                        i.Content ?? "",
-                        i.CreatedAt
-                    ))
+                        i.Id, i.UserId, i.User.Name,
+                        i.User.Role.ToString(), i.Content ?? "", i.CreatedAt))
                     .ToList()
             ));
         }
 
-      
         public async Task<bool> IsMemberAsync(Guid communityId, Guid userId) =>
             await _context.Memberships
                 .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId);
 
-    
         public async Task<ApiResponse<PostDto>> CreatePostAsync(Guid communityId, CreatePostDto dto)
         {
             var isMember = await IsMemberAsync(communityId, dto.UserId);
@@ -210,11 +190,11 @@ namespace Persistence.Repositories
 
             var post = new Post
             {
-                Id = Guid.NewGuid(),
-                AuthorId = dto.UserId,
-                CommunityId = communityId,
-                Content = dto.Content,
-                CreatedAt = DateTime.UtcNow,
+                Id             = Guid.NewGuid(),
+                AuthorId       = dto.UserId,
+                CommunityId    = communityId,
+                Content        = dto.Content,
+                CreatedAt      = DateTime.UtcNow,
                 OrganizationId = author.OrganizationId
             };
 
@@ -226,10 +206,10 @@ namespace Persistence.Repositories
                 {
                     _context.PostMediaItems.Add(new PostMedia
                     {
-                        Id = Guid.NewGuid(),
-                        PostId = post.Id,
-                        Path = path,
-                        MediaType = "image",
+                        Id         = Guid.NewGuid(),
+                        PostId     = post.Id,
+                        Path       = path,
+                        MediaType  = "image",
                         UploadedAt = DateTime.UtcNow
                     });
                 }
@@ -241,18 +221,12 @@ namespace Persistence.Repositories
             {
                 Success = true,
                 Message = "Post created successfully.",
-                Data = new PostDto(
-                    post.Id,
-                    post.Content,
-                    author.Id,
-                    author.Name,
-                    author.Role.ToString(),
-                    author.OrganizationId,
-                    author.Organization?.Name,
-                    post.CreatedAt,
-                    dto.MediaPaths,
-                    TotalLikes: 0,
-                    Comments: new List<CommentDto>()
+                Data    = new PostDto(
+                    post.Id, post.Content,
+                    author.Id, author.Name, author.Role.ToString(),
+                    author.OrganizationId, author.Organization?.Name,
+                    post.CreatedAt, dto.MediaPaths,
+                    TotalLikes: 0, Comments: new List<CommentDto>()
                 )
             };
         }
@@ -303,8 +277,7 @@ namespace Persistence.Repositories
             foreach (var media in post.Media)
             {
                 var fullPath = Path.Combine(_env.WebRootPath, media.Path.TrimStart('/'));
-                if (File.Exists(fullPath))
-                    File.Delete(fullPath);
+                if (File.Exists(fullPath)) File.Delete(fullPath);
             }
 
             _context.Posts.Remove(post);
@@ -346,21 +319,12 @@ namespace Persistence.Repositories
             var membership = await _context.Memberships
                 .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == targetUserId);
 
-            string status;
-            if (membership == null)
-                status = "NotMember";
-            else if (membership.IsBanned)
-                status = "Banned";
-            else
-                status = "Member";
+            string status = membership is null   ? "NotMember"
+                          : membership.IsBanned  ? "Banned"
+                          :                        "Member";
 
-            return new ApiResponse<MemberStatusDto>
-            {
-                Success = true,
-                Data = new MemberStatusDto(status)
-            };
+            return new ApiResponse<MemberStatusDto> { Success = true, Data = new MemberStatusDto(status) };
         }
-
 
         public async Task<IEnumerable<CommunityDto>> GetAllAsync()
         {
@@ -370,15 +334,8 @@ namespace Persistence.Repositories
                 .ToListAsync();
 
             return communities.Select(c => new CommunityDto(
-                c.Id,
-                c.Name,
-                c.Description,
-                c.IsOpen,
-                c.ImageUrl,
-                c.CreatedBy,
-                c.Creator.Name,
-                c.Creator.Role.ToString()
-            ));
+                c.Id, c.Name, c.Description, c.IsOpen, c.ImageUrl,
+                c.CreatedBy, c.Creator.Name, c.Creator.Role.ToString()));
         }
 
         public async Task<IEnumerable<CommunityDto>> GetByCreatorAsync(Guid creatorId)
@@ -390,15 +347,8 @@ namespace Persistence.Repositories
                 .ToListAsync();
 
             return communities.Select(c => new CommunityDto(
-                c.Id,
-                c.Name,
-                c.Description,
-                c.IsOpen,
-                c.ImageUrl,
-                c.CreatedBy,
-                c.Creator.Name,
-                c.Creator.Role.ToString()
-            ));
+                c.Id, c.Name, c.Description, c.IsOpen, c.ImageUrl,
+                c.CreatedBy, c.Creator.Name, c.Creator.Role.ToString()));
         }
 
         public async Task<IEnumerable<CommunityDto>> SearchByNameAsync(string query)
@@ -412,17 +362,9 @@ namespace Persistence.Repositories
                 .ToListAsync();
 
             return communities.Select(c => new CommunityDto(
-                c.Id,
-                c.Name,
-                c.Description,
-                c.IsOpen,
-                c.ImageUrl,
-                c.CreatedBy,
-                c.Creator.Name,
-                c.Creator.Role.ToString()
-            ));
+                c.Id, c.Name, c.Description, c.IsOpen, c.ImageUrl,
+                c.CreatedBy, c.Creator.Name, c.Creator.Role.ToString()));
         }
-
 
         public async Task<ApiResponse<string>> LeaveAsync(Guid communityId, Guid userId)
         {
@@ -430,9 +372,12 @@ namespace Persistence.Repositories
             if (community == null)
                 return new ApiResponse<string> { Success = false, Message = "Community not found." };
 
-            // The creator cannot leave their own community
             if (community.CreatedBy == userId)
-                return new ApiResponse<string> { Success = false, Message = "You are the creator of this community and cannot leave it." };
+                return new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "You are the creator of this community and cannot leave it."
+                };
 
             var membership = await _context.Memberships
                 .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == userId);
@@ -446,6 +391,30 @@ namespace Persistence.Repositories
             return new ApiResponse<string> { Success = true, Message = "You have successfully left the community." };
         }
 
+        // ── NEW ──────────────────────────────────────────────────────────────
+        /// <summary>
+        /// Returns all communities the given user has an active (non-banned) membership in.
+        /// </summary>
+        public async Task<IEnumerable<CommunityDto>> GetByMemberAsync(Guid userId)
+        {
+            var memberships = await _context.Memberships
+                .Where(m => m.UserId == userId && !m.IsBanned)
+                .Include(m => m.Community)
+                    .ThenInclude(c => c.Creator)
+                .OrderByDescending(m => m.JoinedAt)
+                .ToListAsync();
 
+            return memberships.Select(m => new CommunityDto(
+                m.Community.Id,
+                m.Community.Name,
+                m.Community.Description,
+                m.Community.IsOpen,
+                m.Community.ImageUrl,
+                m.Community.CreatedBy,
+                m.Community.Creator.Name,
+                m.Community.Creator.Role.ToString()
+            ));
+        }
+        // ─────────────────────────────────────────────────────────────────────
     }
 }

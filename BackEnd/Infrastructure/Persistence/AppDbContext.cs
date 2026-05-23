@@ -92,6 +92,14 @@ namespace Persistence
                 .HasForeignKey(p => p.OrganizationId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            b.Entity<Post>()
+                .HasOne(p => p.Task)
+                .WithMany()
+                .HasForeignKey(p => p.TaskId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+
 
             // ===================== POST MEDIA =====================
 

@@ -1,7 +1,7 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import {
+import { Menu, 
   Search,
   Database,
   Cloud,
@@ -32,7 +32,7 @@ import {
   ArrowDownLeft,
   Home,
   LogOut,
-} from "lucide-react";
+ } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -194,9 +194,10 @@ interface SideNavBarProps {
   onTabChange: (tab: Tab) => void;
   user?: { name?: string } | null;
   onLogout?: () => void;
+  isSidebarOpen: boolean;
 }
 
-const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps) => {
+const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: SideNavBarProps) => {
   const navigate = useNavigate();
 
   const navItems = [
@@ -211,7 +212,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps)
   ] as { id: Tab; label: string; icon: React.ElementType }[];
 
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 flex flex-col z-50 bg-[#0f172a] border-r border-white/5 shadow-2xl">
+    <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-50 bg-[#0f172a] border-r border-white/5 shadow-2xl transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
       {/* ── Brand ── */}
       <div className="px-5 pt-7 pb-5 border-b border-white/5">
         <div className="flex items-center gap-3 mb-4">
@@ -302,7 +303,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout }: SideNavBarProps)
 // Tab: Overview - Enhanced Typography
 // ============================================================================
 
-const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
+const OverviewTab = ({ stats, isSidebarOpen, setIsSidebarOpen }: { stats: AdminDashboardStats | null, isSidebarOpen: boolean, setIsSidebarOpen: (v: boolean) => void }) => {
   if (!stats)
     return <div className="py-20 text-center text-muted-foreground text-base">Loading stats...</div>;
 
@@ -310,6 +311,9 @@ const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
     <div className="space-y-12">
       <header className="mb-12">
         <div className="flex justify-between items-end">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 mr-3 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
+              <Menu className="w-5 h-5" />
+            </button>
           <div>
             <h2 className="font-headline tracking-tight text-5xl font-bold text-on-surface">The Veritas Archive</h2>
             <p className="font-label text-base text-outline-variant mt-3 tracking-wide uppercase">System Administration Portal</p>
@@ -1868,6 +1872,7 @@ const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
@@ -1887,16 +1892,16 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex">
-      <SideNavBar activeTab={activeTab} onTabChange={setActiveTab} user={user} onLogout={logout} />
+      <SideNavBar activeTab={activeTab} onTabChange={setActiveTab} user={user} onLogout={logout} isSidebarOpen={isSidebarOpen} />
 
-      <main className="ml-64 p-8 w-full min-h-screen bg-background">
+      <main className={cn("transition-all duration-300 p-8 w-full min-h-screen bg-background", isSidebarOpen ? "ml-64" : "ml-0")}>
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} />}
+          {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
           {activeTab === "users" && <UsersTab />}
           {activeTab === "posts" && <PostsTab />}
           {activeTab === "journalists" && <JournalistsTab />}

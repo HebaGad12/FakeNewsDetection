@@ -34,5 +34,9 @@ namespace Domain.Models
         public ICollection<Interaction> Interactions { get; set; } = new List<Interaction>();
         public ICollection<ModerationAction> ModerationActions { get; set; } = new List<ModerationAction>();
         public ICollection<PostMedia> Media { get; set; } = new List<PostMedia>();
+
+        public bool IsDraft { get; set; } = false;
+        public Guid? TaskId { get; set; }
+        public OrganizationTask? Task { get; set; }
     }
 }

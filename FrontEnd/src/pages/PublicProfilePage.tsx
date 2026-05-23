@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -44,13 +44,24 @@ const PublicProfilePage = () => {
   const [loadingFollow, setLoadingFollow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const profileAvatarUrlRef = useRef<string | null>(null);
 
   // Derive journalist info from posts (authorName, authorId come from post data)
   const journalistName = posts[0]?.authorName ?? "Journalist";
   const journalistId = posts[0]?.authorId ?? id;
 
   useEffect(() => {
+    return () => {
+      if (profileAvatarUrlRef.current) {
+        URL.revokeObjectURL(profileAvatarUrlRef.current);
+        profileAvatarUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!id) return;
+
     const load = async () => {
       try {
         setLoadingPosts(true);
@@ -71,22 +82,41 @@ const PublicProfilePage = () => {
       } finally {
         setLoadingPosts(false);
       }
-      
+    };
+
+    void load();
+  }, [id, user]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    let isActive = true;
+
+    const loadAvatar = async () => {
       try {
         const blobUrl = await userService.fetchPictureBlobUrl(id);
-        if (blobUrl) setProfileAvatarUrl(blobUrl);
+        if (!isActive) {
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
+          return;
+        }
+
+        if (profileAvatarUrlRef.current) {
+          URL.revokeObjectURL(profileAvatarUrlRef.current);
+        }
+
+        profileAvatarUrlRef.current = blobUrl;
+        setProfileAvatarUrl(blobUrl);
       } catch (e) {
         console.error("Failed to load avatar", e);
       }
     };
-    void load();
-    
+
+    void loadAvatar();
+
     return () => {
-      if (profileAvatarUrl) {
-        URL.revokeObjectURL(profileAvatarUrl);
-      }
+      isActive = false;
     };
-  }, [id, user]);
+  }, [id]);
 
   const handleToggleFollow = async () => {
     if (!user) {
@@ -183,26 +213,31 @@ const PublicProfilePage = () => {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white border border-zinc-100 rounded-2xl overflow-hidden mb-10 shadow-sm"
             >
+              <div className="relative">
               {/* Top banner - made taller */}
-              <div className="h-36 bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 relative">
+              <div className="h-44 bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 relative">
                 <div className="absolute inset-0 opacity-20"
                   style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #3b82f6 0%, transparent 50%), radial-gradient(circle at 80% 20%, #6366f1 0%, transparent 40%)" }}
                 />
               </div>
 
-              <div className="px-10 pb-10">
-                {/* Avatar - made larger */}
-                <div className="-mt-12 mb-6 flex items-end justify-between">
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 border-4 border-white shadow-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {profileAvatarUrl ? (
-                      <img src={profileAvatarUrl} alt={journalistName} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-white text-3xl font-bold uppercase">
-                        {journalistName.substring(0, 2)}
-                      </span>
-                    )}
+                <div className="absolute -bottom-14 left-10">
+                  <div className="w-28 h-35 rounded-[1.5rem] bg-white border-3 border-white shadow-2xl overflow-hidden">
+                    <div className="w-full h-full rounded-[1rem] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center overflow-hidden">
+                      {profileAvatarUrl ? (
+                        <img src={profileAvatarUrl} alt={journalistName} className="w-full h-full object-contain bg-white" />
+                      ) : (
+                        <span className="text-white text-3xl font-bold uppercase">
+                          {journalistName.substring(0, 2)}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                </div>
+              </div>
 
+              <div className="px-10 pb-10 pt-20">
+                <div className="mb-6 flex items-start justify-end">
                   {/* Follow / Unfollow button - larger text */}
                   {user && !isOwnProfile && (
                     <button

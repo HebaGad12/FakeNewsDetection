@@ -1,9 +1,13 @@
-﻿using Domain.Models;
+﻿// ─────────────────────────────────────────────────────────────────────────────
+// FILE: Core/Domain/Contracts/ICommunityRepository.cs   (MODIFIED — 1 addition)
+// ─────────────────────────────────────────────────────────────────────────────
+using Domain.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 namespace Domain.Contracts
 {
     public interface ICommunityRepository
@@ -23,70 +27,61 @@ namespace Domain.Contracts
         Task<IEnumerable<CommunityDto>> GetAllAsync();
         Task<IEnumerable<CommunityDto>> GetByCreatorAsync(Guid creatorId);
         Task<IEnumerable<CommunityDto>> SearchByNameAsync(string query);
+        Task<IEnumerable<CommunityDto>> GetByMemberAsync(Guid userId);
     }
 
- public class ApiResponse<T>
+    public class ApiResponse<T>
     {
-        public bool Success { get; set; }
+        public bool    Success { get; set; }
         public string? Message { get; set; }
-        public T? Data { get; set; }
+        public T?      Data    { get; set; }
     }
 
-    public record CreateCommunityDto(
-        string Name,
-        string Description,
-        bool IsOpen
-    );
+    public record CreateCommunityDto(string Name, string Description, bool IsOpen);
 
     public record CommunityDto(
-        Guid Id,
-        string Name,
-        string Description,
-        bool IsOpen,
+        Guid    Id,
+        string  Name,
+        string  Description,
+        bool    IsOpen,
         string? ImageUrl,
-        Guid CreatedBy,
-        string CreatorName,
-        string CreatorRole
+        Guid    CreatedBy,
+        string  CreatorName,
+        string  CreatorRole
     );
 
     public record MemberDto(
-        Guid Id,
-        string Name,
-        string Role,
+        Guid     Id,
+        string   Name,
+        string   Role,
         DateTime JoinedAt,
-        bool IsBanned
+        bool     IsBanned
     );
 
-    public record CreatePostDto(
-        Guid UserId,
-        string Content,
-        List<string>? MediaPaths
-    );
+    public record CreatePostDto(Guid UserId, string Content, List<string>? MediaPaths);
 
-    public record MemberStatusDto(
-        string Status
-    );
+    public record MemberStatusDto(string Status);
 
     public record CommentDto(
-        Guid Id,
-        Guid AuthorId,
-        string AuthorName,
-        string AuthorRole,
-        string Content,
+        Guid     Id,
+        Guid     AuthorId,
+        string   AuthorName,
+        string   AuthorRole,
+        string   Content,
         DateTime CreatedAt
     );
 
     public record PostDto(
-        Guid Id,
-        string Content,
-        Guid AuthorId,
-        string AuthorName,
-        string AuthorRole,
-        Guid? AuthorOrgId,
-        string? AuthorOrgName,
-        DateTime CreatedAt,
-        List<string>? MediaPaths,
-        int TotalLikes,
+        Guid           Id,
+        string         Content,
+        Guid           AuthorId,
+        string         AuthorName,
+        string         AuthorRole,
+        Guid?          AuthorOrgId,
+        string?        AuthorOrgName,
+        DateTime       CreatedAt,
+        List<string>?  MediaPaths,
+        int            TotalLikes,
         List<CommentDto> Comments
     );
 }

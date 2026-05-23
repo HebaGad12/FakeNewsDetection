@@ -337,6 +337,9 @@ namespace Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsDraft")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ModerationNotes")
                         .HasColumnType("nvarchar(max)");
 
@@ -349,6 +352,9 @@ namespace Persistence.Migrations
                     b.Property<string>("Tags")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -370,6 +376,8 @@ namespace Persistence.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("OrganizationId");
+
+                    b.HasIndex("TaskId");
 
                     b.ToTable("Posts");
                 });
@@ -725,11 +733,18 @@ namespace Persistence.Migrations
                         .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("Domain.Models.OrganizationTask", "Task")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Author");
 
                     b.Navigation("Community");
 
                     b.Navigation("OrganizationUser");
+
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("Domain.Models.PostMedia", b =>

@@ -4,6 +4,8 @@
     {
         AdminTopUp,       
         AdminDeduction,   
+        OrganizationTopUp,
+        OrganizationDeduction,
         DonationSent,     
         DonationReceived  
     }
