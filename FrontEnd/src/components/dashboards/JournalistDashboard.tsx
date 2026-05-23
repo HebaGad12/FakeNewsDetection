@@ -611,7 +611,8 @@ const JournalistDashboard = () => {
   const [communitySearch, setCommunitySearch] = useState("");
   const [tasks, setTasks] = useState<JournalistTaskResponse[]>([]);
 
-  useEffect(() => {
+  const loadDashboardData = () => {
+    setLoading(true);
     Promise.all([
       journalistService.getMe(),
       journalistService.getMyPosts(),
@@ -624,7 +625,6 @@ const JournalistDashboard = () => {
         setFollowing(fo);
         setFollowers(fl);
 
-        // Fetch communities created by this journalist
         if (p?.id) {
           communityService.getByJournalist(p.id).then(setMyCommunities).catch(() => {});
         }
@@ -633,6 +633,10 @@ const JournalistDashboard = () => {
 
     donationService.getMyWallet().then(setMyWallet).catch(() => {});
     journalistTaskService.getTasks().then(setTasks).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
 
   if (loading || !profile) {
@@ -1051,7 +1055,10 @@ const JournalistDashboard = () => {
 
         {activeTab === "create" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface-container-low p-8">
-             <CreatePostForm onSuccess={() => journalistService.getMyPosts().then(setPosts)} />
+             <CreatePostForm onSuccess={() => {
+              loadDashboardData();
+              setActiveTab("archive");
+            }} />
           </motion.div>
         )}
 

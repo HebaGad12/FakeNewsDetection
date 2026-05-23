@@ -119,11 +119,12 @@ const ReaderDashboard = () => {
 
   const handleUnfollow = async (targetId: string) => {
     try {
+      setFollowingJournos((prev) => prev.filter((j) => j.id !== targetId));
       await userService.unfollow(targetId);
       toast.success("Unfollowed successfully");
-      loadDashboardData();
     } catch (error) {
       toast.error("Failed to unfollow");
+      loadDashboardData();
     }
   };
 

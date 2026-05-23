@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { postsService, Post, PostComment } from "@/services/postsService";
+import { publicProfileService, PublicProfile } from "@/services/publicProfileService";
 import { userService } from "@/services/userService";
 import { adminService } from "@/services/adminService";
 import { usePostInteractions } from "@/hooks/usePostInteractions";
@@ -81,6 +82,11 @@ export default function PostDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  const [authorProfile, setAuthorProfile] = useState<PublicProfile | null>(null);
+  const [authorAvatar, setAuthorAvatar] = useState<string | null>(null);
+  const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
   const [showAdminDeleteDialog, setShowAdminDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | "">("");
@@ -109,12 +115,23 @@ export default function PostDetailPage() {
             const userHasLiked = await postsService.hasUserLikedPost(id);
             setIsLiked(userHasLiked);
           } catch { setIsLiked(false); }
+
+          try {
+            const [profile, avatar, following] = await Promise.all([
+              publicProfileService.getProfile(fetchedPost.authorId).catch(() => null),
+              userService.fetchPictureBlobUrl(fetchedPost.authorId).catch(() => null),
+              user ? userService.getFollowing().catch(() => []) : Promise.resolve([])
+            ]);
+            setAuthorProfile(profile);
+            setAuthorAvatar(avatar);
+            setIsFollowingAuthor(following.some((f) => f.id === fetchedPost.authorId));
+          } catch (e) { console.error(e); }
         }
       } catch { setError("Failed to load post. Please try again later."); setPost(null); }
       finally { setIsLoading(false); }
     };
     if (id) loadPost();
-  }, [id, setLikesCount, setIsLiked]);
+  }, [id, setLikesCount, setIsLiked, user]);
 
   const handleAddComment = async () => {
     if (!commentInput.trim()) return;
@@ -138,6 +155,26 @@ export default function PostDetailPage() {
       await deleteComment(commentId);
       setComments(comments.filter((c) => c.id !== commentId));
     } catch { console.error("Failed to delete comment"); }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!post || !user) return;
+    setIsFollowLoading(true);
+    try {
+      if (isFollowingAuthor) {
+        await userService.unfollow(post.authorId);
+        setIsFollowingAuthor(false);
+        setAuthorProfile(prev => prev ? { ...prev, followers: Math.max(0, prev.followers - 1) } : prev);
+      } else {
+        await userService.follow(post.authorId);
+        setIsFollowingAuthor(true);
+        setAuthorProfile(prev => prev ? { ...prev, followers: prev.followers + 1 } : prev);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update follow status.");
+    } finally {
+      setIsFollowLoading(false);
+    }
   };
 
   const handleDeletePost = async () => {
@@ -272,10 +309,14 @@ export default function PostDetailPage() {
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-4 px-4 py-5 sm:px-6">
               <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
                 <div className="flex items-center gap-3">
-                  <Link to={`/profiles/${post.authorId}`} className="flex h-11 w-11 items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
-                    <span className="font-serif text-base font-semibold">
-                      {post.authorName.charAt(0).toUpperCase()}
-                    </span>
+                  <Link to={`/profiles/${post.authorId}`} className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
+                    {authorAvatar ? (
+                      <img src={authorAvatar} alt={post.authorName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="font-serif text-base font-semibold">
+                        {post.authorName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </Link>
                   <div className="leading-tight">
                     <div className="flex items-center gap-1.5">
@@ -406,8 +447,12 @@ export default function PostDetailPage() {
                   </div>
                 )}
                 <div className="flex gap-3 sm:gap-4">
-                  <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-red-600/10 text-red-600 font-semibold ring-1 ring-zinc-200 dark:ring-zinc-800">
-                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                  <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-red-600/10 text-red-600 font-semibold ring-1 ring-zinc-200 dark:ring-zinc-800">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span>{user?.name?.charAt(0).toUpperCase() || "U"}</span>
+                    )}
                   </div>
                   <div className="flex-1">
                     <textarea
@@ -503,10 +548,14 @@ export default function PostDetailPage() {
               <div className="sticky top-24 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6">
                 <h3 className="font-serif text-lg font-semibold text-zinc-900 dark:text-white mb-4">About the Author</h3>
                 <div className="flex items-center gap-4 mb-4">
-                  <Link to={`/profiles/${post.authorId}`} className="flex h-16 w-16 items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
-                    <span className="font-serif text-2xl font-semibold">
-                      {post.authorName.charAt(0).toUpperCase()}
-                    </span>
+                  <Link to={`/profiles/${post.authorId}`} className="flex h-16 w-16 overflow-hidden items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
+                    {authorAvatar ? (
+                      <img src={authorAvatar} alt={post.authorName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="font-serif text-2xl font-semibold">
+                        {post.authorName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </Link>
                   <div>
                     <Link to={`/profiles/${post.authorId}`} className="font-semibold text-zinc-900 dark:text-white text-lg hover:text-red-600 dark:hover:text-red-400 transition-colors">
@@ -517,23 +566,30 @@ export default function PostDetailPage() {
                 </div>
 
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
-                  Investigative reporting focused on uncovering misinformation, systemic fraud, and maintaining accountability in public information.
+                  {authorProfile?.bio || "Investigative reporting focused on uncovering misinformation, systemic fraud, and maintaining accountability in public information."}
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
-                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">12.4K</p>
+                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.followers ?? "-"}</p>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Followers</p>
                   </div>
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
-                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">47</p>
+                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.totalPosts ?? "-"}</p>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Reports</p>
                   </div>
                 </div>
                 
-                <Button className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold">
-                  Follow {post.authorName.split(' ')[0]}
-                </Button>
+                {user && post.authorId !== user.id && (
+                  <Button 
+                    onClick={handleFollowToggle}
+                    disabled={isFollowLoading}
+                    className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold"
+                  >
+                    {isFollowLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {isFollowingAuthor ? "Unfollow" : `Follow ${post.authorName.split(' ')[0]}`}
+                  </Button>
+                )}
               </div>
             </aside>
           </div>
