@@ -1814,6 +1814,13 @@ const ReportsTab = () => {
             <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No report details found.</div>
           ) : (
             <div className="max-h-[420px] overflow-y-auto space-y-4 pr-1">
+              <div className="bg-muted/10 p-4 rounded-lg border border-border mb-4">
+                <p className="font-semibold text-sm mb-1">Author Details</p>
+                <p className="text-xs text-muted-foreground">Name: {selectedPostReport.authorName} ({selectedPostReport.authorId})</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Followers: {selectedPostReport.totalFollowers} | Published Articles: {selectedPostReport.totalArticles}
+                </p>
+              </div>
               {selectedPostReport.reports.map((item: PostReportItem) => (
                 <div key={item.id} className="rounded-lg border border-border p-4">
                   <div className="flex items-center justify-between mb-3">

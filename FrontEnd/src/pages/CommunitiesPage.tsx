@@ -133,7 +133,7 @@ const CommunitiesPage = () => {
             setIsLoading(false);
             return;
           }
-          data = await communityService.getByJournalist(user.id);
+          data = await communityService.getMyCommunities();
         }
 
         const cards = await buildCommunityCards(data);

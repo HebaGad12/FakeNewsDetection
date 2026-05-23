@@ -103,7 +103,7 @@ export default function PostDetailPage() {
           setError("Post not found"); setPost(null);
         } else {
           setPost(fetchedPost);
-          setComments(fetchedPost.comments || []);
+          setComments(Array.isArray(fetchedPost.comments) ? fetchedPost.comments : []);
           setLikesCount(fetchedPost.likesCount);
           try {
             const userHasLiked = await postsService.hasUserLikedPost(id);
@@ -124,7 +124,7 @@ export default function PostDetailPage() {
       setCommentInput("");
       if (post) {
         const updatedPost = await postsService.getPostById(post.id);
-        if (updatedPost) setComments(updatedPost.comments || []);
+        if (updatedPost) setComments(Array.isArray(updatedPost.comments) ? updatedPost.comments : []);
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -339,8 +339,8 @@ export default function PostDetailPage() {
                 <div className="mb-8">
                   <CredibilityBadge
                     level={
-                      post.verificationStatus.toLowerCase() === "fake" ? "fake" :
-                      post.verificationStatus.toLowerCase() === "questionable" ? "questionable" : "verified"
+                      (String(post.verificationStatus).toLowerCase() === "fake" || post.verificationStatus === 3) ? "fake" :
+                      (String(post.verificationStatus).toLowerCase() === "questionable" || String(post.verificationStatus).toLowerCase() === "suspicious" || post.verificationStatus === 2) ? "questionable" : "verified"
                     }
                   />
                 </div>

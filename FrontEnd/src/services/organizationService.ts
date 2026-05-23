@@ -7,6 +7,7 @@ export interface OrgProfileResponse {
   name: string;
   email: string;
   profile?: string;
+  bio?: string;
   isActive: boolean;
   createdAt: string;
   totalFollowers: number;
@@ -118,6 +119,20 @@ class OrganizationService {
 
   async getMyOrganization(): Promise<OrgProfileResponse> {
     return await apiClient.get<OrgProfileResponse>("/organizations/me");
+  }
+
+  async updateProfile(data: { name?: string; email?: string; bio?: string }): Promise<{ message: string }> {
+    return await apiClient.put<{ message: string }>("/organizations/me/profile", data);
+  }
+
+  async uploadProfilePicture(file: File): Promise<{ message: string; profilePictureUrl: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return await apiClient.post<{ message: string; profilePictureUrl: string }>(
+      "/organizations/me/profile-picture",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
   }
 
   async addJournalist(orgUserId: string, data: AddOrgJournalistRequest): Promise<{ message: string; journalistId: string; registrationStatus: string }> {

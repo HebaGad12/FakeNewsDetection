@@ -310,13 +310,13 @@ const ReaderDashboard = () => {
                               <div className="flex items-center gap-3 mb-4">
                                 <span className={cn(
                                   "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest",
-                                  featuredPost.verificationStatus?.toLowerCase() === "verified" 
-                                    ? "bg-emerald-100 text-emerald-700" 
-                                    : featuredPost.verificationStatus?.toLowerCase() === "questionable"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-rose-100 text-rose-700"
+                                  (String(featuredPost.verificationStatus || "").toLowerCase() === "verified" || featuredPost.verificationStatus === 1)
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                    : (String(featuredPost.verificationStatus || "").toLowerCase() === "questionable" || String(featuredPost.verificationStatus || "").toLowerCase() === "suspicious" || featuredPost.verificationStatus === 2)
+                                    ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                                 )}>
-                                  {featuredPost.verificationStatus || "Pending"}
+                                  {featuredPost.verificationStatus === 1 ? "Verified" : featuredPost.verificationStatus === 2 ? "Questionable" : featuredPost.verificationStatus === 3 ? "Fake" : featuredPost.verificationStatus || "Pending"}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                                   {featuredPost.tags?.[0] || "News"} • {Math.ceil(featuredPost.content.split(/\s+/).length / 200)} min read
@@ -350,9 +350,9 @@ const ReaderDashboard = () => {
                               onClick={() => navigate(`/article/${post.id}`)}>
                               <span className={cn(
                                 "text-[10px] uppercase tracking-widest font-bold",
-                                post.verificationStatus?.toLowerCase() === "verified" 
-                                  ? "text-emerald-500" 
-                                  : post.verificationStatus?.toLowerCase() === "questionable"
+                                (String(post.verificationStatus || "").toLowerCase() === "verified" || post.verificationStatus === 1)
+                                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                  : (String(post.verificationStatus || "").toLowerCase() === "questionable" || String(post.verificationStatus || "").toLowerCase() === "suspicious" || post.verificationStatus === 2)
                                   ? "text-amber-500"
                                   : "text-rose-500"
                               )}>

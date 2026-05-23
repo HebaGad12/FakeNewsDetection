@@ -101,10 +101,11 @@ const Index = () => {
 
   // تحويل Post إلى Props لعرض البطاقة
   const getPostProps = (post: Post) => {
+    const vStatus = String(post.verificationStatus || "").toLowerCase();
     const credibility =
-      post.verificationStatus?.toLowerCase() === "fake"
+      (vStatus === "fake" || post.verificationStatus === 3)
         ? "fake"
-        : post.verificationStatus?.toLowerCase() === "questionable"
+        : (vStatus === "questionable" || vStatus === "suspicious" || post.verificationStatus === 2)
         ? "questionable"
         : "verified";
 

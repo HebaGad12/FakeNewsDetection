@@ -1,4 +1,4 @@
-﻿import { X, Calendar, Clock, User, MessageSquare, Send, CheckCircle2, XCircle, RotateCcw, Pencil, Trash2, RefreshCw, Upload } from "lucide-react";
+import { X, Calendar, Clock, User, MessageSquare, Send, CheckCircle2, XCircle, RotateCcw, Pencil, Trash2, RefreshCw, Upload } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { type Journalist, priorityStyle, statusStyle, type Role, type Task } from "@/lib/tasks-mock";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { postsService } from "@/services/postsService";
+import { useNavigate } from "react-router-dom";
+import type { Post } from "@/services/types";
 
 interface Props {
   task: Task | null;
@@ -26,6 +29,22 @@ function fmt(d: string) {
 
 export function TaskDetailsPanel({ task, open, onClose, role, onUpdate, journalists }: Props) {
   const [comment, setComment] = useState("");
+  const [article, setArticle] = useState<Post | null>(null);
+  const [loadingArticle, setLoadingArticle] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (open && task?.id) {
+      setLoadingArticle(true);
+      postsService.getPostByTaskId(task.id)
+        .then(setArticle)
+        .catch(() => setArticle(null))
+        .finally(() => setLoadingArticle(false));
+    } else {
+      setArticle(null);
+    }
+  }, [open, task?.id]);
+
   if (!open || !task) return null;
   const j = journalists.find(x => x.id === task.journalistId) || { id: "unknown", name: "Unassigned", avatar: "?", beat: "Unknown", completed: 0, onTime: 0 };
 
@@ -86,6 +105,26 @@ export function TaskDetailsPanel({ task, open, onClose, role, onUpdate, journali
                   </div>
                 ))}
               </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Submitted Article</h3>
+              {loadingArticle ? (
+                <div className="text-xs text-muted-foreground">Loading article...</div>
+              ) : article ? (
+                <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
+                  <p className="font-semibold text-sm line-clamp-1 text-foreground">{article.title}</p>
+                  <Button variant="secondary" size="sm" onClick={() => navigate(`/article/${article.id}`)}>
+                    View Article
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border py-4 text-center text-xs text-muted-foreground">
+                  No article has been submitted for this task yet.
+                </div>
+              )}
             </div>
 
             <Separator />

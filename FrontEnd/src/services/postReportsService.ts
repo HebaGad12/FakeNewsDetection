@@ -21,6 +21,8 @@ export interface PostReportSummary {
 	comments: number;
 	totalReports: number;
 	reports: PostReportItem[];
+	totalFollowers: number;
+	totalArticles: number;
 }
 
 class PostReportsService {

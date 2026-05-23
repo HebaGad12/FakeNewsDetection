@@ -159,6 +159,10 @@ class CommunityService {
 		return apiClient.get<CommunityDto[]>(`${this.baseUrl}/all`);
 	}
 
+	async getMyCommunities(): Promise<CommunityDto[]> {
+		return apiClient.get<CommunityDto[]>(`${this.baseUrl}/mine`);
+	}
+
 	async getByJournalist(journalistId: string): Promise<CommunityDto[]> {
 		return apiClient.get<CommunityDto[]>(`${this.baseUrl}/by-journalist/${journalistId}`);
 	}
