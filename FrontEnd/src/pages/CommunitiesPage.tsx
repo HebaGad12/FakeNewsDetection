@@ -74,6 +74,8 @@ const CommunitiesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [membershipActionId, setMembershipActionId] = useState<string | null>(null);
+  const [selectedCommunity, setSelectedCommunity] = useState<CommunityCard | null>(null);
+  const [detailsStatus, setDetailsStatus] = useState<{ status: string }>({ status: "" });
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -383,8 +385,9 @@ const CommunitiesPage = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
+                  onClick={() => handleViewCommunity(community)}
                   className={cn(
-                    "bg-card p-8 flex flex-col gap-6 group hover:shadow-xl transition-all duration-300 border-l-[3px] border-t border-r border-b border-border rounded-r-lg",
+                    "bg-card p-8 flex flex-col gap-6 group hover:shadow-xl transition-all duration-300 border-l-[3px] border-t border-r border-b border-border rounded-r-lg cursor-pointer",
                     borderColors[index % borderColors.length]
                   )}
                 >

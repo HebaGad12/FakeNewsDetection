@@ -466,64 +466,123 @@ const CommunityFeedPage = () => {
     );
   }
 
+  const communityImageUrl = community.imageUrl
+    ? communityService.getImageUrl(community.imageUrl)
+    : null;
+
   return (
     <div className="min-h-screen bg-background/60">
       <Header />
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/communities")}
-              className="gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to communities
-            </Button>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-display font-light tracking-tight text-foreground flex items-center gap-2">
-                {community.name}
-                {!community.isOpen && <Lock className="h-4 w-4 text-muted-foreground" />}
-              </h1>
-              <p className="text-muted-foreground mt-2 max-w-3xl">{community.description}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <span className="rounded-sm border border-border px-2 py-1">Owner: {ownerName}</span>
-              <span className="rounded-sm border border-border px-2 py-1">{ownerRole}</span>
-              <span className="rounded-sm border border-border px-2 py-1">
-                {community.isOpen ? "Open community" : "Closed community"}
-              </span>
-              <span className="rounded-sm border border-border px-2 py-1">Status: {membershipLabel}</span>
-            </div>
-          </div>
 
-          <div className="flex gap-2">
-            {isMember ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleLeave}
-                disabled={membershipAction === "leave" || isOwner}
-              >
-                {membershipAction === "leave" ? "Leaving..." : isOwner ? "Owner" : "Leave"}
-              </Button>
+      {/* ── Hero Banner ── */}
+      <div className="relative w-full overflow-hidden bg-card border-b border-border min-h-[360px] flex flex-col justify-end">
+        {/* Background image — clearly visible */}
+        {communityImageUrl ? (
+          <>
+            <img
+              src={communityImageUrl}
+              alt={community.name}
+              className="absolute inset-0 w-full h-full object-cover opacity-60"
+            />
+            {/* light dark gradient only at bottom so text is readable */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
+        )}
+
+        {/* Content */}
+        <div className="relative max-w-7xl mx-auto px-6 pt-8 pb-10 w-full">
+          {/* Back button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/communities")}
+            className="gap-2 mb-6 bg-background/70 backdrop-blur-sm border-white/20"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to communities
+          </Button>
+
+          <div className="flex flex-col sm:flex-row items-start gap-6">
+            {/* Community avatar / thumbnail */}
+            {communityImageUrl ? (
+              <div className="flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg ring-2 ring-black/20">
+                <img
+                  src={communityImageUrl}
+                  alt={community.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
             ) : (
-              <Button
-                type="button"
-                onClick={handleJoin}
-                disabled={!community.isOpen || membershipAction === "join" || isBanned}
-              >
-                {membershipAction === "join"
-                  ? "Joining..."
-                  : community.isOpen
-                  ? "Join community"
-                  : "Closed"}
-              </Button>
+              <div className="flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-xl bg-primary/10 border-2 border-border shadow-lg flex items-center justify-center">
+                <Users className="w-10 h-10 text-primary/60" />
+              </div>
             )}
+
+            {/* Name + meta */}
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <p className={`font-sans text-[10px] font-semibold tracking-widest uppercase mb-1 ${communityImageUrl ? "text-white/70" : "text-accent"}`}>
+                  {ownerRole} Network
+                </p>
+                <h1 className={`text-3xl md:text-5xl font-display font-light tracking-tight flex items-center gap-3 leading-tight ${communityImageUrl ? "text-white drop-shadow-md" : "text-foreground"}`}>
+                  {community.name}
+                  {!community.isOpen && <Lock className="h-5 w-5 opacity-70" />}
+                </h1>
+              </div>
+
+              {community.description && (
+                <p className={`text-sm sm:text-base max-w-2xl leading-relaxed ${communityImageUrl ? "text-white/80" : "text-muted-foreground"}`}>
+                  {community.description}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wider">
+                <span className="rounded-sm border border-white/20 bg-black/30 backdrop-blur-sm text-white/80 px-2 py-1">
+                  Owner: {ownerName}
+                </span>
+                <span className="rounded-sm border border-white/20 bg-black/30 backdrop-blur-sm text-white/80 px-2 py-1">
+                  {community.isOpen ? "Open community" : "Closed community"}
+                </span>
+                <span className="rounded-sm border border-white/20 bg-black/30 backdrop-blur-sm text-white/80 px-2 py-1">
+                  Status: {membershipLabel}
+                </span>
+              </div>
+            </div>
+
+            {/* Join / Leave button */}
+            <div className="flex-shrink-0">
+              {isMember ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleLeave}
+                  disabled={membershipAction === "leave" || isOwner}
+                  className="bg-background/70 backdrop-blur-sm border-white/20"
+                >
+                  {membershipAction === "leave" ? "Leaving..." : isOwner ? "Owner" : "Leave"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleJoin}
+                  disabled={!community.isOpen || membershipAction === "join" || isBanned}
+                >
+                  {membershipAction === "join"
+                    ? "Joining..."
+                    : community.isOpen
+                    ? "Join community"
+                    : "Closed"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_340px] gap-8">
           <section className="space-y-6">
