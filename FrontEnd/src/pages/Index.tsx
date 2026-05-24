@@ -101,12 +101,14 @@ const Index = () => {
 
   // تحويل Post إلى Props لعرض البطاقة
   const getPostProps = (post: Post) => {
-    const credibility =
-      post.verificationStatus?.toLowerCase() === "fake"
-        ? "fake"
-        : post.verificationStatus?.toLowerCase() === "questionable"
-        ? "questionable"
-        : "verified";
+  const status = post.verificationStatus?.toString().toLowerCase() || "";
+
+  const credibility =
+    status === "fake"
+      ? "fake"
+      : status === "questionable"
+      ? "questionable"
+      : "verified";
 
     return {
       id: post.id,
@@ -352,32 +354,20 @@ const Index = () => {
 
         {/* ========== CTA Section ========== */}
         <section className="py-12">
-          <div className="container mx-auto px-4">
-            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-center">
-              <h2 className="font-serif text-2xl md:text-3xl font-bold text-white mb-3">
-                Join the Fight Against Misinformation
-              </h2>
-              <p className="text-slate-300 mb-6 max-w-xl mx-auto">
-                Create your free account and become part of a community dedicated to truthful journalism.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/register">
-                  <Button className="bg-red-600 hover:bg-red-700 text-white rounded-full px-8">
-                    Get Started Free
-                  </Button>
-                </Link>
-                <Link to="/about">
-                  <Button
-                    variant="outline"
-                    className="border-slate-600 text-white hover:bg-slate-800 rounded-full px-8"
-                  >
-                    Learn More
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
+  <div className="container mx-auto px-4">
+    <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-10 text-center">
+      <h2 className="font-serif text-3xl md:text-4xl font-bold text-white mb-4">
+        Join the Fight Against Misinformation
+      </h2>
+
+      <p className="text-slate-300 text-lg max-w-3xl mx-auto leading-relaxed">
+        TruthTrack combines AI-powered verification, community moderation,
+        and trusted journalism to help readers identify reliable information
+        and combat misinformation across the digital world.
+      </p>
+    </div>
+  </div>
+</section>
       </main>
 
       <Footer />
