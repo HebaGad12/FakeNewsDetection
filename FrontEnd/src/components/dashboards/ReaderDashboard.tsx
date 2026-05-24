@@ -20,6 +20,11 @@ import { Menu,
   ChevronRight,
   ExternalLink,
   UserMinus,
+  DollarSign,
+  AlertCircle,
+  Check,
+  X,
+  ChevronDown,
  } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { userService } from "@/services";
@@ -124,6 +129,82 @@ const ReaderDashboard = () => {
       loadDashboardData();
     } catch (error) {
       toast.error("Failed to unfollow");
+    }
+  };
+
+  // ── Donation Modal State ──────────────────────────────────────────────────
+  const [donationModalOpen, setDonationModalOpen] = useState(false);
+  const [donationStep, setDonationStep]           = useState<"select" | "amount" | "confirm" | "success">("select");
+  const [selectedJournalist, setSelectedJournalist] = useState<FollowingUser | null>(null);
+  const [donationAmount, setDonationAmount]         = useState("");
+  const [donationMessage, setDonationMessage]       = useState("");
+  const [donationLoading, setDonationLoading]       = useState(false);
+  const [donationError, setDonationError]           = useState("");
+
+  const journalistsFollowed = following.filter((f) => f.role === "Journalist");
+
+  const openDonationModal = () => {
+    setDonationStep("select");
+    setSelectedJournalist(null);
+    setDonationAmount("");
+    setDonationMessage("");
+    setDonationError("");
+    setDonationModalOpen(true);
+  };
+
+  const closeDonationModal = () => {
+    setDonationModalOpen(false);
+    // slight delay so animation is smooth before resetting
+    setTimeout(() => {
+      setDonationStep("select");
+      setSelectedJournalist(null);
+      setDonationAmount("");
+      setDonationMessage("");
+      setDonationError("");
+    }, 300);
+  };
+
+  const handleDonationSubmit = async () => {
+    const amount = parseFloat(donationAmount);
+    if (!selectedJournalist) return;
+    if (isNaN(amount) || amount <= 0) {
+      setDonationError("Please enter a valid amount greater than 0.");
+      return;
+    }
+    if (myWallet && amount > myWallet.balance) {
+      setDonationError(`Insufficient balance. Your balance: ${formatCurrency(myWallet.balance)}`);
+      return;
+    }
+
+    setDonationLoading(true);
+    setDonationError("");
+    try {
+      await donationService.sendDonation({
+        recipientId: selectedJournalist.id,
+        amount,
+        message: donationMessage || undefined,
+      });
+
+      // Refresh wallet so balance is up to date
+      try {
+        const [w, txns, sent] = await Promise.all([
+          donationService.getMyWallet(),
+          donationService.getMyTransactions(),
+          donationService.getSentDonations(),
+        ]);
+        setMyWallet(w);
+        setWalletTxns(txns);
+        setSentDonations(sent);
+      } catch { /* silent */ }
+
+      setDonationStep("success");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? "Failed to send donation. Please try again.";
+      setDonationError(msg);
+    } finally {
+      setDonationLoading(false);
     }
   };
 
@@ -310,9 +391,9 @@ const ReaderDashboard = () => {
                               <div className="flex items-center gap-3 mb-4">
                                 <span className={cn(
                                   "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest",
-                                  featuredPost.verificationStatus?.toLowerCase() === "verified" 
+                                  featuredPost.verificationStatus?.toString().toLowerCase() === "verified"
                                     ? "bg-emerald-100 text-emerald-700" 
-                                    : featuredPost.verificationStatus?.toLowerCase() === "questionable"
+                                    : featuredPost.verificationStatus?.toString().toLowerCase() === "questionable"
                                     ? "bg-amber-100 text-amber-700"
                                     : "bg-rose-100 text-rose-700"
                                 )}>
@@ -350,9 +431,9 @@ const ReaderDashboard = () => {
                               onClick={() => navigate(`/article/${post.id}`)}>
                               <span className={cn(
                                 "text-[10px] uppercase tracking-widest font-bold",
-                                post.verificationStatus?.toLowerCase() === "verified" 
+                                post.verificationStatus?.toString().toLowerCase() === "verified" 
                                   ? "text-emerald-500" 
-                                  : post.verificationStatus?.toLowerCase() === "questionable"
+                                  : post.verificationStatus?.toString().toLowerCase() === "questionable"
                                   ? "text-amber-500"
                                   : "text-rose-500"
                               )}>
@@ -613,7 +694,7 @@ const ReaderDashboard = () => {
                   </div>
                   
                   <button 
-                    onClick={() => {/* Optionally add donation modal */}}
+                    onClick={openDonationModal}
                     className="w-full py-4 bg-background text-foreground rounded-lg font-bold text-xs uppercase tracking-[0.15em] hover:bg-background/90 transition-colors flex items-center justify-center gap-2"
                   >
                     <Send className="w-4 h-4" /> Send Donation
@@ -690,6 +771,323 @@ const ReaderDashboard = () => {
           <Wallet className="w-5 h-5" /> Funds
         </button>
       </nav>
+      {/* ── Send Donation Modal ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {donationModalOpen && (
+          <motion.div
+            key="donation-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) closeDonationModal(); }}
+          >
+            <motion.div
+              key="donation-modal"
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ type: "spring", stiffness: 320, damping: 28 }}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+              {/* ── Modal Header ── */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+                    <Send className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground text-sm leading-tight">Send Donation</h3>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+                      {donationStep === "select"  && "Choose a journalist"}
+                      {donationStep === "amount"  && "Set amount"}
+                      {donationStep === "confirm" && "Confirm donation"}
+                      {donationStep === "success" && "Donation sent!"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeDonationModal}
+                  className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* ── Step: Select Journalist ── */}
+              {donationStep === "select" && (
+                <div className="px-6 py-5">
+                  {journalistsFollowed.length === 0 ? (
+                    <div className="text-center py-10">
+                      <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm font-semibold text-foreground mb-1">No journalists followed</p>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Follow a journalist to send them a donation.
+                      </p>
+                      <button
+                        onClick={() => { closeDonationModal(); navigate("/feed"); }}
+                        className="text-xs uppercase tracking-widest text-primary font-bold hover:underline"
+                      >
+                        Discover Journalists →
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Select a journalist you follow to support their work.
+                      </p>
+                      <div className="space-y-2 max-h-[280px] overflow-y-auto pr-0.5">
+                        {journalistsFollowed.map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => { setSelectedJournalist(f); setDonationStep("amount"); setDonationError(""); }}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left group",
+                              selectedJournalist?.id === f.id
+                                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
+                                : "border-border hover:border-emerald-300 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10"
+                            )}
+                          >
+                            {/* avatar */}
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {f.avatar ? (
+                                <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-sm font-bold text-muted-foreground">
+                                  {f.name.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">{f.name}</p>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                                {f.organizationName || f.role}
+                              </p>
+                            </div>
+                            <ChevronDown className="h-4 w-4 text-muted-foreground -rotate-90 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── Step: Amount ── */}
+              {donationStep === "amount" && selectedJournalist && (
+                <div className="px-6 py-5 space-y-5">
+                  {/* Selected journalist preview */}
+                  <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl">
+                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {selectedJournalist.avatar ? (
+                        <img src={selectedJournalist.avatar} alt={selectedJournalist.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-muted-foreground">
+                          {selectedJournalist.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{selectedJournalist.name}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{selectedJournalist.role}</p>
+                    </div>
+                    <button
+                      onClick={() => { setDonationStep("select"); setDonationError(""); }}
+                      className="text-[10px] text-primary font-bold uppercase tracking-wider hover:underline flex-shrink-0"
+                    >
+                      Change
+                    </button>
+                  </div>
+
+                  {/* Balance indicator */}
+                  {myWallet && (
+                    <div className="flex items-center justify-between text-xs px-1">
+                      <span className="text-muted-foreground">Available balance</span>
+                      <span className="font-bold font-mono text-foreground">{formatCurrency(myWallet.balance)}</span>
+                    </div>
+                  )}
+
+                  {/* Quick amount chips */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2 uppercase tracking-widest">Quick amounts</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {["5", "10", "25", "50"].map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => setDonationAmount(q)}
+                          className={cn(
+                            "py-2 rounded-lg border text-xs font-bold transition-all",
+                            donationAmount === q
+                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              : "border-border hover:border-emerald-400 text-foreground"
+                          )}
+                        >
+                          ${q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom amount input */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2 uppercase tracking-widest">Custom amount</p>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={donationAmount}
+                        onChange={(e) => { setDonationAmount(e.target.value); setDonationError(""); }}
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Optional message */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2 uppercase tracking-widest">Message <span className="normal-case font-normal">(optional)</span></p>
+                    <textarea
+                      rows={2}
+                      placeholder="Add a note to your donation..."
+                      value={donationMessage}
+                      onChange={(e) => setDonationMessage(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 resize-none transition"
+                    />
+                  </div>
+
+                  {donationError && (
+                    <div className="flex items-start gap-2 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-2.5">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                      <span>{donationError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setDonationStep("select")}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={() => {
+                        const amt = parseFloat(donationAmount);
+                        if (isNaN(amt) || amt <= 0) { setDonationError("Enter a valid amount greater than 0."); return; }
+                        if (myWallet && amt > myWallet.balance) { setDonationError(`Insufficient balance. Your balance: ${formatCurrency(myWallet.balance)}`); return; }
+                        setDonationError("");
+                        setDonationStep("confirm");
+                      }}
+                      disabled={!donationAmount}
+                      className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-all"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Step: Confirm ── */}
+              {donationStep === "confirm" && selectedJournalist && (
+                <div className="px-6 py-5 space-y-5">
+                  {/* Summary card */}
+                  <div className="bg-muted/40 rounded-xl p-4 space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">To</span>
+                      <span className="font-semibold text-foreground">{selectedJournalist.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Amount</span>
+                      <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-lg">
+                        {formatCurrency(parseFloat(donationAmount))}
+                      </span>
+                    </div>
+                    {donationMessage && (
+                      <div className="flex justify-between items-start text-sm gap-4">
+                        <span className="text-muted-foreground flex-shrink-0">Message</span>
+                        <span className="text-foreground text-right text-xs italic">{donationMessage}</span>
+                      </div>
+                    )}
+                    {myWallet && (
+                      <div className="flex justify-between items-center text-xs border-t border-border pt-3 mt-1">
+                        <span className="text-muted-foreground">Balance after</span>
+                        <span className="font-mono text-muted-foreground">
+                          {formatCurrency(myWallet.balance - parseFloat(donationAmount))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {donationError && (
+                    <div className="flex items-start gap-2 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-2.5">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                      <span>{donationError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDonationStep("amount")}
+                      disabled={donationLoading}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all disabled:opacity-40"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleDonationSubmit}
+                      disabled={donationLoading}
+                      className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      {donationLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          Sending…
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Confirm & Send
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Step: Success ── */}
+              {donationStep === "success" && selectedJournalist && (
+                <div className="px-6 py-8 flex flex-col items-center text-center gap-4">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
+                    className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center"
+                  >
+                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  </motion.div>
+                  <div>
+                    <h4 className="text-lg font-bold text-foreground">Donation Sent!</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      You've sent <span className="font-bold text-foreground">{formatCurrency(parseFloat(donationAmount))}</span> to{" "}
+                      <span className="font-bold text-foreground">{selectedJournalist.name}</span>.
+                    </p>
+                    {donationMessage && (
+                      <p className="text-xs text-muted-foreground italic mt-2">"{donationMessage}"</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={closeDonationModal}
+                    className="mt-2 w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-bold hover:opacity-90 transition-all"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
