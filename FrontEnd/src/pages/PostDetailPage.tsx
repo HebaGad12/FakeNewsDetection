@@ -380,7 +380,7 @@ export default function PostDetailPage() {
                     Delete Post
                   </button>
                 )}
-                {isReader && user && post.authorId !== user.id && (
+                {user && post.authorId !== user.id && (
                   <button
                     onClick={handleOpenReport}
                     className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-full transition-colors"
@@ -525,7 +525,7 @@ export default function PostDetailPage() {
                     onToggleLike={toggleLike}
                     commentsCount={comments.length}
                     isLiking={isLiking || isLoading}
-                    canReport={!!user && isReader}
+                    canReport={!!user && post.authorId !== user.id}
                     onReport={handleOpenReport}
                   />
                 </div>
@@ -670,9 +670,11 @@ export default function PostDetailPage() {
                   </div>
                 </div>
 
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
-                  {authorProfile?.bio || "Investigative reporting focused on uncovering misinformation, systemic fraud, and maintaining accountability in public information."}
-                </p>
+                {authorProfile?.bio && (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
+                    {authorProfile.bio}
+                  </p>
+                )}
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
@@ -681,7 +683,7 @@ export default function PostDetailPage() {
                   </div>
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
                     <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.totalPosts ?? "-"}</p>
-                    <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Reports</p>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Posts</p>
                   </div>
                 </div>
 
@@ -703,8 +705,8 @@ export default function PostDetailPage() {
                   </Button>
                 )}
 
-                {/* Report button — only for readers who are not the author */}
-                {isReader && user && post.authorId !== user.id && (
+                {/* Report button — for all logged-in users who are not the author */}
+                {user && post.authorId !== user.id && (
                   <button
                     onClick={handleOpenReport}
                     className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-full text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 border border-transparent hover:border-amber-200 dark:hover:border-amber-800 transition-all"
