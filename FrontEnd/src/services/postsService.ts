@@ -114,6 +114,21 @@ class PostsService {
   }
 
   /**
+   * Get post by task ID
+   * GET /api/posts/by-task/{taskId}
+   */
+  async getPostByTaskId(taskId: string): Promise<Post | null> {
+    try {
+      return await apiClient.get<Post>(`${this.baseUrl}/by-task/${taskId}`);
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Like a post
    * POST /api/posts/{postId}/like
    * Returns: { likes: number }

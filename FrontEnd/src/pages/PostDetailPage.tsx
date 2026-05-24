@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { postsService, Post, PostComment } from "@/services/postsService";
+import { publicProfileService, PublicProfile } from "@/services/publicProfileService";
 import { userService } from "@/services/userService";
 import { adminService } from "@/services/adminService";
 import { usePostInteractions } from "@/hooks/usePostInteractions";
@@ -80,15 +81,17 @@ export default function PostDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  const [authorProfile, setAuthorProfile] = useState<PublicProfile | null>(null);
+  const [authorAvatar, setAuthorAvatar] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
   const [showAdminDeleteDialog, setShowAdminDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason | "">("");
   const [reportDescription, setReportDescription] = useState("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
-
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const {
     isLiked, likesCount, toggleLike, addComment, deleteComment,
@@ -105,19 +108,24 @@ export default function PostDetailPage() {
           setError("Post not found"); setPost(null);
         } else {
           setPost(fetchedPost);
-          setComments(fetchedPost.comments || []);
+          setComments(Array.isArray(fetchedPost.comments) ? fetchedPost.comments : []);
           setLikesCount(fetchedPost.likesCount);
           try {
             const userHasLiked = await postsService.hasUserLikedPost(id);
             setIsLiked(userHasLiked);
           } catch { setIsLiked(false); }
-          // Check follow status by fetching the following list and seeing if author is in it
-          if (user) {
-            try {
-              const following = await userService.getFollowing();
-              setIsFollowing(following.some((f) => f.id === fetchedPost.authorId));
-            } catch { setIsFollowing(false); }
-          }
+
+          try {
+            const [profile, avatar, following] = await Promise.all([
+              publicProfileService.getProfile(fetchedPost.authorId).catch(() => null),
+              userService.fetchPictureBlobUrl(fetchedPost.authorId).catch(() => null),
+              user ? userService.getFollowing().catch(() => []) : Promise.resolve([])
+            ]);
+            setAuthorProfile(profile);
+            setAuthorAvatar(avatar);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setIsFollowing(following.some((f: any) => f.id === fetchedPost.authorId));
+          } catch (e) { console.error(e); }
         }
       } catch { setError("Failed to load post. Please try again later."); setPost(null); }
       finally { setIsLoading(false); }
@@ -133,7 +141,7 @@ export default function PostDetailPage() {
       setCommentInput("");
       if (post) {
         const updatedPost = await postsService.getPostById(post.id);
-        if (updatedPost) setComments(updatedPost.comments || []);
+        if (updatedPost) setComments(Array.isArray(updatedPost.comments) ? updatedPost.comments : []);
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -192,10 +200,12 @@ export default function PostDetailPage() {
       if (isFollowing) {
         await userService.unfollow(post.authorId);
         setIsFollowing(false);
+        setAuthorProfile(prev => prev ? { ...prev, followers: Math.max(0, prev.followers - 1) } : prev);
         toast.success(`Unfollowed ${post.authorName.split(" ")[0]}`);
       } else {
         await userService.follow(post.authorId);
         setIsFollowing(true);
+        setAuthorProfile(prev => prev ? { ...prev, followers: prev.followers + 1 } : prev);
         toast.success(`Now following ${post.authorName.split(" ")[0]}`);
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -321,10 +331,14 @@ export default function PostDetailPage() {
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-4 px-4 py-5 sm:px-6">
               <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
                 <div className="flex items-center gap-3">
-                  <Link to={`/profiles/${post.authorId}`} className="flex h-11 w-11 items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
-                    <span className="font-serif text-base font-semibold">
-                      {post.authorName.charAt(0).toUpperCase()}
-                    </span>
+                  <Link to={`/profiles/${post.authorId}`} className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
+                    {authorAvatar ? (
+                      <img src={authorAvatar} alt={post.authorName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="font-serif text-base font-semibold">
+                        {post.authorName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </Link>
                   <div className="leading-tight">
                     <div className="flex items-center gap-1.5">
@@ -388,8 +402,8 @@ export default function PostDetailPage() {
                 <div className="mb-8">
                   <CredibilityBadge
                     level={
-                      post.verificationStatus.toLowerCase() === "fake" ? "fake" :
-                      post.verificationStatus.toLowerCase() === "questionable" ? "questionable" : "verified"
+                      (String(post.verificationStatus).toLowerCase() === "fake" || post.verificationStatus === 3) ? "fake" :
+                      (String(post.verificationStatus).toLowerCase() === "questionable" || String(post.verificationStatus).toLowerCase() === "suspicious" || post.verificationStatus === 2) ? "questionable" : "verified"
                     }
                   />
                 </div>
@@ -492,142 +506,146 @@ export default function PostDetailPage() {
 
               {/* Article body — newspaper typography */}
               <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-            className="prose prose-zinc dark:prose-invert max-w-none"
-          >
-            {post.content.split("\n\n").map((paragraph, idx) => (
-              <p key={idx} className="text-base md:text-lg leading-[1.85] text-zinc-800 dark:text-zinc-200 mb-5 font-serif">
-                {paragraph}
-              </p>
-            ))}
-          </motion.div>
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+                className="prose prose-zinc dark:prose-invert max-w-none"
+              >
+                {post.content.split("\n\n").map((paragraph, idx) => (
+                  <p key={idx} className="text-base md:text-lg leading-[1.85] text-zinc-800 dark:text-zinc-200 mb-5 font-serif">
+                    {paragraph}
+                  </p>
+                ))}
+              </motion.div>
 
-          {/* Interaction bar */}
-          {user?.role !== "admin" && (
-            <div className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-3">
-              <ActionBar
-                likesCount={likesCount}
-                isLiked={isLiked}
-                onToggleLike={toggleLike}
-                commentsCount={comments.length}
-                isLiking={isLiking || isLoading}
-                canReport={!!user && isReader}
-                onReport={handleOpenReport}
-              />
-            </div>
-          )}
+              {/* Interaction bar */}
+              {user?.role !== "admin" && (
+                <div className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-3">
+                  <ActionBar
+                    likesCount={likesCount}
+                    isLiked={isLiked}
+                    onToggleLike={toggleLike}
+                    commentsCount={comments.length}
+                    isLiking={isLiking || isLoading}
+                    canReport={!!user && isReader}
+                    onReport={handleOpenReport}
+                  />
+                </div>
+              )}
 
-          {/* Comments section */}
-          <motion.section
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-            className="mt-12 pt-8 border-t border-zinc-200 dark:border-zinc-800"
-          >
-            <div className="flex items-center gap-2 mb-6">
-              <div className="h-4 w-0.5 bg-red-600" />
-              <h2 className="font-serif text-2xl font-bold text-zinc-900 dark:text-white">
-                Comments ({comments.length})
-              </h2>
-            </div>
+              {/* Comments section */}
+              <motion.section
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                className="mt-12 pt-8 border-t border-zinc-200 dark:border-zinc-800"
+              >
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="h-4 w-0.5 bg-red-600" />
+                  <h2 className="font-serif text-2xl font-bold text-zinc-900 dark:text-white">
+                    Comments ({comments.length})
+                  </h2>
+                </div>
 
-            {/* Comment form */}
-            {user?.role !== "admin" && (
-              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5 shadow-sm mb-10">
-                {commentError && (
-                  <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-3 mb-4 text-sm text-red-700 dark:text-red-400">
-                    {commentError}
+                {/* Comment form */}
+                {user?.role !== "admin" && (
+                  <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5 shadow-sm mb-10">
+                    {commentError && (
+                      <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-3 mb-4 text-sm text-red-700 dark:text-red-400">
+                        {commentError}
+                      </div>
+                    )}
+                    <div className="flex gap-3 sm:gap-4">
+                      <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-red-600/10 text-red-600 font-semibold ring-1 ring-zinc-200 dark:ring-zinc-800">
+                        {user?.avatar ? (
+                          <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{user?.name?.charAt(0).toUpperCase() || "U"}</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <textarea
+                          placeholder="Add to the conversation. Be respectful and stay on topic."
+                          value={commentInput}
+                          onChange={(e) => { setCommentInput(e.target.value); setCommentError(null); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
+                          disabled={isCommenting}
+                          className="w-full min-h-[88px] resize-none bg-transparent p-0 text-[15px] focus:outline-none focus:ring-0 placeholder:text-zinc-500 border-0"
+                        />
+                        <div className="mt-3 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                          <span className="text-xs text-zinc-500">Markdown supported</span>
+                          <Button
+                            onClick={handleAddComment}
+                            disabled={!commentInput.trim() || isCommenting}
+                            size="sm"
+                            className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold"
+                          >
+                            {isCommenting ? <Loader className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Post comment
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
-                <div className="flex gap-3 sm:gap-4">
-                  <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-red-600/10 text-red-600 font-semibold ring-1 ring-zinc-200 dark:ring-zinc-800">
-                    {user?.name?.charAt(0).toUpperCase() || "U"}
-                  </div>
-                  <div className="flex-1">
-                    <textarea
-                      placeholder="Add to the conversation. Be respectful and stay on topic."
-                      value={commentInput}
-                      onChange={(e) => { setCommentInput(e.target.value); setCommentError(null); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
-                      disabled={isCommenting}
-                      className="w-full min-h-[88px] resize-none bg-transparent p-0 text-[15px] focus:outline-none focus:ring-0 placeholder:text-zinc-500 border-0"
-                    />
-                    <div className="mt-3 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-3">
-                      <span className="text-xs text-zinc-500">Markdown supported</span>
-                      <Button
-                        onClick={handleAddComment}
-                        disabled={!commentInput.trim() || isCommenting}
-                        size="sm"
-                        className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold"
-                      >
-                        {isCommenting ? <Loader className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Post comment
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Comments list */}
-            <div className="mt-10 space-y-8">
-              {comments.length === 0 ? (
-                <div className="p-10 text-center rounded-2xl border border-zinc-200 dark:border-zinc-800 border-dashed">
-                  <MessageCircle className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">No comments yet. Be the first to share your perspective.</p>
-                </div>
-              ) : (
-                comments.map((comment) => (
-                  <motion.div
-                    key={comment.id}
-                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                    className="group"
-                  >
-                    <div className="flex gap-3 sm:gap-4">
-                      <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
-                        {comment.authorName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 justify-between">
-                          <div className="flex items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-sm font-semibold text-zinc-900 dark:text-white">{comment.authorName}</span>
-                            {comment.authorRole === "Journalist" && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-red-600/10 text-red-600 font-bold uppercase tracking-wider">
-                                Verified
-                              </span>
-                            )}
-                            <span className="text-xs text-zinc-500">
-                              {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                            </span>
-                          </div>
-                          {(user?.role === "admin" || user?.name === comment.authorName) && (
-                            <button
-                              onClick={() => handleDeleteComment(comment.id)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-600 transition-all focus:opacity-100"
-                              title="Delete comment"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                        <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
-                          {comment.content}
-                        </p>
-                        <div className="mt-3 flex items-center gap-1 text-xs text-zinc-500">
-                          <button className="flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 -ml-2">
-                            <Heart className="h-3.5 w-3.5" />
-                            <span className="tabular-nums">0</span>
-                          </button>
-                          <button className="flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100">
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            Reply
-                          </button>
-                        </div>
-                      </div>
+                {/* Comments list */}
+                <div className="mt-10 space-y-8">
+                  {comments.length === 0 ? (
+                    <div className="p-10 text-center rounded-2xl border border-zinc-200 dark:border-zinc-800 border-dashed">
+                      <MessageCircle className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">No comments yet. Be the first to share your perspective.</p>
                     </div>
-                  </motion.div>
-                ))
-              )}
-            </div>
-          </motion.section>
+                  ) : (
+                    comments.map((comment) => (
+                      <motion.div
+                        key={comment.id}
+                        initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                        className="group"
+                      >
+                        <div className="flex gap-3 sm:gap-4">
+                          <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
+                            {comment.authorName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 justify-between">
+                              <div className="flex items-baseline gap-x-2 gap-y-0.5">
+                                <span className="text-sm font-semibold text-zinc-900 dark:text-white">{comment.authorName}</span>
+                                {comment.authorRole === "Journalist" && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-red-600/10 text-red-600 font-bold uppercase tracking-wider">
+                                    Verified
+                                  </span>
+                                )}
+                                <span className="text-xs text-zinc-500">
+                                  {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                </span>
+                              </div>
+                              {(user?.role === "admin" || user?.name === comment.authorName) && (
+                                <button
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-600 transition-all focus:opacity-100"
+                                  title="Delete comment"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
+                              {comment.content}
+                            </p>
+                            <div className="mt-3 flex items-center gap-1 text-xs text-zinc-500">
+                              <button className="flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 -ml-2">
+                                <Heart className="h-3.5 w-3.5" />
+                                <span className="tabular-nums">0</span>
+                              </button>
+                              <button className="flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100">
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                Reply
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </motion.section>
             </div>
 
             {/* Right Sidebar - About the Author */}
@@ -635,10 +653,14 @@ export default function PostDetailPage() {
               <div className="sticky top-24 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6">
                 <h3 className="font-serif text-lg font-semibold text-zinc-900 dark:text-white mb-4">About the Author</h3>
                 <div className="flex items-center gap-4 mb-4">
-                  <Link to={`/profiles/${post.authorId}`} className="flex h-16 w-16 items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
-                    <span className="font-serif text-2xl font-semibold">
-                      {post.authorName.charAt(0).toUpperCase()}
-                    </span>
+                  <Link to={`/profiles/${post.authorId}`} className="flex h-16 w-16 overflow-hidden items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
+                    {authorAvatar ? (
+                      <img src={authorAvatar} alt={post.authorName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="font-serif text-2xl font-semibold">
+                        {post.authorName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </Link>
                   <div>
                     <Link to={`/profiles/${post.authorId}`} className="font-semibold text-zinc-900 dark:text-white text-lg hover:text-red-600 dark:hover:text-red-400 transition-colors">
@@ -648,35 +670,41 @@ export default function PostDetailPage() {
                   </div>
                 </div>
 
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
+                  {authorProfile?.bio || "Investigative reporting focused on uncovering misinformation, systemic fraud, and maintaining accountability in public information."}
+                </p>
+
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
-                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">12.4K</p>
+                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.followers ?? "-"}</p>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Followers</p>
                   </div>
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
-                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">47</p>
+                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.totalPosts ?? "-"}</p>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Reports</p>
                   </div>
                 </div>
-                
-                <Button
-                  onClick={handleFollowToggle}
-                  disabled={isFollowLoading || (!!user && post.authorId === user.id)}
-                  className={cn(
-                    "w-full rounded-full font-semibold transition-all",
-                    isFollowing
-                      ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400 border border-zinc-200 dark:border-zinc-700"
-                      : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800"
-                  )}
-                >
-                  {isFollowLoading ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : null}
-                  {isFollowing ? `Unfollow ${post.authorName.split(' ')[0]}` : `Follow ${post.authorName.split(' ')[0]}`}
-                </Button>
+
+                {user && post.authorId !== user.id && (
+                  <Button
+                    onClick={handleFollowToggle}
+                    disabled={isFollowLoading}
+                    className={cn(
+                      "w-full rounded-full font-semibold transition-all",
+                      isFollowing
+                        ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400 border border-zinc-200 dark:border-zinc-700"
+                        : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800"
+                    )}
+                  >
+                    {isFollowLoading ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                    ) : null}
+                    {isFollowing ? `Unfollow ${post.authorName.split(' ')[0]}` : `Follow ${post.authorName.split(' ')[0]}`}
+                  </Button>
+                )}
 
                 {/* Report button — only for readers who are not the author */}
-                {user && post.authorId !== user.id && (
+                {isReader && user && post.authorId !== user.id && (
                   <button
                     onClick={handleOpenReport}
                     className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-full text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 border border-transparent hover:border-amber-200 dark:hover:border-amber-800 transition-all"

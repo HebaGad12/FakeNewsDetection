@@ -11,9 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { journalistService } from "@/services/journalistService";
 import userService from "@/services/userService";
+import organizationService from "@/services/organizationService";
 import { toast } from "sonner";
 
 interface EditProfileDialogProps {
@@ -27,6 +29,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    bio: "",
   });
   const [pictureFile, setPictureFile] = useState<File | null>(null);
   const [picturePreview, setPicturePreview] = useState<string | null>(null);
@@ -38,6 +41,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       setFormData({
         name: user.name || "",
         email: user.email || "",
+        bio: (user as any).bio || "",
       });
       setPictureFile(null);
       setPicturePreview(null);
@@ -73,7 +77,11 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
     // Upload immediately to the server
     if (user?.id) {
       try {
-        await userService.uploadPicture(user.id, file);
+        if (user.role === "Organization" || user.role === "organization") {
+          await organizationService.uploadProfilePicture(file);
+        } else {
+          await userService.uploadPicture(user.id, file);
+        }
         // Create a blob URL from the file for instant display everywhere
         const localBlobUrl = URL.createObjectURL(file);
         await refreshAvatar(localBlobUrl);
@@ -105,6 +113,8 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       // Use appropriate service based on user role
       if (user?.role === "journalist") {
         await journalistService.editProfile(formData);
+      } else if (user?.role === "Organization" || user?.role === "organization") {
+        await organizationService.updateProfile({ name: formData.name, email: formData.email, bio: formData.bio });
       } else {
         await userService.editProfile(formData);
       }
@@ -115,6 +125,9 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       if (user) {
         user.name = formData.name;
         user.email = formData.email;
+        if (user.role === "Organization" || user.role === "organization") {
+          (user as any).bio = formData.bio;
+        }
       }
       
       onOpenChange(false);
@@ -141,6 +154,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       setFormData({
         name: user.name || "",
         email: user.email || "",
+        bio: (user as any).bio || "",
       });
     }
     setPictureFile(null);
@@ -218,6 +232,20 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
                 disabled={isLoading}
               />
             </div>
+            {(user?.role === "Organization" || user?.role === "organization") && (
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio (Optional)</Label>
+                <Textarea
+                  id="bio"
+                  placeholder="Tell us about your organization..."
+                  value={formData.bio}
+                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  disabled={isLoading}
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button

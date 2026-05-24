@@ -1909,6 +1909,173 @@ const DonationsTab = () => {
   );
 };
 
+// ============================================================================
+// Tab: Reports - Enhanced Typography
+// ============================================================================
+
+const ReportsTab = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [postReports, setPostReports] = useState<PostReportSummary[]>([]);
+  const [selectedPostReport, setSelectedPostReport] = useState<PostReportSummary | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const reports = await postReportsService.getPostReports();
+      setPostReports(reports);
+    } catch {
+      toast.error("Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openPostReportDetails = async (postId: string) => {
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setSelectedPostReport(null);
+    try {
+      const details = await postReportsService.getPostReportById(postId);
+      setSelectedPostReport(details);
+    } catch {
+      toast.error("Failed to load post report details");
+      setSelectedPostReport(null);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
+
+  const reportedPosts = postReports.filter(
+    (report) => report.totalReports > 0 || report.reports.length > 0
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Posts reported by users</p>
+        <Button variant="outline" size="default" onClick={() => void loadReports()} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-lg text-foreground">Reported Posts</h3>
+          <span className="text-sm text-muted-foreground">Total: {reportedPosts.length}</span>
+        </div>
+
+        {loading && reportedPosts.length === 0 ? (
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">Loading reported posts...</div>
+        ) : reportedPosts.length === 0 ? (
+          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No reported posts found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/60 text-left text-muted-foreground">
+                  <th className="py-3 pr-3 font-semibold text-sm">Post ID</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Title</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Author ID</th>
+                  <th className="py-3 pr-3 font-semibold text-sm">Reports</th>
+                  <th className="py-3 font-semibold text-sm">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportedPosts.map((report) => (
+                  <tr key={report.postId} className="border-b border-border/40">
+                    <td className="py-3 pr-3 font-semibold text-foreground">#{report.postId}</td>
+                    <td className="py-3 pr-3 text-foreground max-w-[300px] truncate" title={report.title}>
+                      {report.title}
+                    </td>
+                    <td className="py-3 pr-3 text-muted-foreground">{report.authorId}</td>
+                    <td className="py-3 pr-3">
+                      <Badge variant="secondary" className="text-xs">{report.totalReports}</Badge>
+                    </td>
+                    <td className="py-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void openPostReportDetails(report.postId)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Post Report Details</DialogTitle>
+            <DialogDescription className="text-sm">
+              {selectedPostReport ? `Reports submitted for post #${selectedPostReport.postId}` : "Report details"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailsLoading ? (
+            <div className="py-8 text-center text-muted-foreground text-sm">Loading details...</div>
+          ) : !selectedPostReport || selectedPostReport.reports.length === 0 ? (
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No report details found.</div>
+          ) : (
+            <div className="max-h-[420px] overflow-y-auto space-y-4 pr-1">
+              <div className="bg-muted/10 p-4 rounded-lg border border-border mb-4">
+                <p className="font-semibold text-sm mb-1">Author Details</p>
+                <p className="text-xs text-muted-foreground">Name: {selectedPostReport.authorName} ({selectedPostReport.authorId})</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Followers: {selectedPostReport.totalFollowers} | Published Articles: {selectedPostReport.totalArticles}
+                </p>
+              </div>
+              {selectedPostReport.reports.map((item: PostReportItem) => (
+                <div key={item.id} className="rounded-lg border border-border p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-bold text-foreground">Report #{item.id}</span>
+                    <span className="text-xs text-muted-foreground">Reporter: {item.reporterName}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">Role: {item.reporterRole}</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Reported at: {new Date(item.reportedAt).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-1 font-semibold">Reason</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/20 rounded-lg p-3">{item.reason || "No reason provided."}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedPostReport) return;
+                setDetailsOpen(false);
+                navigate(`/article/${selectedPostReport.postId}`);
+              }}
+              disabled={!selectedPostReport}
+            >
+              Go to Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 
 // ============================================================================
 // Main AdminDashboard

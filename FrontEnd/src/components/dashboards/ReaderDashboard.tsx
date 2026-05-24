@@ -124,11 +124,12 @@ const ReaderDashboard = () => {
 
   const handleUnfollow = async (targetId: string) => {
     try {
+      setFollowingJournos((prev) => prev.filter((j) => j.id !== targetId));
       await userService.unfollow(targetId);
       toast.success("Unfollowed successfully");
-      loadDashboardData();
     } catch (error) {
       toast.error("Failed to unfollow");
+      loadDashboardData();
     }
   };
 
@@ -397,7 +398,7 @@ const ReaderDashboard = () => {
                                     ? "bg-amber-100 text-amber-700"
                                     : "bg-rose-100 text-rose-700"
                                 )}>
-                                  {featuredPost.verificationStatus || "Pending"}
+                                  {featuredPost.verificationStatus === 1 ? "Verified" : featuredPost.verificationStatus === 2 ? "Questionable" : featuredPost.verificationStatus === 3 ? "Fake" : featuredPost.verificationStatus || "Pending"}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
                                   {featuredPost.tags?.[0] || "News"} • {Math.ceil(featuredPost.content.split(/\s+/).length / 200)} min read
@@ -1093,3 +1094,8 @@ const ReaderDashboard = () => {
 };
 
 export default ReaderDashboard;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setFollowingJournos(arg0: (prev: any) => any) {
+  throw new Error("Function not implemented.");
+}

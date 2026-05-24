@@ -644,7 +644,8 @@ const JournalistDashboard = () => {
   const [tasks, setTasks] = useState<JournalistTaskResponse[]>([]);
   const createSubmitRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
+  const loadDashboardData = () => {
+    setLoading(true);
     Promise.all([
       journalistService.getMe(),
       journalistService.getMyPosts(),
@@ -657,7 +658,6 @@ const JournalistDashboard = () => {
         setFollowing(fo);
         setFollowers(fl);
 
-        // Fetch communities created by this journalist
         if (p?.id) {
           communityService.getByJournalist(p.id).then(setMyCommunities).catch(() => {});
         }
@@ -666,6 +666,10 @@ const JournalistDashboard = () => {
 
     donationService.getMyWallet().then(setMyWallet).catch(() => {});
     journalistTaskService.getTasks().then(setTasks).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
 
   if (loading || !profile) {
@@ -1077,7 +1081,7 @@ const JournalistDashboard = () => {
 
         {activeTab === "create" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            {/* Page Header — matches CreateArticlePage exactly */}
+            {/* Page Header */}
             <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
               <div className="flex items-center gap-4">
                 <button
@@ -1098,7 +1102,13 @@ const JournalistDashboard = () => {
                 </Button>
               </div>
             </div>
-            <CreatePostForm onSuccess={() => journalistService.getMyPosts().then(setPosts)} submitRef={createSubmitRef} />
+            <CreatePostForm
+              onSuccess={() => {
+                loadDashboardData();
+                setActiveTab("archive");
+              }}
+              submitRef={createSubmitRef}
+            />
           </motion.div>
         )}
 

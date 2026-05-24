@@ -41,9 +41,9 @@ const mapRoleToUserRole = (role: string): UserRole => {
 };
 
 // Helper function to convert AuthResponse or UserProfile to User (without avatar — loaded separately)
-const mapAuthResponseToUser = (response: AuthResponse | UserProfile): User => {
+const mapAuthResponseToUser = (response: AuthResponse | UserProfile | any): User => {
   return {
-    id: response.userId,
+    id: response.userId || response.id,
     name: response.name,
     email: response.email,
     role: mapRoleToUserRole(response.role),
