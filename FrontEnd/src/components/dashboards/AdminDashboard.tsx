@@ -200,16 +200,34 @@ interface SideNavBarProps {
 const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: SideNavBarProps) => {
   const navigate = useNavigate();
 
-  const navItems = [
-    { id: "overview",       label: "Dashboard",       icon: TrendingUp    },
-    { id: "users",          label: "User Management", icon: Users         },
-    { id: "posts",          label: "Posts",           icon: FileText      },
-    { id: "journalists",    label: "Journalists",     icon: UserCheck     },
-    { id: "organizations",  label: "Organizations",   icon: Building2     },
-    { id: "reports",        label: "Reports",         icon: AlertTriangle },
-    { id: "wallets",        label: "Wallets",         icon: Wallet        },
-    { id: "donations",      label: "Donations",       icon: Send          },
-  ] as { id: Tab; label: string; icon: React.ElementType }[];
+  const navGroups = [
+    {
+      items: [
+        { id: "overview",      label: "Dashboard",       icon: TrendingUp  },
+      ],
+    },
+    {
+      label: "Content",
+      items: [
+        { id: "users",         label: "User Management", icon: Users       },
+        { id: "posts",         label: "Posts",           icon: FileText    },
+      ],
+    },
+    {
+      label: "Verification",
+      items: [
+        { id: "journalists",   label: "Journalists",     icon: UserCheck   },
+        { id: "organizations", label: "Organizations",   icon: Building2   },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        { id: "wallets",       label: "Wallets",         icon: Wallet      },
+        { id: "donations",     label: "Donations",       icon: Send        },
+      ],
+    },
+  ] as { label?: string; items: { id: Tab; label: string; icon: React.ElementType }[] }[];
 
   return (
     <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-50 bg-[#0f172a] border-r border-white/5 shadow-2xl transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
@@ -242,36 +260,52 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
       </div>
 
       {/* ── Nav Items ── */}
-      <nav className="flex-grow flex flex-col gap-0.5 px-3 py-4 overflow-y-auto">
-        <p className="text-white/20 text-[10px] font-mono uppercase tracking-[0.18em] px-2 mb-3">Navigation</p>
-        {navItems.map(({ id, label, icon: Icon }) => {
-          const isActive = activeTab === id;
-          return (
-            <button
-              key={id}
-              onClick={() => onTabChange(id)}
-              className={cn(
-                "group relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
-                isActive
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
-                  : "text-white/45 hover:text-white hover:bg-white/6"
-              )}
-            >
-              {/* active left accent bar */}
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
-              )}
-              <Icon className={cn(
-                "h-4 w-4 flex-shrink-0 transition-colors",
-                isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
-              )} />
-              <span className="flex-1 text-left text-sm">{label}</span>
-              {isActive && (
-                <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />
-              )}
-            </button>
-          );
-        })}
+      <nav className="flex-grow flex flex-col gap-0 px-3 py-4 overflow-y-auto">
+        {navGroups.map((group, gi) => (
+          <div key={gi}>
+            {/* divider + group label (skip for first group) */}
+            {gi > 0 && (
+              <div className="my-3 px-2 flex items-center gap-2">
+                <div className="flex-1 h-px bg-white/8" />
+                {group.label && (
+                  <span className="text-white/20 text-[9px] font-mono uppercase tracking-[0.18em] flex-shrink-0">
+                    {group.label}
+                  </span>
+                )}
+                <div className="flex-1 h-px bg-white/8" />
+              </div>
+            )}
+            <div className="flex flex-col gap-0.5">
+              {group.items.map(({ id, label, icon: Icon }) => {
+                const isActive = activeTab === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onTabChange(id)}
+                    className={cn(
+                      "group relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                      isActive
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                        : "text-white/45 hover:text-white hover:bg-white/6"
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+                    )}
+                    <Icon className={cn(
+                      "h-4 w-4 flex-shrink-0 transition-colors",
+                      isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+                    )} />
+                    <span className="flex-1 text-left text-sm">{label}</span>
+                    {isActive && (
+                      <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* ── Footer Buttons ── */}
@@ -300,26 +334,232 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
 };
 
 // ============================================================================
+// Overview Reports Panel (embedded in Dashboard)
+// ============================================================================
+
+const OverviewReportsPanel = () => {
+  const navigate = useNavigate();
+  const [postReports, setPostReports] = useState<PostReportSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPostReport, setSelectedPostReport] = useState<PostReportSummary | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const reports = await postReportsService.getPostReports();
+      setPostReports(reports);
+    } catch {
+      toast.error("Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openPostReportDetails = async (postId: string) => {
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setSelectedPostReport(null);
+    try {
+      const details = await postReportsService.getPostReportById(postId);
+      setSelectedPostReport(details);
+    } catch {
+      toast.error("Failed to load report details");
+      setSelectedPostReport(null);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadReports(); }, [loadReports]);
+
+  const reportedPosts = postReports.filter(
+    (r) => r.totalReports > 0 || r.reports.length > 0
+  );
+
+  const getSeverityColor = (count: number) => {
+    if (count >= 5) return { bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800/50", badge: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300", icon: "bg-red-100 dark:bg-red-900/40 text-red-500", dot: "bg-red-500" };
+    if (count >= 3) return { bg: "bg-orange-50 dark:bg-orange-950/30", border: "border-orange-200 dark:border-orange-800/50", badge: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300", icon: "bg-orange-100 dark:bg-orange-900/40 text-orange-500", dot: "bg-orange-500" };
+    return { bg: "bg-amber-50 dark:bg-amber-950/20", border: "border-amber-200 dark:border-amber-800/40", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300", icon: "bg-amber-100 dark:bg-amber-900/30 text-amber-500", dot: "bg-amber-400" };
+  };
+
+  return (
+    <>
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {reportedPosts.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+              {reportedPosts.length}
+            </span>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => void loadReports()}
+          disabled={loading}
+        >
+          <RefreshCw className={cn("h-3 w-3 mr-1", loading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 bg-muted/40 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : reportedPosts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-dashed border-border/60 bg-muted/20">
+          <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+          </div>
+          <p className="text-sm font-medium text-foreground">All clear!</p>
+          <p className="text-xs text-muted-foreground mt-0.5">No reported posts at the moment.</p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-0.5">
+          {reportedPosts.slice(0, 7).map((report) => {
+            const colors = getSeverityColor(report.totalReports);
+            return (
+              <motion.div
+                key={report.postId}
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className={cn(
+                  "group relative flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-150 cursor-pointer",
+                  colors.bg, colors.border,
+                  "hover:shadow-sm hover:scale-[1.01]"
+                )}
+                onClick={() => void openPostReportDetails(report.postId)}
+              >
+                {/* severity dot */}
+                <span className={cn("absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full", colors.dot)} />
+
+                {/* icon */}
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", colors.icon)}>
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+
+                {/* text */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate leading-tight" title={report.title}>
+                    {report.title}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
+                    ID: {report.postId.slice(0, 10)}…
+                  </p>
+                </div>
+
+                {/* badge + eye */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-full", colors.badge)}>
+                    {report.totalReports}×
+                  </span>
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </motion.div>
+            );
+          })}
+
+          {reportedPosts.length > 7 && (
+            <p className="text-center text-[11px] text-muted-foreground pt-1">
+              +{reportedPosts.length - 7} more flagged posts
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold leading-tight">Post Report Details</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  {selectedPostReport
+                    ? `${selectedPostReport.reports.length} report(s) for post #${selectedPostReport.postId}`
+                    : "Loading report details…"}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {detailsLoading ? (
+            <div className="space-y-3 py-4">
+              {[1, 2].map((i) => <div key={i} className="h-24 bg-muted/40 rounded-xl animate-pulse" />)}
+            </div>
+          ) : !selectedPostReport || selectedPostReport.reports.length === 0 ? (
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-xl p-5 text-center">
+              No report details found.
+            </div>
+          ) : (
+            <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
+              {selectedPostReport.reports.map((item: PostReportItem, idx: number) => (
+                <div key={item.id} className="rounded-xl border border-border bg-card p-4">
+                  {/* report header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-300 text-[10px] font-bold flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <span className="text-sm font-bold text-foreground">{item.reporterName}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{item.reporterRole}</Badge>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(item.reportedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  </div>
+                  {/* reason */}
+                  <div className="bg-muted/30 rounded-lg px-3 py-2.5">
+                    <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Reason</p>
+                    <p className="text-sm text-foreground leading-relaxed">{item.reason || "No reason provided."}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>Close</Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => {
+                if (!selectedPostReport) return;
+                setDetailsOpen(false);
+                navigate(`/article/${selectedPostReport.postId}`);
+              }}
+              disabled={!selectedPostReport}
+            >
+              <Eye className="h-4 w-4 mr-1.5" />
+              Go to Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+// ============================================================================
 // Tab: Overview - Enhanced Typography
 // ============================================================================
 
-const OverviewTab = ({ stats, isSidebarOpen, setIsSidebarOpen }: { stats: AdminDashboardStats | null, isSidebarOpen: boolean, setIsSidebarOpen: (v: boolean) => void }) => {
+const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
   if (!stats)
     return <div className="py-20 text-center text-muted-foreground text-base">Loading stats...</div>;
 
   return (
-    <div className="space-y-12">
-      <header className="mb-12">
-        <div className="flex justify-between items-end">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 mr-3 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
-              <Menu className="w-5 h-5" />
-            </button>
-          <div>
-            <h2 className="font-headline tracking-tight text-5xl font-bold text-on-surface">The Veritas Archive</h2>
-            <p className="font-label text-base text-outline-variant mt-3 tracking-wide uppercase">System Administration Portal</p>
-          </div>
-        </div>
-      </header>
+    <div className="space-y-10">
 
       <div className="grid grid-cols-12 gap-8">
         <div className="col-span-12 lg:col-span-7">
@@ -372,30 +612,8 @@ const OverviewTab = ({ stats, isSidebarOpen, setIsSidebarOpen }: { stats: AdminD
         </div>
 
         <div className="col-span-12 lg:col-span-5">
-          <h3 className="font-headline text-2xl font-bold mb-6">Moderation Queue</h3>
-          <div className="space-y-4">
-            <div className="p-6 bg-surface-container-lowest border-l-4 border-tertiary shadow-sm rounded-r-lg">
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-label text-[11px] font-bold text-tertiary tracking-widest uppercase">Journalists</span>
-                <span className="font-label text-[11px] text-outline">Pending</span>
-              </div>
-              <h5 className="font-body font-bold text-base mb-2">{stats.pendingJournalistRequests} verification requests</h5>
-              <div className="flex gap-2 mt-4">
-                <button className="px-4 py-1.5 bg-tertiary text-on-tertiary font-label text-[11px] font-bold uppercase tracking-widest rounded-md">Review</button>
-              </div>
-            </div>
-            
-            <div className="p-6 bg-surface-container-lowest border-l-4 border-outline-variant shadow-sm rounded-r-lg">
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-label text-[11px] font-bold text-outline tracking-widest uppercase">Organizations</span>
-                <span className="font-label text-[11px] text-outline">Pending</span>
-              </div>
-              <h5 className="font-body font-bold text-base mb-2">{stats.pendingOrganizationRequests} pending registrations</h5>
-              <div className="flex gap-2 mt-4">
-                <button className="px-4 py-1.5 bg-on-surface text-surface font-label text-[11px] font-bold uppercase tracking-widest rounded-md">Review</button>
-              </div>
-            </div>
-          </div>
+          <h3 className="font-headline text-2xl font-bold mb-6">Reported Posts</h3>
+          <OverviewReportsPanel />
         </div>
       </div>
     </div>
@@ -1691,172 +1909,12 @@ const DonationsTab = () => {
   );
 };
 
-// ============================================================================
-// Tab: Reports - Enhanced Typography
-// ============================================================================
-
-const ReportsTab = () => {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [postReports, setPostReports] = useState<PostReportSummary[]>([]);
-  const [selectedPostReport, setSelectedPostReport] = useState<PostReportSummary | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-
-  const loadReports = useCallback(async () => {
-    setLoading(true);
-    try {
-      const reports = await postReportsService.getPostReports();
-      setPostReports(reports);
-    } catch {
-      toast.error("Failed to load reports");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const openPostReportDetails = async (postId: string) => {
-    setDetailsOpen(true);
-    setDetailsLoading(true);
-    setSelectedPostReport(null);
-    try {
-      const details = await postReportsService.getPostReportById(postId);
-      setSelectedPostReport(details);
-    } catch {
-      toast.error("Failed to load post report details");
-      setSelectedPostReport(null);
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadReports();
-  }, [loadReports]);
-
-  const reportedPosts = postReports.filter(
-    (report) => report.totalReports > 0 || report.reports.length > 0
-  );
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Posts reported by users</p>
-        <Button variant="outline" size="default" onClick={() => void loadReports()} disabled={loading}>
-          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
-          Refresh
-        </Button>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-lg text-foreground">Reported Posts</h3>
-          <span className="text-sm text-muted-foreground">Total: {reportedPosts.length}</span>
-        </div>
-
-        {loading && reportedPosts.length === 0 ? (
-          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">Loading reported posts...</div>
-        ) : reportedPosts.length === 0 ? (
-          <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No reported posts found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/60 text-left text-muted-foreground">
-                  <th className="py-3 pr-3 font-semibold text-sm">Post ID</th>
-                  <th className="py-3 pr-3 font-semibold text-sm">Title</th>
-                  <th className="py-3 pr-3 font-semibold text-sm">Author ID</th>
-                  <th className="py-3 pr-3 font-semibold text-sm">Reports</th>
-                  <th className="py-3 font-semibold text-sm">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportedPosts.map((report) => (
-                  <tr key={report.postId} className="border-b border-border/40">
-                    <td className="py-3 pr-3 font-semibold text-foreground">#{report.postId}</td>
-                    <td className="py-3 pr-3 text-foreground max-w-[300px] truncate" title={report.title}>
-                      {report.title}
-                    </td>
-                    <td className="py-3 pr-3 text-muted-foreground">{report.authorId}</td>
-                    <td className="py-3 pr-3">
-                      <Badge variant="secondary" className="text-xs">{report.totalReports}</Badge>
-                    </td>
-                    <td className="py-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void openPostReportDetails(report.postId)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Post Report Details</DialogTitle>
-            <DialogDescription className="text-sm">
-              {selectedPostReport ? `Reports submitted for post #${selectedPostReport.postId}` : "Report details"}
-            </DialogDescription>
-          </DialogHeader>
-
-          {detailsLoading ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">Loading details...</div>
-          ) : !selectedPostReport || selectedPostReport.reports.length === 0 ? (
-            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5">No report details found.</div>
-          ) : (
-            <div className="max-h-[420px] overflow-y-auto space-y-4 pr-1">
-              {selectedPostReport.reports.map((item: PostReportItem) => (
-                <div key={item.id} className="rounded-lg border border-border p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-foreground">Report #{item.id}</span>
-                    <span className="text-xs text-muted-foreground">Reporter: {item.reporterName}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-2">Role: {item.reporterRole}</p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Reported at: {new Date(item.reportedAt).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-1 font-semibold">Reason</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/20 rounded-lg p-3">{item.reason || "No reason provided."}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
-              Close
-            </Button>
-            <Button
-              onClick={() => {
-                if (!selectedPostReport) return;
-                setDetailsOpen(false);
-                navigate(`/article/${selectedPostReport.postId}`);
-              }}
-              disabled={!selectedPostReport}
-            >
-              Go to Post
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
 
 // ============================================================================
 // Main AdminDashboard
 // ============================================================================
 
-type Tab = "overview" | "users" | "posts" | "journalists" | "organizations" | "reports" | "wallets" | "donations";
+type Tab = "overview" | "users" | "posts" | "journalists" | "organizations" | "wallets" | "donations";
 
 const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: TrendingUp },
@@ -1864,7 +1922,6 @@ const tabItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "posts", label: "Posts", icon: FileText },
   { id: "journalists", label: "Journalists", icon: UserCheck },
   { id: "organizations", label: "Organizations", icon: Building2 },
-  { id: "reports", label: "Reports", icon: AlertTriangle },
   { id: "wallets", label: "Wallets", icon: Wallet },
   { id: "donations", label: "Donations", icon: Send },
 ];
@@ -1890,26 +1947,57 @@ const AdminDashboard = () => {
     void fetchStats();
   }, []);
 
+  const tabLabel: Record<Tab, string> = {
+    overview: "Dashboard",
+    users: "User Management",
+    posts: "Posts",
+    journalists: "Journalists",
+    organizations: "Organizations",
+    wallets: "Wallets",
+    donations: "Donations",
+  };
+
   return (
     <div className="min-h-screen bg-background text-on-surface flex">
       <SideNavBar activeTab={activeTab} onTabChange={setActiveTab} user={user} onLogout={logout} isSidebarOpen={isSidebarOpen} />
 
-      <main className={cn("transition-all duration-300 p-8 w-full min-h-screen bg-background", isSidebarOpen ? "ml-64" : "ml-0")}>
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
-          {activeTab === "users" && <UsersTab />}
-          {activeTab === "posts" && <PostsTab />}
-          {activeTab === "journalists" && <JournalistsTab />}
-          {activeTab === "organizations" && <OrganizationsTab />}
-          {activeTab === "reports" && <ReportsTab />}
-          {activeTab === "wallets" && <WalletsTab />}
-          {activeTab === "donations" && <DonationsTab />}
-        </motion.div>
+      <main className={cn("transition-all duration-300 w-full min-h-screen bg-background flex flex-col", isSidebarOpen ? "ml-64" : "ml-0")}>
+
+        {/* ── Global Top Header ── */}
+        <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-sm border-b border-border/50 px-8 py-4 flex items-center gap-4">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-lg hover:bg-black/8 dark:hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-headline tracking-tight text-2xl font-bold text-on-surface leading-tight">
+              The Veritas Archive
+            </h2>
+            <p className="font-label text-[11px] text-outline-variant tracking-[0.18em] uppercase mt-0.5">
+              System Administration Portal · {tabLabel[activeTab]}
+            </p>
+          </div>
+        </header>
+
+        {/* ── Tab Content ── */}
+        <div className="flex-1 p-8">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} />}
+            {activeTab === "users" && <UsersTab />}
+            {activeTab === "posts" && <PostsTab />}
+            {activeTab === "journalists" && <JournalistsTab />}
+            {activeTab === "organizations" && <OrganizationsTab />}
+            {activeTab === "wallets" && <WalletsTab />}
+            {activeTab === "donations" && <DonationsTab />}
+          </motion.div>
+        </div>
       </main>
     </div>
   );
