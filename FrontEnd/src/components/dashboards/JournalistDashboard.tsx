@@ -51,7 +51,14 @@ import { Menu,
   Video,
   ClipboardList,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Bold,
+  Italic,
+  Heading2,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Quote,
  } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -113,7 +120,7 @@ function formatNum(n: number): string {
 
 // --- Sub-components ----------------------------------------------------------
 
-function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
+function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submitRef: React.MutableRefObject<(() => void) | null> }) {
   type SelectedMedia = {
     id: string;
     file: File;
@@ -124,6 +131,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [excerpt, setExcerpt] = useState("");
   const [tags, setTags] = useState("");
   const [globalCopyright, setGlobalCopyright] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -302,6 +310,9 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  // Expose handleSubmit to parent via ref
+  submitRef.current = handleSubmit;
+
   if (result) {
     const isApproved = result.moderationStatus?.toLowerCase() === "approved";
     const isRejected = result.moderationStatus?.toLowerCase() === "rejected";
@@ -355,70 +366,87 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">Title</label>
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Enter post title..."
-          className="bg-surface-container-lowest border-outline-variant/30 h-11"
-        />
-      </div>
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-sm font-label font-bold text-on-surface block">Content</label>
-          <button 
-            onClick={() => {
-              setShowAiAssistant(!showAiAssistant);
-              if (!showAiAssistant && content && !aiText) {
-                setAiText(content);
-              }
-            }}
-            className="text-xs flex items-center gap-1 font-semibold text-primary hover:text-primary-dim transition-colors"
-          >
-            <Zap className="w-3 h-3" />
-            AI Assistant
-          </button>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* ── Left Column ── */}
+      <div className="lg:col-span-2 space-y-6">
+        <div>
+          <Label htmlFor="inv-title" className="text-slate-700">Article Title *</Label>
+          <Input
+            id="inv-title"
+            placeholder="Enter a compelling headline..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 text-lg font-semibold h-14 rounded-lg border-slate-200 focus:border-red-600 focus:ring-0"
+          />
         </div>
-        
+
+        <div>
+          <Label htmlFor="inv-excerpt" className="text-slate-700">Excerpt / Summary</Label>
+          <Textarea
+            id="inv-excerpt"
+            placeholder="Write a brief summary..."
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            className="mt-1 rounded-lg border-slate-200 focus:border-red-600 focus:ring-0"
+            rows={3}
+          />
+        </div>
+
+        {/* Toolbar */}
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center gap-1 flex-wrap">
+          {[Bold, Italic, Heading2, LinkIcon, List, ListOrdered, Quote, ImageIcon].map((Icon, i) => (
+            <Button key={i} variant="ghost" size="icon" className="h-8 w-8 text-slate-500">
+              <Icon className="h-4 w-4" />
+            </Button>
+          ))}
+          <div className="ml-auto">
+            <button
+              onClick={() => {
+                setShowAiAssistant(!showAiAssistant);
+                if (!showAiAssistant && content && !aiText) setAiText(content);
+              }}
+              className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors px-2 py-1 rounded hover:bg-slate-200"
+            >
+              <Zap className="w-3 h-3" />
+              AI Assistant
+            </button>
+          </div>
+        </div>
+
+        {/* AI Assistant Panel */}
         {showAiAssistant && (
-          <div className="mb-3 p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col gap-3 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
-            <div className="flex justify-between items-center relative z-10">
-              <h4 className="text-sm font-bold flex items-center gap-2 text-on-surface">
-                <Shield className="w-4 h-4 text-primary" />
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col gap-3 relative overflow-hidden">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-bold flex items-center gap-2 text-slate-900">
+                <Shield className="w-4 h-4 text-slate-700" />
                 TruthTrack AI
               </h4>
-              <button onClick={() => setShowAiAssistant(false)} className="text-on-surface-variant hover:text-on-surface">
+              <button onClick={() => setShowAiAssistant(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            
-            <div className="flex gap-2 relative z-10">
-              <button 
+            <div className="flex gap-2">
+              <button
                 onClick={() => setAiMode("grammar")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${aiMode === 'grammar' ? 'bg-primary text-white' : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-high'}`}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${aiMode === "grammar" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-100"}`}
               >
                 Grammar Check
               </button>
-              <button 
+              <button
                 onClick={() => setAiMode("factcheck")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${aiMode === 'factcheck' ? 'bg-primary text-white' : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-high'}`}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${aiMode === "factcheck" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-100"}`}
               >
                 Fact Check
               </button>
             </div>
-            
             <Textarea
               value={aiText}
               onChange={(e) => setAiText(e.target.value)}
               placeholder="Paste text to analyze..."
               rows={3}
-              className="bg-surface-container-lowest border-outline-variant/30 relative z-10"
+              className="rounded-lg border-slate-200 focus:border-red-600 focus:ring-0"
             />
-            
-            <Button 
+            <Button
               onClick={async () => {
                 if (!aiText.trim()) return;
                 setAiLoading(true);
@@ -435,7 +463,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
               }}
               disabled={aiLoading || !aiText.trim()}
               size="sm"
-              className="relative z-10 w-full"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-full"
             >
               {aiLoading ? (
                 <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
@@ -443,10 +471,9 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
                 <><Search className="w-4 h-4 mr-2" /> Analyze Text</>
               )}
             </Button>
-            
             {aiResult && (
-              <div className="mt-2 p-3 bg-surface-container-lowest rounded-md border border-outline-variant/20 max-h-60 overflow-y-auto text-sm whitespace-pre-wrap relative z-10 font-body leading-relaxed">
-                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-outline-variant/20 font-bold text-primary">
+              <div className="mt-2 p-3 bg-white rounded-md border border-slate-200 max-h-60 overflow-y-auto text-sm whitespace-pre-wrap leading-relaxed text-slate-700">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100 font-bold text-slate-900">
                   <CheckCircle className="w-4 h-4" />
                   Analysis Result
                 </div>
@@ -455,141 +482,146 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
             )}
           </div>
         )}
-        
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Write your story..."
-          rows={showAiAssistant ? 4 : 8}
-          className="bg-surface-container-lowest border-outline-variant/30 transition-all duration-300"
-        />
-      </div>
-      <div>
-        <label className="text-sm font-label font-bold text-on-surface mb-1.5 block">
-          Category
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => (
-            <button
-              key={cat.name}
-              type="button"
-              onClick={() => setTags(cat.name)}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border",
-                tags === cat.name
-                  ? "bg-primary text-on-primary border-primary"
-                  : "bg-surface-container-lowest text-on-surface border-outline-variant/30 hover:bg-surface-container"
-              )}
-            >
-              <cat.icon className="w-3.5 h-3.5" />
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div className="border-t border-outline-variant/20 pt-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-label font-bold text-on-surface block">
-            Media Upload ({selectedMedia.length}/{MAX_MEDIA_ITEMS})
-          </label>
-          <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-primary"
-              checked={globalCopyright}
-              onChange={(e) => {
-                setGlobalCopyright(e.target.checked);
-                setSelectedMedia(prev => prev.map(m => (!m.isVideo ? { ...m, isCopyrighted: e.target.checked } : m)));
-              }}
-            />
-            Global Copyright (Images only)
-          </label>
+        <div>
+          <Label htmlFor="inv-content" className="text-slate-700">Article Content *</Label>
+          <Textarea
+            id="inv-content"
+            placeholder="Write your article content here..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="mt-1 min-h-[400px] font-mono rounded-lg border-slate-200 focus:border-red-600 focus:ring-0"
+          />
         </div>
 
-        {selectedMedia.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            {selectedMedia.map((item) => (
-              <div key={item.id} className="relative rounded-lg border border-outline-variant/30 bg-surface-container p-2 group flex flex-col">
-                <div className="relative w-full h-32 mb-2 bg-black/5 rounded-md overflow-hidden flex items-center justify-center">
-                  {item.isVideo ? (
-                    <video src={item.preview} className="w-full h-full object-cover" controls autoPlay muted loop />
-                  ) : (
-                    <img src={item.preview} alt={item.file.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                <label className="flex items-center gap-2 mt-auto text-xs text-on-surface cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="accent-primary disabled:opacity-50"
-                    checked={item.isCopyrighted}
-                    disabled={item.isVideo}
-                    onChange={(e) => {
-                      if (item.isVideo) return;
-                      setSelectedMedia(prev => prev.map(m => m.id === item.id ? { ...m, isCopyrighted: e.target.checked } : m));
-                    }}
-                  />
-                  Copyright this media
-                </label>
-                <button
-                  onClick={() => removeImage(item.id)}
-                  className="absolute top-3 right-3 p-1 bg-error text-on-error rounded-full hover:bg-error/80 transition-colors opacity-0 group-hover:opacity-100 z-10 shadow-md"
-                  type="button"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+        {error && (
+          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            {error}
           </div>
         )}
-
-        <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-            dragActive ? "border-primary bg-primary/5" : "border-outline hover:border-primary/50"
-          }`}
-        >
-          <input
-            type="file"
-            id="media-upload-form"
-            accept={[...ALLOWED_IMAGE_EXTS, ...ALLOWED_VIDEO_EXTS].join(",")}
-            onChange={handleFileInputChange}
-            className="hidden"
-            multiple
-          />
-          <label htmlFor="media-upload-form" className="cursor-pointer block">
-            <ImageIcon className="h-10 w-10 mx-auto text-on-surface-variant mb-2" />
-            <p className="text-xs text-on-surface-variant mb-1">Drag and drop media files, or</p>
-            <Button variant="outline" size="sm" type="button" onClick={() => document.getElementById("media-upload-form")?.click()}>
-              Browse Files
-            </Button>
-          </label>
-        </div>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 text-error text-sm font-label">
-          <AlertCircle className="h-4 w-4" />
-          {error}
+      {/* ── Right Column: Sidebar ── */}
+      <div className="space-y-6">
+        {/* Category */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <Label className="text-slate-700 mb-3 block">Category *</Label>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <Button
+                key={cat.name}
+                variant={tags === cat.name ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTags(cat.name)}
+                className={cn(
+                  "text-sm rounded-full gap-1.5 transition-all",
+                  tags === cat.name
+                    ? "bg-slate-900 hover:bg-slate-800 text-white border-slate-900"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <cat.icon className="w-3.5 h-3.5" />
+                {cat.name}
+              </Button>
+            ))}
+          </div>
         </div>
-      )}
-      <Button
-        onClick={handleSubmit}
-        disabled={loading || !title.trim() || !content.trim()}
-        className="w-full h-11 bg-primary text-on-primary hover:bg-primary/90 font-label font-bold uppercase tracking-widest text-xs"
-      >
-        {loading ? (
-          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <>
-            <Plus className="h-4 w-4 mr-2" />
-            Publish Post
-          </>
-        )}
-      </Button>
+
+        {/* Media Upload */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <Label className="text-slate-700">Media ({selectedMedia.length}/{MAX_MEDIA_ITEMS})</Label>
+            <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+              <input
+                type="checkbox"
+                className="accent-slate-700"
+                checked={globalCopyright}
+                onChange={(e) => {
+                  setGlobalCopyright(e.target.checked);
+                  setSelectedMedia((prev) => prev.map((m) => (!m.isVideo ? { ...m, isCopyrighted: e.target.checked } : m)));
+                }}
+              />
+              Global © (Images)
+            </label>
+          </div>
+
+          {selectedMedia.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {selectedMedia.map((item) => (
+                <div key={item.id} className="relative rounded-lg border border-slate-200 bg-slate-50 p-2 group flex flex-col">
+                  <div className="relative w-full h-28 mb-2 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center">
+                    {item.isVideo ? (
+                      <video src={item.preview} className="w-full h-full object-cover" muted />
+                    ) : (
+                      <img src={item.preview} alt={item.file.name} className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <label className="flex items-center gap-1.5 mt-auto text-xs text-slate-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="accent-slate-700 disabled:opacity-40"
+                      checked={item.isCopyrighted}
+                      disabled={item.isVideo}
+                      onChange={(e) => {
+                        if (item.isVideo) return;
+                        setSelectedMedia((prev) => prev.map((m) => (m.id === item.id ? { ...m, isCopyrighted: e.target.checked } : m)));
+                      }}
+                    />
+                    Copyright this media
+                  </label>
+                  <button
+                    onClick={() => removeImage(item.id)}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow"
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            className={cn(
+              "border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer",
+              dragActive ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-slate-400"
+            )}
+          >
+            <input
+              type="file"
+              id="media-upload-form"
+              accept={[...ALLOWED_IMAGE_EXTS, ...ALLOWED_VIDEO_EXTS].join(",")}
+              onChange={handleFileInputChange}
+              className="hidden"
+              multiple
+            />
+            <label htmlFor="media-upload-form" className="cursor-pointer block">
+              <ImageIcon className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-xs text-slate-400 mb-2">Drag and drop media files, or</p>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() => document.getElementById("media-upload-form")?.click()}
+                className="border-slate-300 text-slate-600 hover:bg-slate-50 rounded-full"
+              >
+                Browse Files
+              </Button>
+            </label>
+          </div>
+        </div>
+
+        {/* AI Credibility Note */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+          <h3 className="font-semibold text-slate-900 mb-2">AI Credibility Check</h3>
+          <p className="text-sm text-slate-500">Your article will be analyzed by our AI system for credibility scoring after submission.</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -610,6 +642,7 @@ const JournalistDashboard = () => {
   const [myCommunities, setMyCommunities] = useState<CommunityDto[]>([]);
   const [communitySearch, setCommunitySearch] = useState("");
   const [tasks, setTasks] = useState<JournalistTaskResponse[]>([]);
+  const createSubmitRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -753,7 +786,7 @@ const JournalistDashboard = () => {
 
       {/* Main Content Canvas */}
       <main className={cn("transition-all duration-300 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0", isSidebarOpen ? "md:ml-64" : "ml-0")}>
-        <header className="mb-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+        <header className={cn("mb-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6", activeTab === "create" && "hidden")}>
           <div className="flex items-start gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
               <Menu className="w-5 h-5" />
@@ -818,14 +851,7 @@ const JournalistDashboard = () => {
             <section className="bg-surface-container-low p-8 text-on-surface">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
                 <h2 className="font-headline text-2xl font-bold">Content Pipeline</h2>
-                <div className="flex gap-2">
-                  <button className="bg-surface-container-lowest text-on-surface text-xs font-label uppercase font-bold py-2 px-4 flex items-center gap-2 hover:bg-surface-container-high transition-colors">
-                    <Filter className="w-4 h-4" />Filter
-                  </button>
-                  <button className="bg-surface-container-lowest text-on-surface text-xs font-label uppercase font-bold py-2 px-4 flex items-center gap-2 hover:bg-surface-container-high transition-colors">
-                    <Download className="w-4 h-4" />Export
-                  </button>
-                </div>
+                
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -1050,8 +1076,29 @@ const JournalistDashboard = () => {
         )}
 
         {activeTab === "create" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface-container-low p-8">
-             <CreatePostForm onSuccess={() => journalistService.getMyPosts().then(setPosts)} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {/* Page Header — matches CreateArticlePage exactly */}
+            <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setActiveTab("dashboard")}
+                  className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowDownLeft className="h-5 w-5 text-slate-500" />
+                </button>
+                <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900">Create New Article</h1>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => createSubmitRef.current?.()}
+                  className="bg-slate-900 hover:bg-slate-800 rounded-full"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {user?.organization ? "Submit for Review" : "Publish"}
+                </Button>
+              </div>
+            </div>
+            <CreatePostForm onSuccess={() => journalistService.getMyPosts().then(setPosts)} submitRef={createSubmitRef} />
           </motion.div>
         )}
 
