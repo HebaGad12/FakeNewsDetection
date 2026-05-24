@@ -65,6 +65,8 @@ export interface OrgAnalyticsResponse {
 }
 
 export interface OrgWalletResponse {
+  totalDebit: number;
+  totalCredit: number;
   walletId: string;
   organizationId: string;
   organizationName: string;
