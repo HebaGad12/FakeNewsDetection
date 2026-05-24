@@ -56,7 +56,9 @@ export function OrganizationTasksPage({
   onRefresh,
   onCreate,
 }: { 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   user: any; 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   journalists: any[]; 
   refreshKey?: number; 
   onRefresh?: () => void; 

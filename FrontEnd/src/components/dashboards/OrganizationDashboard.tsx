@@ -454,15 +454,14 @@ function ReviewPostModal({
           <Button
             onClick={() => handleReview(false)}
             disabled={loading}
-            variant="outline"
-            className="flex-1 h-10 border-tertiary-fixed/30 text-tertiary-fixed hover:bg-tertiary-fixed/10"
+            className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white border-0"
           >
             <X className="h-4 w-4 mr-1.5" /> Reject
           </Button>
           <Button
             onClick={() => handleReview(true)}
             disabled={loading}
-            className="flex-1 h-10 bg-secondary hover:bg-secondary-dim text-white"
+            className="flex-1 h-10 bg-green-600 hover:bg-green-700 text-white border-0"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
