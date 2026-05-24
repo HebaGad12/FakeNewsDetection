@@ -24,7 +24,6 @@ import { Footer } from "@/components/Footer";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
 import { ReadingProgress } from "@/components/ReadingProgress";
 import { ActionBar } from "@/components/ActionBar";
-import { StoryGallery } from "@/components/StoryGallery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -88,6 +87,9 @@ export default function PostDetailPage() {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
   const {
     isLiked, likesCount, toggleLike, addComment, deleteComment,
     isLiking, isCommenting, setIsLiked, setLikesCount,
@@ -109,12 +111,19 @@ export default function PostDetailPage() {
             const userHasLiked = await postsService.hasUserLikedPost(id);
             setIsLiked(userHasLiked);
           } catch { setIsLiked(false); }
+          // Check follow status by fetching the following list and seeing if author is in it
+          if (user) {
+            try {
+              const following = await userService.getFollowing();
+              setIsFollowing(following.some((f) => f.id === fetchedPost.authorId));
+            } catch { setIsFollowing(false); }
+          }
         }
       } catch { setError("Failed to load post. Please try again later."); setPost(null); }
       finally { setIsLoading(false); }
     };
     if (id) loadPost();
-  }, [id, setLikesCount, setIsLiked]);
+  }, [id, setLikesCount, setIsLiked, user]);
 
   const handleAddComment = async () => {
     if (!commentInput.trim()) return;
@@ -169,6 +178,32 @@ export default function PostDetailPage() {
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || "Failed to submit report.");
     } finally { setIsSubmittingReport(false); }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!post || !user) {
+      toast.error("Please sign in to follow authors.");
+      navigate("/login");
+      return;
+    }
+    if (post.authorId === user.id) return;
+    setIsFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await userService.unfollow(post.authorId);
+        setIsFollowing(false);
+        toast.success(`Unfollowed ${post.authorName.split(" ")[0]}`);
+      } else {
+        await userService.follow(post.authorId);
+        setIsFollowing(true);
+        toast.success(`Now following ${post.authorName.split(" ")[0]}`);
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update follow status.");
+    } finally {
+      setIsFollowLoading(false);
+    }
   };
 
   const isReader = user?.role?.toLowerCase() === "reader" || user?.role?.toLowerCase() === "regularuser";
@@ -239,29 +274,43 @@ export default function PostDetailPage() {
           className="w-full flex-1"
         >
           {/* HERO */}
-          <section className="relative h-[60vh] min-h-[460px] w-full overflow-hidden mb-0">
+          <section className="relative w-full overflow-hidden mb-0 bg-black">
             {post.media && post.media.length > 0 ? (
-              <img
-                src={postsService.getImageUrl(post.media[0].path)}
-                alt={post.title}
-                className="absolute inset-0 h-full w-full object-cover animate-in fade-in zoom-in duration-1000"
-              />
+              <>
+                {/* blurred bg fill for letterbox areas */}
+                <div
+                  className="absolute inset-0 scale-110"
+                  style={{
+                    backgroundImage: `url(${postsService.getImageUrl(post.media[0].path)})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    filter: "blur(24px) brightness(0.35)",
+                  }}
+                />
+                {/* main image — fully visible, no cropping */}
+                <img
+                  src={postsService.getImageUrl(post.media[0].path)}
+                  alt={post.title}
+                  className="relative mx-auto block max-h-[75vh] w-auto max-w-full object-contain animate-in fade-in duration-700"
+                  style={{ minHeight: "340px" }}
+                />
+              </>
             ) : (
-              <div className="absolute inset-0 h-full w-full bg-zinc-900 dark:bg-black" />
+              <div className="h-[60vh] min-h-[460px] w-full bg-zinc-900 dark:bg-black" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-white/20 dark:from-zinc-950 dark:via-zinc-950/80 dark:to-zinc-950/20" />
-            <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-transparent to-transparent dark:from-zinc-950/70" />
+            {/* gradient at bottom for text readability */}
+            <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/80 to-transparent" />
 
-            <div className="relative mx-auto flex h-full max-w-5xl flex-col justify-end px-4 pb-10 sm:px-6 sm:pb-12">
+            <div className="absolute bottom-0 left-0 right-0 mx-auto flex max-w-5xl flex-col justify-end px-4 pb-10 sm:px-6 sm:pb-12">
               {post.tags && post.tags.length > 0 && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 fill-mode-both">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-red-600/40 bg-red-600/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+                  <span className="inline-flex items-center gap-2 rounded-full border border-red-400/50 bg-red-600/20 backdrop-blur-sm px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
                     {post.tags[0]}
                   </span>
                 </div>
               )}
-              <h1 className="mt-6 max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-zinc-900 dark:text-white animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both sm:text-5xl md:text-6xl">
+              <h1 className="mt-4 max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white drop-shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both sm:text-5xl md:text-6xl">
                 {post.title}
               </h1>
             </div>
@@ -348,14 +397,97 @@ export default function PostDetailPage() {
 
               {/* Media Gallery */}
               {post.media && post.media.length > 0 && (
-                <StoryGallery 
-                  images={post.media.map(m => ({
-                    src: postsService.getImageUrl(m.path),
-                    alt: post.title || "Post media",
-                    caption: post.title,
-                    credit: post.authorName
-                  }))} 
-                />
+                <div className="mb-10 select-none">
+                  {/* Single image */}
+                  {post.media.length === 1 && (
+                    <div
+                      className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 cursor-zoom-in group"
+                      onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
+                    >
+                      <img
+                        src={postsService.getImageUrl(post.media[0].path)}
+                        alt={post.title}
+                        className="w-full max-h-[520px] object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <ZoomIn className="text-white opacity-0 group-hover:opacity-80 h-8 w-8 drop-shadow transition-opacity" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multiple images — slider */}
+                  {post.media.length > 1 && (
+                    <div className="space-y-3">
+                      {/* Main viewer */}
+                      <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 group">
+                        <div
+                          className="cursor-zoom-in"
+                          onClick={() => { setLightboxIndex(activeImageIndex); setLightboxOpen(true); }}
+                        >
+                          <AnimatePresence mode="wait">
+                            <motion.img
+                              key={activeImageIndex}
+                              initial={{ opacity: 0, scale: 0.98 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.98 }}
+                              transition={{ duration: 0.2 }}
+                              src={postsService.getImageUrl(post.media[activeImageIndex].path)}
+                              alt={`${post.title} — image ${activeImageIndex + 1}`}
+                              className="w-full max-h-[520px] object-cover"
+                            />
+                          </AnimatePresence>
+                          {/* zoom hint */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none">
+                            <ZoomIn className="text-white opacity-0 group-hover:opacity-70 h-8 w-8 drop-shadow transition-opacity" />
+                          </div>
+                        </div>
+
+                        {/* Prev arrow */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex - 1 + post.media.length) % post.media.length); }}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100 shadow-lg"
+                        >
+                          <ChevronLeft className="h-6 w-6" />
+                        </button>
+
+                        {/* Next arrow */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setActiveImageIndex((activeImageIndex + 1) % post.media.length); }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100 shadow-lg"
+                        >
+                          <ChevronRight className="h-6 w-6" />
+                        </button>
+
+                        {/* Counter badge */}
+                        <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                          {activeImageIndex + 1} / {post.media.length}
+                        </div>
+                      </div>
+
+                      {/* Thumbnails strip */}
+                      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        {post.media.map((m, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveImageIndex(i)}
+                            className={cn(
+                              "flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all",
+                              i === activeImageIndex
+                                ? "border-red-600 scale-105 shadow-md"
+                                : "border-transparent opacity-60 hover:opacity-100 hover:border-zinc-400"
+                            )}
+                          >
+                            <img
+                              src={postsService.getImageUrl(m.path)}
+                              alt={`Thumbnail ${i + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Article body — newspaper typography */}
@@ -516,10 +648,6 @@ export default function PostDetailPage() {
                   </div>
                 </div>
 
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
-                  Investigative reporting focused on uncovering misinformation, systemic fraud, and maintaining accountability in public information.
-                </p>
-
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
                     <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">12.4K</p>
@@ -531,9 +659,32 @@ export default function PostDetailPage() {
                   </div>
                 </div>
                 
-                <Button className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 rounded-full font-semibold">
-                  Follow {post.authorName.split(' ')[0]}
+                <Button
+                  onClick={handleFollowToggle}
+                  disabled={isFollowLoading || (!!user && post.authorId === user.id)}
+                  className={cn(
+                    "w-full rounded-full font-semibold transition-all",
+                    isFollowing
+                      ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400 border border-zinc-200 dark:border-zinc-700"
+                      : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800"
+                  )}
+                >
+                  {isFollowLoading ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : null}
+                  {isFollowing ? `Unfollow ${post.authorName.split(' ')[0]}` : `Follow ${post.authorName.split(' ')[0]}`}
                 </Button>
+
+                {/* Report button — only for readers who are not the author */}
+                {user && post.authorId !== user.id && (
+                  <button
+                    onClick={handleOpenReport}
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-full text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 border border-transparent hover:border-amber-200 dark:hover:border-amber-800 transition-all"
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    Report Article
+                  </button>
+                )}
               </div>
             </aside>
           </div>
