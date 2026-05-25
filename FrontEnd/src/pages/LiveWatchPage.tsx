@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, AlertCircle,
-  Radio, Users, MessageSquare, Send, User,
+  Radio, Users, MessageSquare, Send, User, Maximize,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -212,6 +212,7 @@ const LiveWatchPage = () => {
     if (!text || !liveId) return;
 
     await sendComment(liveId, text);
+    appendUniqueMessage(user?.name || "Viewer", text);
     setChatInput("");
   };
 
@@ -332,12 +333,24 @@ const LiveWatchPage = () => {
            * via: remoteVideoRef.current.srcObject = event.streams[0]
            * This happens automatically when the peer connection's ontrack fires.
            */}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full max-w-5xl aspect-video rounded-2xl object-cover bg-zinc-900 border border-white/10"
-          />
+          <div className="relative w-full max-w-5xl aspect-video group/video">
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full rounded-2xl object-cover bg-zinc-900 border border-white/10"
+            />
+            {/* Fullscreen Button */}
+            <div className="absolute top-4 right-4 z-30 pointer-events-auto opacity-0 hover:opacity-100 group-hover/video:opacity-100 transition-opacity">
+              <button 
+                onClick={() => remoteVideoRef.current?.requestFullscreen()}
+                className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
+                title="Fullscreen"
+              >
+                <Maximize className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Chat panel */}
@@ -365,11 +378,18 @@ const LiveWatchPage = () => {
                   </p>
                 ) : (
                   chatMessages.map((msg, i) => (
-                    <div key={i} className="space-y-0.5">
-                      <p className="text-xs font-semibold text-accent">
-                        {msg.senderName}
-                      </p>
-                      <p className="text-sm text-white/80 leading-snug">{msg.text}</p>
+                    <div key={i} className="flex items-start gap-2">
+                      <img
+                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(msg.senderName)}`}
+                        alt={msg.senderName}
+                        className="w-6 h-6 rounded-full border border-white/10 object-cover mt-0.5"
+                      />
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-semibold text-accent">
+                          {msg.senderName}
+                        </p>
+                        <p className="text-sm text-white/80 leading-snug">{msg.text}</p>
+                      </div>
                     </div>
                   ))
                 )}

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Radio, Play, Wifi, WifiOff,
+  Radio, Play, Wifi, WifiOff, Maximize,
   AlertCircle, Loader2, StopCircle, ArrowLeft, Users, MessageSquare, Send, Eye, CheckCircle2
 } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -225,6 +225,7 @@ const LivePage = () => {
     const text = chatInput.trim();
     if (!text || !activeStream?.liveId) return;
     await sendComment(activeStream.liveId, text);
+    appendUniqueMessage(user?.name || "Viewer", text);
     setChatInput("");
   };
 
@@ -447,7 +448,7 @@ const LivePage = () => {
               <div className="flex-grow lg:w-2/3 xl:w-[70%] flex flex-col">
                 {/* Video Player Section */}
                 <section className="relative bg-zinc-950 rounded-2xl overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{minHeight: "50vh"}}>
-                  <div className="aspect-video w-full flex items-center justify-center relative bg-black/50">
+                  <div className="group/video aspect-video w-full flex items-center justify-center relative bg-black/50">
                     
                     {/* WebRTC Video Mount */}
                     <video
@@ -456,6 +457,17 @@ const LivePage = () => {
                       playsInline
                       className={cn("w-full h-full object-cover transition-opacity duration-500", isWatching ? "opacity-100" : "opacity-0")}
                     />
+                    
+                    {/* Fullscreen Button */}
+                    <div className="absolute top-4 right-4 z-30 pointer-events-auto opacity-0 hover:opacity-100 group-hover/video:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => remoteVideoRef.current?.requestFullscreen()}
+                        className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
+                        title="Fullscreen"
+                      >
+                        <Maximize className="w-4 h-4" />
+                      </button>
+                    </div>
 
                     {/* Overlays if NOT active */}
                     {!isWatching && (
@@ -497,52 +509,6 @@ const LivePage = () => {
                   </div>
                 </section>
 
-                {/* Source Verification Info */}
-                <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-95 hover:opacity-100 transition-opacity">
-                  <div className="md:col-span-2 bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                      <CheckCircle2 className="w-6 h-6 text-primary fill-primary/10" />
-                      <h3 className="font-display text-xl text-foreground">Source Verification Info</h3>
-                    </div>
-                    <p className="font-sans text-muted-foreground leading-relaxed text-sm">
-                      This stream is securely attached via the <span className="font-semibold text-foreground">Veritas WebRTC Toolkit</span>. The source has been cross-referenced. Journalist identity is verified.
-                    </p>
-                    <div className="mt-6 grid grid-cols-3 gap-4">
-                      <div className="flex flex-col gap-1 p-3 bg-secondary/40 rounded-lg">
-                        <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">LATENCY</span>
-                        <span className="font-sans text-sm font-bold text-foreground">Sub-second</span>
-                      </div>
-                      <div className="flex flex-col gap-1 p-3 bg-secondary/40 rounded-lg">
-                        <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">ENCRYPTION</span>
-                        <span className="font-sans text-sm font-bold text-foreground">DTLS-SRTP E2EE</span>
-                      </div>
-                      <div className="flex flex-col gap-1 p-3 bg-secondary/40 rounded-lg">
-                        <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">RELIABILITY</span>
-                        <span className="font-sans text-sm font-bold text-primary">{isConnected ? "High Trust" : "Connecting..."}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-                    <h4 className="font-sans text-xs font-bold text-muted-foreground mb-4 tracking-widest uppercase flex items-center justify-between">
-                        Metadata <Radio className="w-3.5 h-3.5"/>
-                    </h4>
-                    <ul className="space-y-4">
-                      <li className="flex justify-between items-center border-b border-border/50 pb-2">
-                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">SIGNAL</span>
-                        <span className="text-[10px] font-bold font-mono text-foreground text-right">{isConnected ? "ACTIVE" : "PENDING"}</span>
-                      </li>
-                      <li className="flex justify-between items-center border-b border-border/50 pb-2">
-                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">LIVE ID</span>
-                        <span className="text-[10px] font-bold font-mono text-foreground tracking-tighter truncate max-w-[90px] text-right" title={activeStream.liveId}>{activeStream.liveId || "N/A"}</span>
-                      </li>
-                      <li className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">WEBRTC</span>
-                        <span className="text-[10px] font-bold font-mono text-primary text-right uppercase tracking-widest">{webRTCState}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </section>
-                
                 {/* Related Intel Grid right under the post if any exist */}
                 {liveSessions.length > 1 && (
                   <div className="mt-12 pt-8 border-t border-border">
@@ -599,9 +565,11 @@ const LivePage = () => {
                       chatMessages.map((msg, i) => (
                         <motion.div key={i} className="group" initial={{opacity:0, y:10}} animate={{opacity:1, y:0}}>
                           <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs font-bold text-primary">{msg.senderName.charAt(0).toUpperCase()}</span>
-                            </div>
+                            <img
+                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(msg.senderName)}`}
+                                alt={msg.senderName}
+                                className="w-8 h-8 rounded-full border border-primary/20 flex items-center justify-center flex-shrink-0 object-cover"
+                            />
                             <div className="flex-1 bg-muted/40 p-3 rounded-2xl rounded-tl-sm border border-border/50">
                                 <div className="flex justify-between items-center mb-1">
                                     <p className="text-[10px] font-bold text-foreground tracking-wide">

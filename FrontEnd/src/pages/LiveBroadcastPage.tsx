@@ -4,8 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic, MicOff, Video, VideoOff,
   StopCircle, Loader2, Users,
-  Radio, AlertCircle, MessageSquare, Send,
+  Radio, AlertCircle, MessageSquare, Send, Maximize,
 } from "lucide-react";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSignalR } from "@/hooks/useSignalR";
@@ -225,6 +227,7 @@ const LiveBroadcastPage = () => {
     if (!text || !liveId) return;
 
     await sendComment(liveId, text);
+    appendUniqueMessage(user?.name || "Journalist", text);
     setChatInput("");
   };
 
@@ -236,213 +239,226 @@ const LiveBroadcastPage = () => {
   // --------------------------------------------------------------------------
 
   return (
-    <div className="h-screen bg-black flex flex-col overflow-hidden">
-      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-3 bg-zinc-950 border-b border-white/10 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          {/* Live/connecting badge */}
-          {isLive ? (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span className="text-sm font-semibold text-white">LIVE</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10">
-              {isConnecting && <Loader2 className="h-3.5 w-3.5 text-white/60 animate-spin" />}
-              <span className="text-sm text-white/60">
-                {isConnecting ? "Starting…" : "Offline"}
-              </span>
-            </div>
-          )}
+    <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
+      <Header />
 
-          {/* SignalR indicator */}
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            isConnected ? "bg-green-500" : "bg-yellow-500"
-          )} title={isConnected ? "Connected" : "Reconnecting…"} />
-        </div>
-
-        {/* Viewer count */}
-        <div className="flex items-center gap-2 text-white/60 text-sm">
-          <Users className="h-4 w-4" />
-          <span>{viewerCount} watching</span>
-        </div>
-      </div>
-
-      {/* ── Main area ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Video */}
-        <div className="flex-1 relative flex items-center justify-center p-4 bg-black">
-          {/* Error overlay */}
+      <main className="flex-grow flex flex-col w-full">
+        {/* Error banner */}
+        <div className="max-w-[1440px] w-full mx-auto px-4 sm:px-6">
           <AnimatePresence>
             {error && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-20 px-6 text-center bg-black/90"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mt-4 flex items-center justify-between px-4 py-3 rounded-sm bg-destructive/10 border border-destructive/20 text-destructive text-sm"
               >
-                <AlertCircle className="h-12 w-12 text-destructive" />
-                <p className="text-white text-sm max-w-sm">{error}</p>
-                <Button
-                  variant="outline"
-                  onClick={() => setError(null)}
-                  className="text-white border-white/20"
-                >
-                  Dismiss
-                </Button>
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {error}
+                </div>
+                <button onClick={() => setError(null)} className="opacity-70 hover:opacity-100 uppercase text-[10px] tracking-widest font-bold">Close</button>
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
 
-          {/* Camera muted placeholder */}
-          {isCameraMuted && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 bg-zinc-900">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center">
-                  <VideoOff className="h-8 w-8 text-white/40" />
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 w-full flex-grow flex flex-col">
+          {/* Global Controls / Status */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border">
+              <h1 className="font-display text-3xl font-bold text-foreground">Editorial Intelligence</h1>
+              <div className="flex items-center gap-4">
+                <span className={cn("text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 px-3 py-1 rounded-sm border", isConnected ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/10" : "border-amber-500/30 text-amber-600 bg-amber-500/10")}>
+                  <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-emerald-500" : "bg-amber-500")} />
+                  {isConnected ? "Network Connected" : "Connecting..."}
+                </span>
+                
+                <div className="flex items-center gap-2">
+                  <Button variant="destructive" size="sm" onClick={handleEndLive} disabled={isEnding} className="h-8 text-xs uppercase tracking-widest font-bold">
+                    {isEnding ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <StopCircle className="h-3.5 w-3.5 mr-1.5" />}
+                    End Broadcast
+                  </Button>
                 </div>
-                <p className="text-white/40 text-sm">Camera is off</p>
               </div>
-            </div>
-          )}
+          </div>
 
-          {/* Local video — journalist's own camera preview */}
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted   // muted so the journalist doesn't hear their own echo
-            playsInline
-            className="w-full max-w-4xl aspect-video rounded-2xl object-cover bg-zinc-900 border border-white/10"
-          />
-        </div>
-
-        {/* Chat panel */}
-        <AnimatePresence>
-          {isChatOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="flex flex-col bg-zinc-950 border-l border-white/10 overflow-hidden"
-              style={{ minWidth: 0 }}
-            >
-              {/* Chat header */}
-              <div className="px-4 py-3 border-b border-white/10 flex-shrink-0">
-                <p className="text-sm font-medium text-white">Live Chat</p>
-                <p className="text-xs text-white/40">{chatMessages.length} messages</p>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-                {chatMessages.length === 0 ? (
-                  <p className="text-center text-xs text-white/30 mt-8">
-                    No messages yet
-                  </p>
-                ) : (
-                  chatMessages.map((msg, i) => (
-                    <div key={i} className="space-y-0.5">
-                      <p className="text-xs font-semibold text-accent">
-                        {msg.senderName}
-                      </p>
-                      <p className="text-sm text-white/80 leading-snug">
-                        {msg.text}
-                      </p>
+          <div className="flex flex-col lg:flex-row gap-8 mb-12">
+            {/* Left Column: Video */}
+            <div className="flex-grow lg:w-2/3 xl:w-[70%] flex flex-col">
+              <section className="relative bg-zinc-950 rounded-2xl overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{minHeight: "50vh"}}>
+                <div className="group/video aspect-video w-full flex items-center justify-center relative bg-black/50">
+                  
+                  {/* Camera muted placeholder & button */}
+                  {isCameraMuted && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-zinc-900 pointer-events-auto">
+                      <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4">
+                        <VideoOff className="h-8 w-8 text-white/40" />
+                      </div>
+                      <p className="text-white/40 text-sm mb-6">Camera is currently turned off</p>
+                      <Button onClick={toggleCamera} variant="outline" className="text-white border-white/20 hover:bg-white/10">
+                        <Video className="w-4 h-4 mr-2" />
+                        Re-open Camera
+                      </Button>
                     </div>
-                  ))
-                )}
+                  )}
+
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className={cn("w-full h-full object-cover transition-opacity duration-500", isLive ? "opacity-100" : "opacity-0")}
+                  />
+                  
+                  {/* Fullscreen Button */}
+                  <div className="absolute top-4 right-4 z-30 pointer-events-auto opacity-0 hover:opacity-100 group-hover/video:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => localVideoRef.current?.requestFullscreen()}
+                      className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
+                      title="Fullscreen"
+                    >
+                      <Maximize className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {!isLive && !isCameraMuted && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
+                      <div className="flex flex-col items-center justify-center gap-4 text-center">
+                          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                              <Radio className="h-8 w-8 text-white/40 animate-pulse" />
+                          </div>
+                          <p className="text-white/50 text-sm font-sans tracking-wide">Starting broadcast…</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none">
+                    <div className="flex justify-between items-start pointer-events-auto">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className={cn("text-white px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1.5", isLive ? "bg-destructive/90 backdrop-blur" : "bg-white/20 backdrop-blur")}>
+                          {isLive && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse-slow"></span>}
+                          {isLive ? "LIVE" : "STARTING"}
+                        </span>
+                        
+                        <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-2 py-1 rounded-md backdrop-blur-sm ml-2">
+                          <Users className="w-3.5 h-3.5 text-white/70" />
+                          <span className="text-[10px] text-white/90 font-bold">{viewerCount} watching</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 pointer-events-auto mt-auto flex items-end justify-between w-full">
+                      <div>
+                        <h1 className="font-display text-4xl sm:text-5xl text-white tracking-tight leading-tight filter drop-shadow-md">
+                            Your Live Broadcast
+                        </h1>
+                      </div>
+                      
+                      {/* Broadcaster controls */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={toggleMic}
+                          className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center transition-all",
+                            isMicMuted
+                              ? "bg-destructive text-white hover:bg-destructive/90"
+                              : "bg-white/20 text-white hover:bg-white/30 backdrop-blur"
+                          )}
+                          title={isMicMuted ? "Unmute Mic" : "Mute Mic"}
+                        >
+                          {isMicMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                        </button>
+                        <button
+                          onClick={toggleCamera}
+                          className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center transition-all",
+                            isCameraMuted
+                              ? "bg-destructive text-white hover:bg-destructive/90"
+                              : "bg-white/20 text-white hover:bg-white/30 backdrop-blur"
+                          )}
+                          title={isCameraMuted ? "Turn on Camera" : "Turn off Camera"}
+                        >
+                          {isCameraMuted ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* Right Column: Chat Box */}
+            <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-2xl border border-border shadow-lg overflow-hidden relative">
+              <div className="p-5 border-b border-border flex justify-between items-center bg-muted/20">
+                  <div>
+                      <h3 className="font-sans font-bold text-foreground flex items-center gap-2 text-xs">
+                          <MessageSquare className="w-4 h-4 text-primary"/> Live Chat
+                      </h3>
+                  </div>
+                  <div className="flex items-center gap-2 bg-background px-2.5 py-1.5 rounded-md border border-border shadow-sm">
+                      <span className="text-[10px] font-bold font-mono text-foreground">{chatMessages.length} msgs</span>
+                  </div>
               </div>
 
-              {/* Input */}
-              <div className="px-3 py-3 border-t border-white/10 flex gap-2 flex-shrink-0">
-                <input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendComment()}
-                  placeholder="Say something…"
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-accent/50"
-                />
-                <button
-                  onClick={handleSendComment}
-                  disabled={!chatInput.trim()}
-                  className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center disabled:opacity-40"
-                >
-                  <Send className="h-4 w-4 text-accent-foreground" />
-                </button>
+              <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-background/30 scrollbar-thin">
+                  {chatMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 space-y-3">
+                        <MessageSquare className="w-10 h-10"/>
+                        <p className="text-[10px] uppercase tracking-widest font-bold">No messages yet.</p>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg, i) => (
+                      <motion.div key={i} className="group" initial={{opacity:0, y:10}} animate={{opacity:1, y:0}}>
+                        <div className="flex items-start gap-3">
+                          <img
+                              src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(msg.senderName)}`}
+                              alt={msg.senderName}
+                              className="w-8 h-8 rounded-full border border-primary/20 flex items-center justify-center flex-shrink-0 object-cover"
+                          />
+                          <div className="flex-1 bg-muted/40 p-3 rounded-2xl rounded-tl-sm border border-border/50">
+                              <div className="flex justify-between items-center mb-1">
+                                  <p className="text-[10px] font-bold text-foreground tracking-wide">
+                                      {msg.senderName}
+                                  </p>
+                                  <span className="font-mono text-muted-foreground font-normal text-[9px]">
+                                      {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </span>
+                              </div>
+                              <p className="text-sm text-foreground/90 leading-snug">
+                                  {msg.text}
+                              </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
 
-      {/* ── Bottom controls ───────────────────────────────────────────────────── */}
-      <div className="px-6 py-5 bg-zinc-950 border-t border-white/10 flex-shrink-0">
-        <div className="flex items-center justify-center gap-4">
-          {/* Mic toggle */}
-          <button
-            onClick={toggleMic}
-            className={cn(
-              "w-13 h-13 w-12 h-12 rounded-full flex items-center justify-center transition-all",
-              isMicMuted
-                ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
-                : "bg-white/10 text-white hover:bg-white/20"
-            )}
-            title={isMicMuted ? "Unmute" : "Mute"}
-          >
-            {isMicMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </button>
-
-          {/* End live */}
-          <Button
-            variant="destructive"
-            size="lg"
-            onClick={handleEndLive}
-            disabled={isEnding}
-            className="px-8 gap-2 rounded-full"
-          >
-            {isEnding
-              ? <Loader2 className="h-5 w-5 animate-spin" />
-              : <StopCircle className="h-5 w-5" />}
-            End Live
-          </Button>
-
-          {/* Camera toggle */}
-          <button
-            onClick={toggleCamera}
-            className={cn(
-              "w-12 h-12 rounded-full flex items-center justify-center transition-all",
-              isCameraMuted
-                ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
-                : "bg-white/10 text-white hover:bg-white/20"
-            )}
-            title={isCameraMuted ? "Turn on camera" : "Turn off camera"}
-          >
-            {isCameraMuted ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-          </button>
-
-          {/* Chat toggle */}
-          <button
-            onClick={() => setIsChatOpen((v) => !v)}
-            className={cn(
-              "w-12 h-12 rounded-full flex items-center justify-center transition-all",
-              isChatOpen
-                ? "bg-accent/20 text-accent"
-                : "bg-white/10 text-white hover:bg-white/20"
-            )}
-            title="Toggle chat"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </button>
+              <div className="p-4 border-t border-border bg-card">
+                  <div className="flex gap-2 relative">
+                      <input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSendComment()}
+                        placeholder="Transmit message..."
+                        disabled={!isConnected}
+                        className="flex-1 bg-background border border-border rounded-full pl-4 pr-12 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <button
+                        onClick={handleSendComment}
+                        disabled={!chatInput.trim() || !isConnected}
+                        className="absolute right-1 top-1 w-8 h-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Send className="h-3.5 w-3.5 text-primary-foreground -ml-0.5" />
+                      </button>
+                  </div>
+              </div>
+            </aside>
+          </div>
         </div>
+      </main>
 
-        {isLive && (
-          <p className="text-center text-xs text-white/30 mt-3 flex items-center justify-center gap-2">
-            <Radio className="h-3 w-3" />
-            Broadcasting live to your followers
-          </p>
-        )}
-      </div>
+      <Footer />
     </div>
   );
 };
