@@ -683,11 +683,13 @@ const JournalistDashboard = () => {
     );
   }
 
+  const hasOrganization = !!profile.organization && profile.organization.trim().toLowerCase() !== "independent";
+
   const navItems = [
     { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { id: "archive", icon: Archive, label: "Archive" },
     { id: "community", icon: Users, label: "Community" },
-    { id: "tasks", icon: ClipboardList, label: "Tasks" },
+    ...(hasOrganization ? [{ id: "tasks", icon: ClipboardList, label: "Tasks" }] : []),
     { id: "wallet", icon: Wallet, label: "Finances" },
   ];
 
