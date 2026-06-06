@@ -18,7 +18,7 @@ interface UseSignalROptions {
   onReceiveAnswer?: (answer: string) => void;
   /** Called when the hub broadcasts "ReceiveIceCandidate" */
   onReceiveIceCandidate?: (candidate: string) => void;
-  /** Called when a chat comment arrives */
+  /** Called when a chat comment arrives — args: senderName, text */
   onReceiveComment?: (senderName: string, text: string) => void;
   /** Called when a viewer joins an active live session */
   onViewerJoined?: (liveId: string) => void;
@@ -142,6 +142,8 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
     /**
      * "ReceiveComment" — fired by LiveHub.SendComment().
      * Chat messages sent during a live session.
+     * Backend (LiveHub.cs line 83) sends: (senderName, comment) — only 2 args.
+     * NOTE: senderId is NOT included in the SignalR payload.
      */
     conn.on("ReceiveComment", (senderName: string, text: string) => {
       optionsRef.current.onReceiveComment?.(senderName, text);

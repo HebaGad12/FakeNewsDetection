@@ -207,6 +207,10 @@ export type WebRTCState =
  * Sent via SignalR hub method SendComment / event ReceiveComment.
  */
 export interface LiveChatMessage {
+  /** Unique message ID used for deduplication */
+  messageId: string;
+  /** User GUID of the sender — present for own messages; absent for incoming SignalR messages (backend doesn't send it) */
+  senderId?: string;
   /** Display name of the sender */
   senderName: string;
   /** Message text */
