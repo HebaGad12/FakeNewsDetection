@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { postsService } from "@/services/postsService";
 import { useNavigate } from "react-router-dom";
 import type { Post } from "@/services/types";
+import { organizationTaskService } from "@/services/organizationTask";
 
 interface Props {
   task: Task | null;
@@ -21,16 +22,28 @@ interface Props {
   role: Role;
   onUpdate?: () => void;
   journalists: Journalist[];
+  onEdit?: (t: Task) => void;
+  onDelete?: (t: Task) => void;
 }
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function TaskDetailsPanel({ task, open, onClose, role, onUpdate, journalists }: Props) {
+export function TaskDetailsPanel({ 
+  task, 
+  open, 
+  onClose, 
+  role, 
+  onUpdate, 
+  journalists,
+  onEdit,
+  onDelete
+}: Props) {
   const [comment, setComment] = useState("");
   const [article, setArticle] = useState<Post | null>(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
+  const [submittingStatus, setSubmittingStatus] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -48,10 +61,32 @@ export function TaskDetailsPanel({ task, open, onClose, role, onUpdate, journali
   if (!open || !task) return null;
   const j = journalists.find(x => x.id === task.journalistId) || { id: "unknown", name: "Unassigned", avatar: "?", beat: "Unknown", completed: 0, onTime: 0 };
 
-  const send = () => {
-    if (!comment.trim()) return;
-    toast.success("Comment posted");
-    setComment("");
+  const send = async () => {
+    if (!comment.trim() || !task) return;
+    try {
+      await organizationTaskService.addComment(task.id, comment.trim());
+      setComment("");
+      toast.success("Comment posted");
+      onUpdate?.();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to post comment");
+    }
+  };
+
+  const handleStatusChange = async (newStatus: number, successMessage: string) => {
+    if (!task) return;
+    setSubmittingStatus(true);
+    try {
+      await organizationTaskService.updateTaskStatus(task.id, newStatus);
+      toast.success(successMessage);
+      onUpdate?.();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to update status");
+    } finally {
+      setSubmittingStatus(false);
+    }
   };
 
   return (
@@ -172,19 +207,46 @@ export function TaskDetailsPanel({ task, open, onClose, role, onUpdate, journali
         <div className="border-t border-border p-4">
           {role === "Organization" ? (
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" className="bg-success text-success-foreground hover:bg-success/90" onClick={() => toast.success("Task approved")}>
+              <Button 
+                size="sm" 
+                className="bg-success text-success-foreground hover:bg-success/90" 
+                onClick={() => handleStatusChange(5, "Task approved")}
+                disabled={submittingStatus}
+              >
                 <CheckCircle2 className="h-4 w-4" /> Approve
               </Button>
-              <Button size="sm" variant="outline" onClick={() => toast("Revision requested")}>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => handleStatusChange(4, "Revision requested")}
+                disabled={submittingStatus}
+              >
                 <RotateCcw className="h-4 w-4" /> Request Revision
               </Button>
-              <Button size="sm" variant="outline" onClick={() => toast("Edit task")}>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => onEdit?.(task)}
+                disabled={submittingStatus}
+              >
                 <Pencil className="h-4 w-4" /> Edit
               </Button>
-              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => toast.error("Task rejected")}>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="text-destructive hover:text-destructive" 
+                onClick={() => handleStatusChange(6, "Task rejected")}
+                disabled={submittingStatus}
+              >
                 <XCircle className="h-4 w-4" /> Reject
               </Button>
-              <Button size="sm" variant="ghost" className="col-span-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => toast.error("Task deleted")}>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="col-span-2 text-destructive hover:text-destructive hover:bg-destructive/10" 
+                onClick={() => onDelete?.(task)}
+                disabled={submittingStatus}
+              >
                 <Trash2 className="h-4 w-4" /> Delete task
               </Button>
             </div>

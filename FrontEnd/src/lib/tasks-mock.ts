@@ -4,6 +4,8 @@ export type TaskStatus =
   | "In Progress"
   | "Submitted for Review"
   | "Needs Revision"
+  | "Approved"
+  | "Rejected"
   | "Completed"
   | "Cancelled";
 
@@ -189,7 +191,7 @@ export const tasks: Task[] = [
 ];
 
 export const statusList: TaskStatus[] = [
-  "Pending", "Accepted", "In Progress", "Submitted for Review", "Needs Revision", "Completed", "Cancelled",
+  "Pending", "Accepted", "In Progress", "Submitted for Review", "Needs Revision", "Approved", "Rejected", "Completed", "Cancelled",
 ];
 export const priorityList: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -202,6 +204,8 @@ export const statusStyle: Record<TaskStatus, string> = {
   "In Progress": "bg-primary/15 text-primary border-primary/30",
   "Submitted for Review": "bg-warning/20 text-warning-foreground border-warning/40 dark:text-warning",
   "Needs Revision": "bg-destructive/15 text-destructive border-destructive/30",
+  "Approved": "bg-success/10 text-success border-success/20 dark:text-success",
+  "Rejected": "bg-destructive/10 text-destructive border-destructive/20",
   "Completed": "bg-success/15 text-success border-success/30",
   "Cancelled": "bg-muted text-muted-foreground/70 border-border line-through",
 };

@@ -1,4 +1,4 @@
-﻿import { MoreHorizontal, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
+import { MoreHorizontal, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ interface Props {
   onSelect: (t: Task) => void;
   role: Role;
   journalists: Journalist[];
+  onEdit?: (t: Task) => void;
+  onReassign?: (t: Task) => void;
+  onChangeStatus?: (t: Task) => void;
+  onDelete?: (t: Task) => void;
 }
 
 function fmt(d: string) {
@@ -32,7 +36,18 @@ function deadlineTone(deadline: string, status: Task["status"]) {
   return "";
 }
 
-export function TasksTable({ tasks, loading, selectedId, onSelect, role, journalists }: Props) {
+export function TasksTable({ 
+  tasks, 
+  loading, 
+  selectedId, 
+  onSelect, 
+  role, 
+  journalists,
+  onEdit,
+  onReassign,
+  onChangeStatus,
+  onDelete
+}: Props) {
   if (loading) {
     return (
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -131,11 +146,11 @@ export function TasksTable({ tasks, loading, selectedId, onSelect, role, journal
                         <DropdownMenuItem onClick={() => onSelect(t)}>View details</DropdownMenuItem>
                         {role === "Organization" ? (
                           <>
-                            <DropdownMenuItem>Edit task</DropdownMenuItem>
-                            <DropdownMenuItem>Reassign</DropdownMenuItem>
-                            <DropdownMenuItem>Change status</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onEdit?.(t)}>Edit task</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onReassign?.(t)}>Reassign</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onChangeStatus?.(t)}>Change status</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(t)}>Delete</DropdownMenuItem>
                           </>
                         ) : (
                           <>
