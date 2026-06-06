@@ -80,6 +80,14 @@ function getValidTransitions(status: TaskStatus): { value: number; label: string
   }
 }
 
+function getErrorMessage(err: any, defaultMsg: string): string {
+  if (err.response?.data) {
+    if (typeof err.response.data === "string") return err.response.data;
+    if (err.response.data.message) return err.response.data.message;
+  }
+  return defaultMsg;
+}
+
 export function OrganizationTasksPage({ 
   user, 
   journalists, 
@@ -177,7 +185,7 @@ export function OrganizationTasksPage({
       fetchTasks();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to update task");
+      toast.error(getErrorMessage(err, "Failed to update task"));
     } finally {
       setSubmittingEdit(false);
     }
@@ -202,7 +210,7 @@ export function OrganizationTasksPage({
       fetchTasks();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to reassign task");
+      toast.error(getErrorMessage(err, "Failed to reassign task"));
     } finally {
       setSubmittingReassign(false);
     }
@@ -218,7 +226,7 @@ export function OrganizationTasksPage({
       fetchTasks();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to update status");
+      toast.error(getErrorMessage(err, "Failed to update status"));
     } finally {
       setSubmittingStatusChange(false);
     }
@@ -226,6 +234,13 @@ export function OrganizationTasksPage({
 
   const handleDeleteSubmit = async () => {
     if (!deletingTask) return;
+
+    if (deletingTask.status !== "Pending") {
+      toast.error("Only Pending tasks can be deleted. Use 'Change Status' → Cancelled instead.");
+      setDeletingTask(null);
+      return;
+    }
+
     setSubmittingDelete(true);
     try {
       await organizationTaskService.deleteTask(deletingTask.id);
@@ -238,7 +253,7 @@ export function OrganizationTasksPage({
       fetchTasks();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to delete task");
+      toast.error(getErrorMessage(err, "Failed to delete task"));
     } finally {
       setSubmittingDelete(false);
     }
@@ -492,21 +507,38 @@ export function OrganizationTasksPage({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-destructive">Delete Task</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this task?
-              <br />
-              <span className="font-semibold text-foreground">"{deletingTask?.title}"</span>
-              <br />
-              <span className="text-xs text-muted-foreground mt-2 block">
-                Note: Only Pending tasks can be deleted. Non-pending tasks will return an error from the backend.
-              </span>
+            <DialogDescription asChild>
+              <div>
+                {deletingTask && deletingTask.status !== "Pending" ? (
+                  <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <p className="font-semibold">Cannot delete this task</p>
+                    <p className="mt-1">
+                      Only <span className="font-semibold">Pending</span> tasks can be deleted.
+                      This task is currently <span className="font-semibold">{deletingTask.status}</span>.
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      To remove it from view, use <span className="font-semibold">Change Status → Cancelled</span> instead.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p>Are you sure you want to delete this task?</p>
+                    <p className="mt-1 font-semibold text-foreground">&quot;{deletingTask?.title}&quot;</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      This is a soft delete — the task will be marked as <span className="font-semibold">Cancelled</span> on the backend.
+                    </p>
+                  </>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setDeletingTask(null)} disabled={submittingDelete}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteSubmit} disabled={submittingDelete}>
-              {submittingDelete ? "Deleting..." : "Delete task"}
-            </Button>
+            <Button variant="ghost" onClick={() => setDeletingTask(null)} disabled={submittingDelete}>Close</Button>
+            {deletingTask?.status === "Pending" && (
+              <Button variant="destructive" onClick={handleDeleteSubmit} disabled={submittingDelete}>
+                {submittingDelete ? "Deleting..." : "Delete task"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
