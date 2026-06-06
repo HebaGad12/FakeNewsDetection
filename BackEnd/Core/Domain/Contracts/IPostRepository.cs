@@ -12,6 +12,7 @@ namespace Domain.Contracts
         Task<Post?> GetByIdAsync(Guid id);
         Task<IEnumerable<Post>> GetAllAsync();
         Task<IEnumerable<Post>> GetByAuthorAsync(Guid authorId);
+        Task<IEnumerable<Post>> GetDraftsByTaskAsync(Guid taskId, Guid authorId);
         Task AddAsync(Post post);
         Task UpdateAsync(Post post);
         Task DeleteAsync(Guid id);

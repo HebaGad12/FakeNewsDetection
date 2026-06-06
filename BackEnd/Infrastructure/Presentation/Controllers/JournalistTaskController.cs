@@ -26,17 +26,20 @@ namespace Presentation.Controllers
         private readonly IUserRepository _users;
         private readonly INotificationRepository _notifications;
         private readonly IHubContext<NotificationHub> _hub;
+        private readonly IPostRepository _posts;
 
         public JournalistTaskController(
             IOrganizationTaskRepository tasks,
             IUserRepository users,
             INotificationRepository notifications,
-            IHubContext<NotificationHub> hub)
+            IHubContext<NotificationHub> hub,
+            IPostRepository posts)
         {
             _tasks = tasks;
             _users = users;
             _notifications = notifications;
             _hub = hub;
+            _posts = posts;
         }
 
         private Guid GetCallerId() =>
@@ -176,6 +179,98 @@ namespace Presentation.Controllers
                 journalistId,
                 journalist!.Name,
                 comment.CreatedAt));
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        //  DRAFT POSTS FOR A TASK
+        // ════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// GET api/journalists/tasks/{taskId}/drafts
+        /// Returns all draft posts the calling journalist has saved for a task.
+        /// </summary>
+        [HttpGet("{taskId:guid}/drafts")]
+        public async Task<ActionResult> GetDrafts(Guid taskId)
+        {
+            var journalistId = GetCallerId();
+            var task = await _tasks.GetByIdAsync(taskId);
+
+            if (task is null) return NotFound("Task not found.");
+            if (task.AssignedJournalistId != journalistId) return Forbid();
+
+            var drafts = await _posts.GetDraftsByTaskAsync(taskId, journalistId);
+
+            var result = drafts.Select(p => new
+            {
+                p.Id,
+                p.Title,
+                p.Content,
+                p.Tags,
+                p.IsDraft,
+                p.CreatedAt,
+                p.UpdatedAt,
+                MediaCount = p.Media?.Count ?? 0
+            });
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// PUT api/journalists/tasks/{taskId}/drafts/{postId}
+        /// Edit a draft post linked to a task (only while task is Accepted or InProgress).
+        /// </summary>
+        [HttpPut("{taskId:guid}/drafts/{postId:guid}")]
+        public async Task<ActionResult> EditDraft(
+            Guid taskId,
+            Guid postId,
+            [FromBody] UpdateDraftRequest req)
+        {
+            var journalistId = GetCallerId();
+            var task = await _tasks.GetByIdAsync(taskId);
+
+            if (task is null) return NotFound("Task not found.");
+            if (task.AssignedJournalistId != journalistId) return Forbid();
+
+            var editableStatuses = new[]
+            {
+                OrganizationTaskStatus.Accepted,
+                OrganizationTaskStatus.InProgress,
+                OrganizationTaskStatus.NeedsRevision
+            };
+            if (!editableStatuses.Contains(task.Status))
+                return BadRequest($"Drafts can only be edited while the task is Accepted, InProgress, or NeedsRevision. Current status: {task.Status}.");
+
+            var post = await _posts.GetByIdAsync(postId);
+
+            if (post is null) return NotFound("Draft post not found.");
+            if (post.AuthorId != journalistId) return Forbid();
+            if (post.TaskId != taskId) return BadRequest("This post does not belong to the specified task.");
+            if (!post.IsDraft) return BadRequest("This post has already been published and cannot be edited as a draft.");
+
+            if (req.Title is not null)
+                post.Title = req.Title.Trim();
+            if (req.Content is not null)
+                post.Content = req.Content.Trim();
+            if (req.Tags is not null)
+                post.Tags = req.Tags
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim())
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .ToArray();
+            if (req.PublishNow == true)
+                post.IsDraft = false;
+
+            await _posts.UpdateAsync(post);
+
+            return Ok(new
+            {
+                post.Id,
+                post.Title,
+                post.Content,
+                post.Tags,
+                post.IsDraft,
+                post.UpdatedAt
+            });
         }
 
         // ════════════════════════════════════════════════════════════════════
