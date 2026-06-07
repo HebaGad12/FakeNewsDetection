@@ -39,6 +39,7 @@ namespace Presentation.Controllers
         private readonly IToxicityService _toxicity;
         private readonly INotificationRepository _notifications;
         private readonly IHubContext<NotificationHub> _hub;
+        private readonly IRecommendationService _recommendation;
 
         public PostsController(
             IPostRepository posts,
@@ -47,7 +48,8 @@ namespace Presentation.Controllers
             IPostMediaRepository media,
             IToxicityService toxicity,
             INotificationRepository notifications,
-            IHubContext<NotificationHub> hub)
+            IHubContext<NotificationHub> hub,
+            IRecommendationService recommendation)
         {
             _posts = posts;
             _interactions = interactions;
@@ -56,6 +58,7 @@ namespace Presentation.Controllers
             _toxicity = toxicity;
             _notifications = notifications;
             _hub = hub;
+            _recommendation = recommendation;
         }
 
         private Guid GetUserId() =>
@@ -116,6 +119,82 @@ namespace Presentation.Controllers
             }
 
             return Ok(result);
+        }
+
+        [HttpGet("feed")]
+        public async Task<ActionResult<IEnumerable<PostWithCommentsResponse>>> GetFeed([FromQuery] int topN = 20)
+        {
+            var userId = GetUserId();
+            var rankedIds = await _recommendation.GetRankedFeedForUserAsync(userId, topN);
+
+            var allUsers = await _users.GetAllAsync();
+            var userDict = allUsers.ToDictionary(u => u.Id);
+
+            if (rankedIds.Any())
+            {
+                var allPosts = await _posts.GetAllAsync();
+                var postById = allPosts.ToDictionary(p => p.Id);
+                var rankedResult = new List<PostWithCommentsResponse>();
+
+                foreach (var id in rankedIds)
+                {
+                    if (postById.TryGetValue(id, out var post))
+                    {
+                        rankedResult.Add(await MapPostAsync(post, userDict));
+                    }
+                }
+
+                return Ok(rankedResult);
+            }
+
+            var fallbackPosts = await _posts.GetAllAsync();
+            var fallbackResult = new List<PostWithCommentsResponse>();
+
+            foreach (var p in fallbackPosts
+                .Where(p => p.ModerationStatus == ModerationStatus.Approved)
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(topN))
+            {
+                fallbackResult.Add(await MapPostAsync(p, userDict));
+            }
+
+            return Ok(fallbackResult);
+        }
+
+        private async Task<PostWithCommentsResponse> MapPostAsync(Post p, Dictionary<Guid, User> userDict)
+        {
+            var comments = p.Interactions?
+                .Where(i => i.Type == InteractionType.Comment)
+                .OrderBy(i => i.CreatedAt)
+                .Select(i =>
+                {
+                    userDict.TryGetValue(i.UserId, out var commenter);
+                    return new CommentDto(
+                        i.Id,
+                        commenter?.Name ?? "Unknown",
+                        commenter?.Role.ToString() ?? "Unknown",
+                        i.Content ?? "",
+                        i.CreatedAt
+                    );
+                }).ToList() ?? new();
+
+            userDict.TryGetValue(p.AuthorId, out var author);
+            string orgName = "Independent";
+            if (p.OrganizationId.HasValue && userDict.TryGetValue(p.OrganizationId.Value, out var org))
+                orgName = org.Name;
+
+            var mediaItems = await _media.GetByPostIdAsync(p.Id);
+            var mediaDtos = mediaItems.Select(m => new MediaDto(
+                m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt
+            )).ToList();
+
+            return new PostWithCommentsResponse(
+                p.Id, p.Title, p.Content, p.Tags,
+                author?.Name ?? "Unknown", p.AuthorId, orgName,
+                p.CreatedAt, p.UpdatedAt,
+                p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                comments, mediaDtos
+            );
         }
 
 

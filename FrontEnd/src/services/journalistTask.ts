@@ -3,6 +3,22 @@ import { TaskComment, OrganizationTaskResponse as JournalistTaskResponse } from 
 
 export type { TaskComment, JournalistTaskResponse };
 
+export interface TaskDraft {
+  id: string;
+  title: string;
+  content: string;
+  tags: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpdateTaskDraftRequest {
+  title: string;
+  content: string;
+  tags: string;
+  publishNow: boolean;
+}
+
 class JournalistTaskService {
   async getTasks(status?: number, priority?: number): Promise<JournalistTaskResponse[]> {
     const params: Record<string, number> = {};
@@ -21,6 +37,14 @@ class JournalistTaskService {
 
   async addComment(taskId: string, content: string): Promise<void> {
     return await apiClient.post(`/journalists/tasks/${taskId}/comments`, { content });
+  }
+
+  async getTaskDrafts(taskId: string): Promise<TaskDraft[]> {
+    return await apiClient.get<TaskDraft[]>(`/journalists/tasks/${taskId}/drafts`);
+  }
+
+  async updateTaskDraft(taskId: string, postId: string, data: UpdateTaskDraftRequest): Promise<TaskDraft> {
+    return await apiClient.put<TaskDraft>(`/journalists/tasks/${taskId}/drafts/${postId}`, data);
   }
 }
 

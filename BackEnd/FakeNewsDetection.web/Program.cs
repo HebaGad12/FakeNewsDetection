@@ -129,15 +129,11 @@ namespace FakeNewsDetection.web
                 client.Timeout     = TimeSpan.FromSeconds(15);
             });
 
-            // ── Recommendation Service ────────────────────────────────────────
-            // Needs HttpClient (to call Python) + AppDbContext (for Memberships),
-            // so it is registered in two steps: typed HttpClient first, then Scoped.
-            builder.Services.AddHttpClient<RecommendationService>(client =>
+            builder.Services.AddHttpClient<IRecommendationService, RecommendationService>(client =>
             {
                 client.BaseAddress = new Uri(pythonUrl);
                 client.Timeout     = TimeSpan.FromSeconds(30);
             });
-            builder.Services.AddScoped<IRecommendationService, RecommendationService>();
 
             // ── Swagger ──────────────────────────────────────────────────────
             builder.Services.AddEndpointsApiExplorer();

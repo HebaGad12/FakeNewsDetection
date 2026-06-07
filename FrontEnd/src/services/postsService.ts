@@ -1,5 +1,6 @@
 import apiClient from "./apiClient";
 import { API_BASE_URL } from "@/lib/constants";
+import { getAuthToken } from "@/lib/authStorage";
 import type { AxiosError } from "axios";
 
 export const POST_DELETED_EVENT = "post:deleted";
@@ -69,10 +70,21 @@ export interface AddCommentResponse {
   comments: number;
 }
 
+interface UserActivity {
+  actionType?: string;
+  postId?: string;
+}
+
 // ────── Posts Service ──────
 
 class PostsService {
   private baseUrl = "/posts";
+
+  private isEndpointMissing(error: unknown): boolean {
+    const axiosError = error as AxiosError;
+    const status = axiosError.response?.status;
+    return status === 404 || status === 405;
+  }
 
   /**
    * Helper: Convert relative image path to full URL
@@ -87,14 +99,35 @@ class PostsService {
 
   /**
    * Get all posts for the feed
-   * GET /api/posts
+   * Prefers GET /api/posts/feed and falls back to GET /api/posts
    */
   async getAllPosts(): Promise<Post[]> {
     try {
-      const response = await apiClient.get<Post[]>(this.baseUrl);
-      return response || [];
+      if (!getAuthToken()) {
+        const response = await apiClient.get<Post[]>(this.baseUrl);
+        return response || [];
+      }
+
+      return await this.getFeedPosts();
     } catch (error) {
       console.error("Failed to fetch posts:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get feed posts
+   * GET /api/posts/feed
+   */
+  async getFeedPosts(): Promise<Post[]> {
+    try {
+      const response = await apiClient.get<Post[]>(`${this.baseUrl}/feed`);
+      return response || [];
+    } catch (error) {
+      if (this.isEndpointMissing(error)) {
+        const fallbackResponse = await apiClient.get<Post[]>(this.baseUrl);
+        return fallbackResponse || [];
+      }
       throw error;
     }
   }
@@ -120,8 +153,9 @@ class PostsService {
   async getPostByTaskId(taskId: string): Promise<Post | null> {
     try {
       return await apiClient.get<Post>(`${this.baseUrl}/by-task/${taskId}`);
-    } catch (error: any) {
-      if (error.response && error.response.status === 404) {
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
         return null;
       }
       throw error;
@@ -163,12 +197,10 @@ class PostsService {
    */
   async hasUserLikedPost(postId: string): Promise<boolean> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await apiClient.get<any[]>("/user/activity");
+      const response = await apiClient.get<UserActivity[]>("/user/activity");
       if (!Array.isArray(response)) return false;
       
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return response.some((activity: any) => 
+      return response.some((activity) => 
         activity.actionType === "Like" && activity.postId === postId
       );
     } catch (error) {
