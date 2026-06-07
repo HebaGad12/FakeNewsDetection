@@ -1,4 +1,3 @@
-﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,51 +10,17 @@ namespace Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsDraft",
-                table: "Posts",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "TaskId",
-                table: "Posts",
-                type: "uniqueidentifier",
-                nullable: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Posts_TaskId",
-                table: "Posts",
-                column: "TaskId");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Posts_OrganizationTasks_TaskId",
-                table: "Posts",
-                column: "TaskId",
-                principalTable: "OrganizationTasks",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
+            // All schema in this migration (IsDraft, TaskId, IX_Posts_TaskId,
+            // FK_Posts_OrganizationTasks_TaskId) was already applied to the
+            // database by a prior migration on the Frontend branch.
+            // This migration is intentionally a no-op to allow EF Core to
+            // record it as applied without duplicating existing schema.
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Posts_OrganizationTasks_TaskId",
-                table: "Posts");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Posts_TaskId",
-                table: "Posts");
-
-            migrationBuilder.DropColumn(
-                name: "IsDraft",
-                table: "Posts");
-
-            migrationBuilder.DropColumn(
-                name: "TaskId",
-                table: "Posts");
+            // No-op: nothing was added in Up(), nothing to undo.
         }
     }
 }

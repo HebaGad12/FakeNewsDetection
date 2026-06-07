@@ -186,16 +186,10 @@ namespace Presentation.Controllers
             var like = interactions.FirstOrDefault(i => i.PostId == postId && i.Type == InteractionType.Like);
             if (like == null) return NotFound("Like not found.");
 
-            await _interactions.AddAsync(new Interaction
-            {
-                PostId    = postId,
-                UserId    = userId,
-                Type      = InteractionType.Comment,
-                Content   = req.Content,
-                CreatedAt = DateTime.UtcNow
-            });
+            await _interactions.DeleteAsync(like.Id);
 
-            return Ok(new { Message = "Comment added." });
+            var post = await _posts.GetByIdAsync(postId);
+            return Ok(new { Likes = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0 });
         }
 
         [HttpPost("{postId}/comment")]
@@ -220,7 +214,7 @@ namespace Presentation.Controllers
                 Type = InteractionType.Comment,
                 Content = req.Content,
                 CreatedAt = DateTime.UtcNow
-            });
+            };
 
             await _interactions.AddAsync(interaction);
 
