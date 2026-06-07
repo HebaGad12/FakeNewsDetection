@@ -37,6 +37,14 @@ namespace Persistence.Repositories
                 .Include(p => p.Interactions)
                 .ToListAsync();
 
+        public async Task<IEnumerable<Post>> GetDraftsByTaskAsync(Guid taskId, Guid authorId) =>
+            await _context.Posts
+                .Where(p => p.TaskId == taskId && p.AuthorId == authorId && p.IsDraft)
+                .Include(p => p.Author)
+                .Include(p => p.Media)
+                .OrderByDescending(p => p.UpdatedAt)
+                .ToListAsync();
+
         public async Task AddAsync(Post post)
         {
             if (post.Id == Guid.Empty)

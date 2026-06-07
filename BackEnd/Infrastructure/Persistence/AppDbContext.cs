@@ -129,7 +129,7 @@ namespace Persistence
                 .HasOne(i => i.Post)
                 .WithMany(p => p.Interactions)
                 .HasForeignKey(i => i.PostId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             b.Entity<Interaction>()
                 .HasIndex(i => new { i.PostId, i.UserId, i.Type });
@@ -221,7 +221,7 @@ namespace Persistence
                 .Property(d => d.Message)
                 .HasMaxLength(500);
          //community
-           b.Entity<Community>()
+            b.Entity<Community>()
                 .HasOne(c => c.Creator)
                 .WithMany(u => u.CommunitiesCreated)
                 .HasForeignKey(c => c.CreatedBy)
@@ -313,6 +313,15 @@ namespace Persistence
                 .WithMany()
                 .HasForeignKey(c => c.AuthorId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+        // ===================== MODERATION ACTION =====================
+
+            b.Entity<ModerationAction>()
+                .HasOne(m => m.Post)
+                .WithMany(p => p.ModerationActions)
+                .HasForeignKey(m => m.PostId)
+                .OnDelete(DeleteBehavior.Cascade); // ✅ auto-delete when post is deleted
+
 
 
         }

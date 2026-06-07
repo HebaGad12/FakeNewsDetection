@@ -33,6 +33,14 @@ namespace Shared.DTOs
         string Content
     );
 
+    /// <summary>Journalist → edit a draft post linked to a task.</summary>
+    public record UpdateDraftRequest(
+        string? Title,
+        string? Content,
+        string? Tags,
+        bool? PublishNow   // set true to promote the draft to published
+    );
+
     // ── Responses ────────────────────────────────────────────────────────────
 
     public record TaskCommentResponse(

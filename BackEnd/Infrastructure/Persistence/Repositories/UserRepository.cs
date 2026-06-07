@@ -131,7 +131,22 @@ namespace Persistence.Repositories
             if (liveSessions.Any())
                 _context.LiveSessions.RemoveRange(liveSessions);
 
-            // 8. Finally remove the user
+            // 8. Notifications — two cases:
+            //    a) This user is the RECEIVER  → delete the notification entirely
+            //    b) This user is the ACTOR     → null out ActorId (preserve the notification for the receiver)
+            var receivedNotifications = await _context.Notifications
+                .Where(n => n.UserId == userId)
+                .ToListAsync();
+            if (receivedNotifications.Any())
+                _context.Notifications.RemoveRange(receivedNotifications);
+
+            var actorNotifications = await _context.Notifications
+                .Where(n => n.ActorId == userId)
+                .ToListAsync();
+            foreach (var n in actorNotifications)
+                n.ActorId = null;
+
+            // 9. Finally remove the user
             _context.Users.Remove(user);
         }
 
