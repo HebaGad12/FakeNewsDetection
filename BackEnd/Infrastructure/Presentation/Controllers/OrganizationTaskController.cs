@@ -275,9 +275,9 @@ namespace Presentation.Controllers
             if (task is null) return NotFound();
             if (task.OrganizationId != orgId) return Forbid();
 
-            // Validate the transition is legal for an org
-            var (valid, error) = ValidateOrgStatusTransition(task.Status, req.NewStatus);
-            if (!valid) return BadRequest(error);
+            // Only validate that the new status is a defined enum value
+            if (!Enum.IsDefined(typeof(OrganizationTaskStatus), req.NewStatus))
+                return BadRequest($"Invalid status value: {(int)req.NewStatus}.");
 
             task.Status = req.NewStatus;
             task.UpdatedAt = DateTime.UtcNow;
