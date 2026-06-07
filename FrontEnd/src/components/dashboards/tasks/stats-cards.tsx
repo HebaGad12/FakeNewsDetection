@@ -43,7 +43,7 @@ export function StatsCards({ tasks }: { tasks: JournalistTaskResponse[] }) {
       {stats.map((s, i) => (
         <div
           key={s.key}
-          className="group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md animate-fade-in-up"
+          className="group relative overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md animate-fade-in-up"
           style={{ animationDelay: `${i * 40}ms` }}
         >
           <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-60", s.accent)} />

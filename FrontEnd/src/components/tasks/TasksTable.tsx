@@ -50,7 +50,7 @@ export function TasksTable({
 }: Props) {
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3">
             <Skeleton className="h-8 w-8 rounded-full" />
@@ -65,7 +65,7 @@ export function TasksTable({
 
   if (tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card py-16 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
           <Inbox className="h-6 w-6 text-muted-foreground" />
         </div>
@@ -78,7 +78,7 @@ export function TasksTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
       {/* Desktop table */}
       <div className="hidden md:block">
         <Table>

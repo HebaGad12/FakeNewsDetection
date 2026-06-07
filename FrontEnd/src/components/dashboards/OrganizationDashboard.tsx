@@ -129,7 +129,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
       {/* ── Brand ── */}
       <div className="px-5 pt-7 pb-5 border-b border-white/5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
             <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
           </div>
           <div>
@@ -140,7 +140,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
 
         {/* User badge */}
         {profile && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/5 border border-white/5">
             {avatarUrl ? (
                 <img src={avatarUrl} alt="avatar" className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
             ) : (
@@ -166,7 +166,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
               key={id}
               onClick={() => onTabChange(id)}
               className={cn(
-                "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left",
                 isActive
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
                   : "text-white/45 hover:text-white hover:bg-white/6"
@@ -191,7 +191,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
         {/* Go to Home */}
         <button
           onClick={() => navigate("/")}
-          className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+          className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
         >
           <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
           <span className="flex-1 text-left">Go to Home</span>
@@ -201,7 +201,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
         {/* Logout */}
         <button
           onClick={onLogout}
-          className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+          className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
           <span className="flex-1 text-left">Logout</span>
@@ -234,7 +234,7 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}
       className={cn(
-        "relative rounded-xl border p-6 flex flex-col justify-between transition-all min-h-[180px]",
+        "relative rounded-lg border p-6 flex flex-col justify-between transition-all min-h-[180px]",
         accent
           ? "bg-primary text-white border-primary/50"
           : "bg-surface-container-lowest dark:bg-stone-900 border-outline-variant/20 dark:border-stone-800"
@@ -304,7 +304,7 @@ function AddJournalistModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-xl p-6 w-full max-w-md shadow-2xl"
+        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-lg p-6 w-full max-w-md shadow-2xl"
       >
         {success ? (
           <div className="text-center py-6">
@@ -422,7 +422,7 @@ function ReviewPostModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-xl p-6 w-full max-w-lg shadow-2xl"
+        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-lg p-6 w-full max-w-lg shadow-2xl"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-on-surface dark:text-white">Review Post</h3>
@@ -430,7 +430,7 @@ function ReviewPostModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="mb-4 p-4 rounded-xl bg-surface-container dark:bg-stone-800">
+        <div className="mb-4 p-4 rounded-lg bg-surface-container dark:bg-stone-800">
           <p className="font-medium text-on-surface dark:text-white text-sm mb-1">{post.title}</p>
           <p className="text-xs text-outline dark:text-stone-400 line-clamp-3">{post.content}</p>
           <p className="text-xs text-outline dark:text-stone-500 mt-2">
@@ -446,7 +446,7 @@ function ReviewPostModal({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add moderation notes..."
             rows={3}
-            className="w-full rounded-xl border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-4 py-3 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+            className="w-full rounded-lg border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-4 py-3 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
           />
         </div>
         {error && <p className="text-tertiary-fixed text-sm mb-3">{error}</p>}
@@ -728,7 +728,7 @@ function AddTaskModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-xl p-6 w-full max-w-md shadow-2xl"
+        className="bg-surface-container-lowest dark:bg-stone-900 border border-outline-variant/20 dark:border-stone-800 rounded-lg p-6 w-full max-w-md shadow-2xl"
       >
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-semibold text-on-surface dark:text-white flex items-center gap-2">
@@ -756,7 +756,7 @@ function AddTaskModal({
               onChange={(e) => setForm(p => ({...p, description: e.target.value}))}
               placeholder="Task description"
               rows={3}
-              className="w-full rounded-xl border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-4 py-3 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+              className="w-full rounded-lg border border-outline-variant/20 dark:border-stone-700 bg-surface-container dark:bg-stone-800 px-4 py-3 text-sm text-on-surface dark:text-stone-50 placeholder:text-outline dark:placeholder:text-stone-500 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
             />
           </div>
           <div>

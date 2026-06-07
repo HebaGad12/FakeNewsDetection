@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg";
@@ -23,15 +24,15 @@ export function LoadingSpinner({
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-        className={sizeClasses[size]}
+        className={cn("rounded-md bg-slate-950 p-2", sizeClasses[size])}
       >
-        <Shield className="h-full w-full text-accent" />
+        <Shield className="h-full w-full text-white" />
       </motion.div>
       {message && (
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-muted-foreground text-sm"
+          className="text-sm font-medium text-slate-600"
         >
           {message}
         </motion.p>
@@ -41,7 +42,7 @@ export function LoadingSpinner({
 
   if (fullScreen) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         {content}
       </div>
     );

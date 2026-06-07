@@ -15,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -94,51 +93,47 @@ const LoginPage = () => {
     }
   };
 
-  const handleQuickLogin = (testEmail: string, testPassword: string) => {
-    setEmail(testEmail);
-    setPassword(testPassword);
-  };
-
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="editorial-shell flex">
       {/* Left Side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md"
         >
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 mb-8">
-            <Shield className="h-8 w-8 text-accent" />
-            <span className="font-display text-xl font-bold text-primary">
-              TruthTrack
+          <Link to="/" className="mb-8 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-950">
+              <Shield className="h-6 w-6 text-white" />
             </span>
+            <span className="font-display text-2xl font-bold text-slate-950">TruthTrack</span>
           </Link>
 
           {/* Header */}
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-bold text-primary mb-2">
+            <div className="news-kicker mb-4">Member Access</div>
+            <h1 className="font-display text-4xl font-bold leading-tight text-slate-950">
               Welcome back
             </h1>
-            <p className="text-muted-foreground">
-              Sign in to continue to your account
+            <p className="mt-3 text-slate-600">
+              Sign in to continue reading, publishing, and verifying source-backed reports.
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="editorial-card space-y-5 p-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-11 h-12"
+                  className="editorial-input pl-11"
                 />
               </div>
             </div>
@@ -146,38 +141,39 @@ const LoginPage = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link to="/forgot-password" className="text-sm text-accent hover:underline">
+                <Link to="/forgot-password" className="text-sm font-medium text-red-700 hover:text-red-900">
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-11 pr-11 h-12"
+                  className="editorial-input pl-11 pr-11"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md text-slate-500 transition-colors hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-red-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
+            <Button type="submit" disabled={isLoading} className="editorial-button-primary h-12 w-full gap-2">
               {isLoading ? "Signing in..." : "Sign In"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
 
           {/* Test Accounts
-          <div className="mt-8 p-4 bg-muted/50 rounded-xl">
+          <div className="mt-8 p-4 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground mb-3 font-medium">Quick Login (Test Accounts):</p>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" size="sm" onClick={() => handleQuickLogin("reader@test.com", "reader123")}>Reader</Button>
@@ -188,9 +184,9 @@ const LoginPage = () => {
           </div> */}
 
           {/* Sign Up Link */}
-          <p className="text-center text-sm text-muted-foreground mt-6">
+          <p className="mt-6 text-center text-sm text-slate-600">
             Don't have an account?{" "}
-            <Link to="/register" className="text-accent font-medium hover:underline">
+            <Link to="/register" className="font-semibold text-red-700 hover:text-red-900">
               Create one now
             </Link>
           </p>
@@ -198,30 +194,25 @@ const LoginPage = () => {
       </div>
 
       {/* Right Side - Hero */}
-      <div className="hidden lg:flex flex-1 gradient-hero items-center justify-center p-12 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-white/20 blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-        </div>
-
-        <div className="relative max-w-md text-center">
+      <div className="hidden flex-1 items-center justify-center bg-slate-950 p-12 text-white lg:flex">
+        <div className="max-w-md">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="mb-8"
+            className="mb-8 border-l-4 border-red-600 pl-5"
           >
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-6">
-              <Shield className="h-10 w-10 text-primary-foreground" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-md bg-red-600">
+              <Shield className="h-8 w-8 text-white" />
             </div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-red-200">Verified News Desk</p>
           </motion.div>
 
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="font-display text-3xl font-bold text-primary-foreground mb-4"
+            className="mb-4 font-display text-4xl font-bold leading-tight text-white"
           >
             Join the Fight for Truth
           </motion.h2>
@@ -230,7 +221,7 @@ const LoginPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="text-primary-foreground/80 mb-8"
+            className="mb-8 text-base leading-7 text-slate-300"
           >
             Access verified news, join communities, and support credible journalism worldwide.
           </motion.p>
@@ -247,8 +238,8 @@ const LoginPage = () => {
               "Watch live journalist streams",
               "Support credible journalism",
             ].map((feature, index) => (
-              <div key={index} className="flex items-center gap-3 text-primary-foreground/90">
-                <CheckCircle className="h-5 w-5 text-verified flex-shrink-0" />
+              <div key={index} className="flex items-center gap-3 text-slate-200">
+                <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-400" />
                 <span className="text-sm">{feature}</span>
               </div>
             ))}

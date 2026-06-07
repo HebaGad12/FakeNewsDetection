@@ -18,6 +18,9 @@ import {
   Clock,
   User,
   Calendar,
+  Bookmark,
+  Share2,
+  Newspaper,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -52,6 +55,7 @@ import { usePostInteractions } from "@/hooks/usePostInteractions";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CategoryPill, LiveUpdateBadge, StoryRail, StoryPreview } from "@/components/news/NewsPrimitives";
 
 const REPORT_REASONS = [
   { value: "misinformation", label: "Misinformation / False Information" },
@@ -85,6 +89,7 @@ export default function PostDetailPage() {
   const [authorAvatar, setAuthorAvatar] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [relatedStories, setRelatedStories] = useState<StoryPreview[]>([]);
 
   const [showAdminDeleteDialog, setShowAdminDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -114,6 +119,31 @@ export default function PostDetailPage() {
             const userHasLiked = await postsService.hasUserLikedPost(id);
             setIsLiked(userHasLiked);
           } catch { setIsLiked(false); }
+
+          try {
+            const related = await postsService.getAllPosts();
+            setRelatedStories(
+              related
+                .filter((item) => item.id !== fetchedPost.id)
+                .filter((item) =>
+                  item.tags?.some((tag) => fetchedPost.tags?.map((postTag) => postTag.toLowerCase()).includes(tag.toLowerCase()))
+                )
+                .slice(0, 5)
+                .map((item) => ({
+                  id: item.id,
+                  title: item.title,
+                  category: item.tags?.[0] || "News",
+                  author: item.authorName,
+                  excerpt: item.content.substring(0, 140),
+                  image: item.media?.[0] ? postsService.getImageUrl(item.media[0].path) : undefined,
+                  publishedAt: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                  readTime: `${Math.max(1, Math.ceil(item.content.split(/\s+/).length / 200))} min read`,
+                  views: item.likesCount || 0,
+                }))
+            );
+          } catch {
+            setRelatedStories([]);
+          }
 
           try {
             const [profile, avatar, following] = await Promise.all([
@@ -216,7 +246,6 @@ export default function PostDetailPage() {
     }
   };
 
-  const isReader = user?.role?.toLowerCase() === "reader" || user?.role?.toLowerCase() === "regularuser";
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
   const handleAdminDeletePost = async () => {
@@ -262,16 +291,20 @@ export default function PostDetailPage() {
 
   const formattedDate = new Date(post.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const readTime = Math.ceil(post.content.split(/\s+/).length / 200);
+  const paragraphs = post.content.split("\n\n").filter(Boolean);
+  const tableOfContents = paragraphs
+    .map((paragraph, index) => ({ id: `section-${index + 1}`, label: paragraph.replace(/\s+/g, " ").slice(0, 56) }))
+    .slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-950">
+    <div className="editorial-shell">
       <ReadingProgress />
       <Header />
 
       {/* Article breadcrumb */}
-      <div className="border-b border-zinc-200 dark:border-zinc-800">
-        <div className="container mx-auto px-4 py-3">
-          <button onClick={() => navigate("/feed")} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="news-container py-3">
+          <button onClick={() => navigate("/feed")} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-950">
             <ArrowLeft className="h-4 w-4" /> Back to Feed
           </button>
         </div>
@@ -284,7 +317,7 @@ export default function PostDetailPage() {
           className="w-full flex-1"
         >
           {/* HERO */}
-          <section className="relative w-full overflow-hidden mb-0 bg-black">
+          <section className="relative mb-0 w-full overflow-hidden bg-black">
             {post.media && post.media.length > 0 ? (
               <>
                 {/* blurred bg fill for letterbox areas */}
@@ -313,21 +346,23 @@ export default function PostDetailPage() {
 
             <div className="absolute bottom-0 left-0 right-0 mx-auto flex max-w-5xl flex-col justify-end px-4 pb-10 sm:px-6 sm:pb-12">
               {post.tags && post.tags.length > 0 && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 fill-mode-both">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-red-400/50 bg-red-600/20 backdrop-blur-sm px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                    {post.tags[0]}
-                  </span>
-                </div>
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 fill-mode-both">
+                <CategoryPill category={post.tags[0]} className="bg-white/95" />
+              </div>
               )}
               <h1 className="mt-4 max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white drop-shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both sm:text-5xl md:text-6xl">
                 {post.title}
               </h1>
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/75">
+                <LiveUpdateBadge label="Article" />
+                <span>{readTime} min read</span>
+                <span>{formattedDate}</span>
+              </div>
             </div>
           </section>
 
           {/* Publisher strip */}
-          <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-900/40 animate-in fade-in duration-700 delay-300 fill-mode-both mb-8">
+          <div className="mb-8 border-b border-slate-200 bg-white animate-in fade-in duration-700 delay-300 fill-mode-both">
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-4 px-4 py-5 sm:px-6">
               <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
                 <div className="flex items-center gap-3">
@@ -350,7 +385,7 @@ export default function PostDetailPage() {
                   </div>
                 </div>
                 <div className="hidden h-8 w-px bg-zinc-200 dark:bg-zinc-800 sm:block" />
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{formattedDate}</span>
                   <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{readTime} min read</span>
                 </div>
@@ -389,13 +424,29 @@ export default function PostDetailPage() {
                     <Flag className="h-4 w-4" />
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                  title="Save article"
+                >
+                  <Bookmark className="h-3.5 w-3.5" />
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                  title="Share article"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Share
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col lg:flex-row gap-10">
+          <div className="mx-auto flex max-w-7xl flex-col gap-10 px-4 sm:px-6 lg:flex-row">
             {/* Main Content Area */}
-            <div className="flex-1 max-w-3xl lg:max-w-none mx-auto lg:mx-0 w-full">
+            <div className="mx-auto w-full max-w-3xl flex-1 lg:mx-0 lg:max-w-none">
 
               {/* Credibility badge */}
               {post.verificationStatus && (
@@ -415,7 +466,7 @@ export default function PostDetailPage() {
                   {/* Single image */}
                   {post.media.length === 1 && (
                     <div
-                      className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 cursor-zoom-in group"
+                      className="relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 cursor-zoom-in group"
                       onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
                     >
                       <img
@@ -433,7 +484,7 @@ export default function PostDetailPage() {
                   {post.media.length > 1 && (
                     <div className="space-y-3">
                       {/* Main viewer */}
-                      <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 group">
+                      <div className="relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 group">
                         <div
                           className="cursor-zoom-in"
                           onClick={() => { setLightboxIndex(activeImageIndex); setLightboxOpen(true); }}
@@ -507,10 +558,10 @@ export default function PostDetailPage() {
               {/* Article body — newspaper typography */}
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-                className="prose prose-zinc dark:prose-invert max-w-none"
+                className="article-measure prose prose-zinc max-w-none"
               >
-                {post.content.split("\n\n").map((paragraph, idx) => (
-                  <p key={idx} className="text-base md:text-lg leading-[1.85] text-zinc-800 dark:text-zinc-200 mb-5 font-serif">
+                {paragraphs.map((paragraph, idx) => (
+                  <p id={`section-${idx + 1}`} key={idx} className="scroll-mt-24 text-base md:text-lg leading-[1.85] text-slate-800 mb-5 font-serif">
                     {paragraph}
                   </p>
                 ))}
@@ -545,7 +596,7 @@ export default function PostDetailPage() {
 
                 {/* Comment form */}
                 {user?.role !== "admin" && (
-                  <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5 shadow-sm mb-10">
+                  <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5 shadow-sm mb-10">
                     {commentError && (
                       <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-3 mb-4 text-sm text-red-700 dark:text-red-400">
                         {commentError}
@@ -588,7 +639,7 @@ export default function PostDetailPage() {
                 {/* Comments list */}
                 <div className="mt-10 space-y-8">
                   {comments.length === 0 ? (
-                    <div className="p-10 text-center rounded-2xl border border-zinc-200 dark:border-zinc-800 border-dashed">
+                    <div className="p-10 text-center rounded-lg border border-zinc-200 dark:border-zinc-800 border-dashed">
                       <MessageCircle className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">No comments yet. Be the first to share your perspective.</p>
                     </div>
@@ -650,8 +701,9 @@ export default function PostDetailPage() {
 
             {/* Right Sidebar - About the Author */}
             <aside className="hidden lg:block w-80 flex-shrink-0">
-              <div className="sticky top-24 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6">
-                <h3 className="font-serif text-lg font-semibold text-zinc-900 dark:text-white mb-4">About the Author</h3>
+              <div className="sticky top-24 space-y-6">
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="font-serif text-lg font-semibold text-slate-950 mb-4">About the Author</h3>
                 <div className="flex items-center gap-4 mb-4">
                   <Link to={`/profiles/${post.authorId}`} className="flex h-16 w-16 overflow-hidden items-center justify-center rounded-full ring-2 ring-red-600/30 bg-red-600/10 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors">
                     {authorAvatar ? (
@@ -663,26 +715,26 @@ export default function PostDetailPage() {
                     )}
                   </Link>
                   <div>
-                    <Link to={`/profiles/${post.authorId}`} className="font-semibold text-zinc-900 dark:text-white text-lg hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                    <Link to={`/profiles/${post.authorId}`} className="font-semibold text-slate-950 text-lg hover:text-red-600 transition-colors">
                       {post.authorName}
                     </Link>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{post.organizationName || "Independent Journalist"}</p>
+                    <p className="text-sm text-slate-500">{post.organizationName || "Independent Journalist"}</p>
                   </div>
                 </div>
 
                 {authorProfile?.bio && (
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
+                  <p className="text-sm text-slate-600 mb-6 leading-relaxed">
                     {authorProfile.bio}
                   </p>
                 )}
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
-                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.followers ?? "-"}</p>
+                  <div className="text-center rounded-lg bg-slate-50 border border-slate-200 py-3">
+                    <p className="tabular-nums font-bold text-xl text-slate-950">{authorProfile?.followers ?? "-"}</p>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Followers</p>
                   </div>
-                  <div className="text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 py-3">
-                    <p className="tabular-nums font-bold text-xl text-zinc-900 dark:text-white">{authorProfile?.totalPosts ?? "-"}</p>
+                  <div className="text-center rounded-lg bg-slate-50 border border-slate-200 py-3">
+                    <p className="tabular-nums font-bold text-xl text-slate-950">{authorProfile?.totalPosts ?? "-"}</p>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mt-1">Posts</p>
                   </div>
                 </div>
@@ -692,10 +744,10 @@ export default function PostDetailPage() {
                     onClick={handleFollowToggle}
                     disabled={isFollowLoading}
                     className={cn(
-                      "w-full rounded-full font-semibold transition-all",
+                      "w-full rounded-md font-semibold transition-all",
                       isFollowing
-                        ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400 border border-zinc-200 dark:border-zinc-700"
-                        : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800"
+                        ? "bg-slate-100 text-slate-950 hover:bg-red-50 hover:text-red-600 border border-slate-200"
+                        : "bg-slate-950 text-white hover:bg-slate-800"
                     )}
                   >
                     {isFollowLoading ? (
@@ -709,12 +761,33 @@ export default function PostDetailPage() {
                 {user && post.authorId !== user.id && (
                   <button
                     onClick={handleOpenReport}
-                    className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-full text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 border border-transparent hover:border-amber-200 dark:hover:border-amber-800 transition-all"
+                    className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-transparent py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 transition-all hover:border-amber-200 hover:bg-amber-50 hover:text-amber-600"
                   >
                     <Flag className="h-3.5 w-3.5" />
                     Report Article
                   </button>
                 )}
+              </div>
+              {tableOfContents.length > 1 && (
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Newspaper className="h-4 w-4 text-red-600" />
+                    <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-950">In this story</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {tableOfContents.map((item, index) => (
+                      <a
+                        key={item.id}
+                        href={`#${item.id}`}
+                        className="block rounded-md px-2 py-2 text-sm leading-5 text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                      >
+                        {index + 1}. {item.label}{item.label.length >= 56 ? "..." : ""}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {relatedStories.length > 0 && <StoryRail title="Related Articles" items={relatedStories} numbered={false} icon={Newspaper} />}
               </div>
             </aside>
           </div>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Shield, Search, Bell, User, LogOut, Settings, Lock, LayoutDashboard, Edit } from "lucide-react";
+import { ChevronDown, Menu, X, Shield, Search, Bell, User, LogOut, Lock, LayoutDashboard, Edit, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,15 @@ const navLinks = [
   { href: "/feed", label: "News Feed" },
   { href: "/communities", label: "Communities" },
   { href: "/live", label: "Live" },
+];
+
+const sectionLinks = [
+  { label: "Politics", href: "/feed", description: "Policy, elections, public institutions" },
+  { label: "Technology", href: "/feed", description: "Platforms, AI, cybersecurity, startups" },
+  { label: "Health", href: "/feed", description: "Public health, research, science desk" },
+  { label: "Economy", href: "/feed", description: "Markets, business, consumer signals" },
+  { label: "Environment", href: "/feed", description: "Climate, energy, local impact" },
+  { label: "Live", href: "/live", description: "Broadcasts and live reporting rooms" },
 ];
 
 export function Header() {
@@ -186,44 +195,92 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container mx-auto px-4">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-slate-950 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Skip to main content
+      </a>
+      <div className="hidden border-b border-slate-100 bg-slate-950 text-white lg:block">
+        <div className="news-container flex h-9 items-center justify-between text-xs">
+          <div className="flex items-center gap-2 font-bold uppercase tracking-[0.18em] text-red-200">
+            <Radio className="h-3.5 w-3.5 text-red-500" />
+            Live desk open
+          </div>
+          <div className="text-slate-300">
+            Source-backed reporting, community review, and live coverage.
+          </div>
+        </div>
+      </div>
+      <div className="news-container">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="relative">
-              <Shield className="h-8 w-8 text-accent transition-transform group-hover:scale-110" />
-              <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Link to="/" className="group flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-950 transition-colors group-hover:bg-red-600">
+              <Shield className="h-6 w-6 text-white" />
             </div>
-            <span className="font-display text-xl font-bold text-primary">
-              TruthTrack
-            </span>
+            <div className="leading-none">
+              <span className="font-display text-2xl font-bold text-slate-950">
+                TruthTrack
+              </span>
+              <p className="mt-1 hidden text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500 sm:block">
+                Independent News Desk
+              </p>
+            </div>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium rounded-lg transition-all",
+                  "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
                   location.pathname === link.href
-                    ? "text-accent bg-accent/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-red-50 text-red-700"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                 )}
               >
                 {link.label}
               </Link>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 rounded-md px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                >
+                  Sections
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-[520px] rounded-lg border-slate-200 p-3">
+                <DropdownMenuLabel className="text-xs font-bold uppercase tracking-[0.18em] text-red-700">
+                  Newsroom Sections
+                </DropdownMenuLabel>
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  {sectionLinks.map((section) => (
+                    <DropdownMenuItem key={section.label} asChild>
+                      <Link
+                        to={section.href}
+                        className="flex cursor-pointer flex-col items-start rounded-md p-3 transition-colors hover:bg-red-50"
+                      >
+                        <span className="text-sm font-bold text-slate-950">{section.label}</span>
+                        <span className="mt-1 text-xs leading-5 text-slate-500">{section.description}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
-          {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground"
+              className="rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-950"
               aria-label="Search public profiles"
               onClick={openProfileSearch}
             >
@@ -233,7 +290,7 @@ export function Header() {
             {isAuthenticated && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground" aria-label="Notifications">
+                  <Button variant="ghost" size="icon" className="relative rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-950" aria-label="Notifications">
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
                       <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
@@ -242,7 +299,7 @@ export function Header() {
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto rounded-lg border-slate-200">
                   <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {notifications.length === 0 ? (
@@ -251,12 +308,12 @@ export function Header() {
                     notifications.map((n) => (
                       <DropdownMenuItem 
                         key={n.id} 
-                        className={cn("flex flex-col items-start gap-1 p-3 cursor-pointer", !n.isRead && "bg-muted/50")}
+                        className={cn("flex flex-col items-start gap-1 p-3 cursor-pointer", !n.isRead && "bg-red-50/70")}
                         onClick={() => !n.isRead && handleMarkAsRead(n.id)}
                       >
                         <div className="flex justify-between w-full items-center">
                           <span className="font-semibold text-sm">{n.title}</span>
-                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-blue-500"></span>}
+                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-red-600"></span>}
                         </div>
                         <span className="text-xs text-muted-foreground line-clamp-2">{n.message}</span>
                         <span className="text-[10px] text-muted-foreground/70">{new Date(n.createdAt).toLocaleDateString()}</span>
@@ -271,7 +328,7 @@ export function Header() {
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
+                    <Button variant="outline" size="sm" className="gap-2 rounded-md border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
                       {user?.avatar && !avatarError ? (
                         <img
                           src={user.avatar}
@@ -285,7 +342,7 @@ export function Header() {
                       {user?.name || "Account"}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuContent align="end" className="w-56 rounded-lg border-slate-200">
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
@@ -313,13 +370,13 @@ export function Header() {
             ) : (
               <>
                 <Link to="/login">
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 rounded-md border-slate-200">
                     <User className="h-4 w-4" />
                     Sign In
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Button size="sm" className="rounded-md bg-red-600 text-white hover:bg-red-700">
                     Get Started
                   </Button>
                 </Link>
@@ -327,11 +384,10 @@ export function Header() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="rounded-md md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMenuOpen}
@@ -348,25 +404,40 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-border bg-background"
+            className="md:hidden border-t border-slate-200 bg-white"
           >
-            <nav className="container mx-auto px-4 py-4 space-y-2">
+            <nav className="news-container py-4 space-y-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   to={link.href}
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
-                    "block px-4 py-3 rounded-lg font-medium transition-all",
+                    "block rounded-md px-4 py-3 font-semibold transition-colors",
                     location.pathname === link.href
-                      ? "text-accent bg-accent/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      ? "bg-red-50 text-red-700"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                   )}
                 >
                   {link.label}
                 </Link>
               ))}
-              <div className="pt-4 border-t border-border space-y-2">
+              <div className="border-t border-slate-200 pt-3">
+                <p className="px-4 pb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Sections
+                </p>
+                {sectionLinks.map((section) => (
+                  <Link
+                    key={section.label}
+                    to={section.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block rounded-md px-4 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+                  >
+                    {section.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="pt-4 border-t border-slate-200 space-y-2">
                 <Button
                   variant="outline"
                   className="w-full gap-2 justify-start"

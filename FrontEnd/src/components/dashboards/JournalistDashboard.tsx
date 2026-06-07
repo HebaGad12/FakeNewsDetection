@@ -319,7 +319,7 @@ function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submi
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="rounded-2xl border border-secondary bg-surface-container p-8 text-center"
+        className="rounded-lg border border-secondary bg-surface-container p-8 text-center"
       >
         <div className={cn(
           "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4",
@@ -413,7 +413,7 @@ function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submi
 
         {/* AI Assistant Panel */}
         {showAiAssistant && (
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col gap-3 relative overflow-hidden">
+          <div className="p-4 rounded-lg border border-slate-200 bg-slate-50 flex flex-col gap-3 relative overflow-hidden">
             <div className="flex justify-between items-center">
               <h4 className="text-sm font-bold flex items-center gap-2 text-slate-900">
                 <Shield className="w-4 h-4 text-slate-700" />
@@ -503,7 +503,7 @@ function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submi
       {/* ── Right Column: Sidebar ── */}
       <div className="space-y-6">
         {/* Category */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
+        <div className="bg-white border border-slate-200 rounded-lg p-5">
           <Label className="text-slate-700 mb-3 block">Category *</Label>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
@@ -527,7 +527,7 @@ function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submi
         </div>
 
         {/* Media Upload */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
+        <div className="bg-white border border-slate-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-3">
             <Label className="text-slate-700">Media ({selectedMedia.length}/{MAX_MEDIA_ITEMS})</Label>
             <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
@@ -615,7 +615,7 @@ function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submi
         </div>
 
         {/* AI Credibility Note */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
           <h3 className="font-semibold text-slate-900 mb-2">AI Credibility Check</h3>
           <p className="text-sm text-slate-500">Your article will be analyzed by our AI system for credibility scoring after submission.</p>
         </div>
@@ -700,7 +700,7 @@ const JournalistDashboard = () => {
         {/* ── Brand ── */}
         <div className="px-5 pt-7 pb-5 border-b border-white/5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
               <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
             </div>
             <div>
@@ -710,7 +710,7 @@ const JournalistDashboard = () => {
           </div>
 
           {/* User badge */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/5 border border-white/5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {user?.avatar ? (
                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -737,7 +737,7 @@ const JournalistDashboard = () => {
                 key={item.id}
                 onClick={() => setActiveTab(item.id as Tab)}
                 className={cn(
-                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left",
                   isActive
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
                     : "text-white/45 hover:text-white hover:bg-white/6"
@@ -762,7 +762,7 @@ const JournalistDashboard = () => {
           {/* Go to Home */}
           <button
             onClick={() => navigate("/")}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
           >
             <Home className="w-4 h-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
             <span className="flex-1 text-left">Go to Home</span>
@@ -772,7 +772,7 @@ const JournalistDashboard = () => {
           {/* Logout */}
           <button
             onClick={() => navigate("/login")}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
             <span className="flex-1 text-left">Logout</span>

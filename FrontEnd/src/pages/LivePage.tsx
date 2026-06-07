@@ -384,7 +384,7 @@ const LivePage = () => {
               {isLoadingSessions ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                    <div key={i} className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
                       <div className="aspect-video w-full bg-muted/60 animate-pulse" />
                       <div className="space-y-3 p-5">
                         <div className="h-6 w-3/4 rounded bg-muted/60 animate-pulse" />
@@ -398,7 +398,7 @@ const LivePage = () => {
                   ))}
                 </div>
               ) : liveSessions.length === 0 ? (
-                <div className="relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-16 text-center sm:py-24 shadow-sm mt-4">
+                <div className="relative overflow-hidden rounded-lg border border-border bg-card px-6 py-16 text-center sm:py-24 shadow-sm mt-4">
                   <div className="relative mx-auto flex max-w-md flex-col items-center">
                     <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border bg-background shadow-sm">
                       <Radio className="h-9 w-9 text-muted-foreground" />
@@ -422,7 +422,7 @@ const LivePage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ delay: i * 0.05 }}
-                        className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all hover:-translate-y-1 cursor-pointer"
+                        className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm hover:shadow-md transition-all hover:-translate-y-1 cursor-pointer"
                         onClick={() => handleWatch(card)}
                       >
                         <div className="relative aspect-video overflow-hidden bg-muted">
@@ -519,7 +519,7 @@ const LivePage = () => {
               {/* Left Column: Video and Intel */}
               <div className="flex-grow lg:w-2/3 xl:w-[70%] flex flex-col">
                 {/* Video Player Section */}
-                <section className="relative bg-zinc-950 rounded-2xl overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{minHeight: "50vh"}}>
+                <section className="relative bg-zinc-950 rounded-lg overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{minHeight: "50vh"}}>
                   <div className="group/video aspect-video w-full flex items-center justify-center relative bg-black/50">
                     
                     {/* WebRTC Video Mount */}
@@ -589,7 +589,7 @@ const LivePage = () => {
                       {liveSessions.filter(card => card.liveId !== activeStream.liveId).map((card) => (
                         <div
                           key={card.liveId}
-                          className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer"
+                          className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer"
                           onClick={() => handleWatch(card)}
                         >
                           <div className="relative aspect-video overflow-hidden bg-muted">
@@ -613,7 +613,7 @@ const LivePage = () => {
               </div>
 
               {/* Right Column: Chat Box */}
-              <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-2xl border border-border shadow-lg overflow-hidden relative">
+              <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-lg border border-border shadow-lg overflow-hidden relative">
                 <div className="p-5 border-b border-border flex justify-between items-center bg-muted/20">
                     <div>
                         <h3 className="font-sans font-bold text-foreground flex items-center gap-2 text-xs">
@@ -642,7 +642,7 @@ const LivePage = () => {
                                 senderName={msg.senderName}
                                 className="w-8 h-8 rounded-full border border-primary/20 flex-shrink-0 object-cover"
                             />
-                            <div className="flex-1 bg-muted/40 p-3 rounded-2xl rounded-tl-sm border border-border/50">
+                            <div className="flex-1 bg-muted/40 p-3 rounded-lg rounded-tl-sm border border-border/50">
                                 <div className="flex justify-between items-center mb-1">
                                     <p className="text-[10px] font-bold text-foreground tracking-wide">
                                         {msg.senderName}

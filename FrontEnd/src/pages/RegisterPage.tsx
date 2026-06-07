@@ -143,28 +143,29 @@ const RegisterPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="editorial-shell flex">
       {/* Left Side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
+      <div className="flex-1 flex items-center justify-center overflow-y-auto p-6 sm:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md py-8"
         >
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 mb-8">
-            <Shield className="h-8 w-8 text-accent" />
-            <span className="font-display text-xl font-bold text-primary">
-              TruthTrack
+          <Link to="/" className="mb-8 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-950">
+              <Shield className="h-6 w-6 text-white" />
             </span>
+            <span className="font-display text-2xl font-bold text-slate-950">TruthTrack</span>
           </Link>
 
           {/* Header */}
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-bold text-primary mb-2">
+            <div className="news-kicker mb-4">Join The Desk</div>
+            <h1 className="mb-2 font-display text-4xl font-bold leading-tight text-slate-950">
               Create your account
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-slate-600">
               Join the movement for verified news
             </p>
           </div>
@@ -179,43 +180,43 @@ const RegisterPage = () => {
                   type="button"
                   onClick={() => setSelectedRole(role.id)}
                   className={cn(
-                    "p-4 rounded-xl border-2 text-center transition-all",
+                    "cursor-pointer rounded-md border p-4 text-center transition-colors focus-visible:ring-2 focus-visible:ring-red-600",
                     selectedRole === role.id
-                      ? "border-accent bg-accent/5"
-                      : "border-border hover:border-accent/50"
+                      ? "border-red-600 bg-red-50"
+                      : "border-slate-200 bg-white hover:border-red-200 hover:bg-red-50/60"
                   )}
                 >
                   <role.icon className={cn(
                     "h-6 w-6 mx-auto mb-2",
-                    selectedRole === role.id ? "text-accent" : "text-muted-foreground"
+                    selectedRole === role.id ? "text-red-700" : "text-slate-500"
                   )} />
                   <span className={cn(
                     "text-sm font-medium block",
-                    selectedRole === role.id ? "text-accent" : "text-foreground"
+                    selectedRole === role.id ? "text-red-700" : "text-slate-950"
                   )}>
                     {role.title}
                   </span>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="mt-2 text-xs text-slate-500">
               {roles.find(r => r.id === selectedRole)?.description}
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="editorial-card space-y-4 p-5">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="name"
                   type="text"
                   placeholder="Full Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="pl-11 h-12"
+                  className="editorial-input pl-11"
                 />
               </div>
             </div>
@@ -223,14 +224,14 @@ const RegisterPage = () => {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="pl-11 h-12"
+                  className="editorial-input pl-11"
                 />
               </div>
             </div>
@@ -238,24 +239,25 @@ const RegisterPage = () => {
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="pl-11 pr-11 h-12"
+                  className="editorial-input pl-11 pr-11"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md text-slate-500 transition-colors hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-red-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500">
                 Must be at least 8 characters long
               </p>
             </div>
@@ -270,17 +272,17 @@ const RegisterPage = () => {
               >
                 <Label htmlFor="license">Press License Number</Label>
                 <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <FileText className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <Input
                     id="license"
                     type="text"
                     placeholder="e.g., PL-2024-12345"
                     value={formData.licenseNumber}
                     onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                    className="pl-11 h-12"
+                    className="editorial-input pl-11"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   Required for journalist verification. Your account will be reviewed by our admin team.
                 </p>
               </motion.div>
@@ -297,20 +299,20 @@ const RegisterPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="orgLicense">Organization License Number</Label>
                   <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Building2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <Input
                       id="orgLicense"
                       type="text"
                       placeholder="e.g., ORG-2024-12345"
                       value={formData.organizationLicenseNumber}
                       onChange={(e) => setFormData({ ...formData, organizationLicenseNumber: e.target.value })}
-                      className="pl-11 h-12"
+                      className="editorial-input pl-11"
                     />
                   </div>
                 </div>
                 {/* <div className="space-y-2">
                   <Label>Business License Document *</Label>
-                  <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
+                  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
                     <input type="file" id="license-upload" className="hidden" accept=".pdf,.doc,.docx,.jpg,.png" />
                     <label htmlFor="license-upload" className="cursor-pointer">
                       <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
@@ -319,7 +321,7 @@ const RegisterPage = () => {
                     </label>
                   </div>
                 </div> */}
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   Your organization will require admin approval before activation.
                 </p>
               </motion.div>
@@ -336,16 +338,16 @@ const RegisterPage = () => {
               </label>
             </div> */}
 
-            <Button type="submit" disabled={isLoading} className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
+            <Button type="submit" disabled={isLoading} className="editorial-button-primary h-12 w-full gap-2">
               {isLoading ? "Creating Account..." : "Create Account"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
 
           {/* Sign In Link */}
-          <p className="text-center text-sm text-muted-foreground mt-8">
+          <p className="mt-8 text-center text-sm text-slate-600">
             Already have an account?{" "}
-            <Link to="/login" className="text-accent font-medium hover:underline">
+            <Link to="/login" className="font-semibold text-red-700 hover:text-red-900">
               Sign in
             </Link>
           </p>
@@ -353,29 +355,25 @@ const RegisterPage = () => {
       </div>
 
       {/* Right Side - Hero */}
-      <div className="hidden lg:flex flex-1 gradient-hero items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-white/20 blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-        </div>
-
-        <div className="relative max-w-md text-center">
+      <div className="hidden flex-1 items-center justify-center bg-slate-950 p-12 text-white lg:flex">
+        <div className="max-w-md">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="mb-8"
+            className="mb-8 border-l-4 border-red-600 pl-5"
           >
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-6">
-              <Shield className="h-10 w-10 text-primary-foreground" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-md bg-red-600">
+              <Shield className="h-8 w-8 text-white" />
             </div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-red-200">Verified News Desk</p>
           </motion.div>
 
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="font-display text-3xl font-bold text-primary-foreground mb-4"
+            className="mb-4 font-display text-4xl font-bold leading-tight text-white"
           >
             Be Part of the Solution
           </motion.h2>
@@ -384,7 +382,7 @@ const RegisterPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="text-primary-foreground/80 mb-8"
+            className="mb-8 text-base leading-7 text-slate-300"
           >
             Join thousands of readers, journalists, and organizations committed to fighting misinformation.
           </motion.p>
@@ -393,7 +391,7 @@ const RegisterPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="grid grid-cols-2 gap-4 text-left"
+            className="grid grid-cols-2 gap-3 text-left"
           >
             {[
               { value: "99.2%", label: "AI Accuracy" },
@@ -401,11 +399,11 @@ const RegisterPage = () => {
               { value: "10K+", label: "Journalists" },
               { value: "2M+", label: "Readers" },
             ].map((stat, index) => (
-              <div key={index} className="p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                <div className="font-display text-2xl font-bold text-primary-foreground">
+              <div key={index} className="rounded-md border border-white/10 bg-white/5 p-4">
+                <div className="font-display text-2xl font-bold text-white">
                   {stat.value}
                 </div>
-                <div className="text-sm text-primary-foreground/70">{stat.label}</div>
+                <div className="text-sm text-slate-300">{stat.label}</div>
               </div>
             ))}
           </motion.div>

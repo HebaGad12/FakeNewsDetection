@@ -471,11 +471,11 @@ const CommunityFeedPage = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-background/60">
+    <div className="editorial-shell">
       <Header />
 
       {/* ── Hero Banner ── */}
-      <div className="relative w-full overflow-hidden bg-card border-b border-border min-h-[360px] flex flex-col justify-end">
+      <div className="relative flex min-h-[360px] w-full flex-col justify-end overflow-hidden border-b border-slate-200 bg-white">
         {/* Background image — clearly visible */}
         {communityImageUrl ? (
           <>
@@ -488,11 +488,11 @@ const CommunityFeedPage = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
+          <div className="absolute inset-0 bg-gradient-to-br from-red-50 via-white to-slate-50 news-grid-lines" />
         )}
 
         {/* Content */}
-        <div className="relative max-w-7xl mx-auto px-6 pt-8 pb-10 w-full">
+        <div className="news-container relative pt-8 pb-10 w-full">
           {/* Back button */}
           <Button
             type="button"
@@ -508,7 +508,7 @@ const CommunityFeedPage = () => {
           <div className="flex flex-col sm:flex-row items-start gap-6">
             {/* Community avatar / thumbnail */}
             {communityImageUrl ? (
-              <div className="flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg ring-2 ring-black/20">
+              <div className="flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden border-2 border-white/30 shadow-lg ring-2 ring-black/20">
                 <img
                   src={communityImageUrl}
                   alt={community.name}
@@ -516,7 +516,7 @@ const CommunityFeedPage = () => {
                 />
               </div>
             ) : (
-              <div className="flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-xl bg-primary/10 border-2 border-border shadow-lg flex items-center justify-center">
+              <div className="flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-lg bg-primary/10 border-2 border-border shadow-lg flex items-center justify-center">
                 <Users className="w-10 h-10 text-primary/60" />
               </div>
             )}
@@ -527,7 +527,7 @@ const CommunityFeedPage = () => {
                 <p className={`font-sans text-[10px] font-semibold tracking-widest uppercase mb-1 ${communityImageUrl ? "text-white/70" : "text-accent"}`}>
                   {ownerRole} Network
                 </p>
-                <h1 className={`text-3xl md:text-5xl font-display font-light tracking-tight flex items-center gap-3 leading-tight ${communityImageUrl ? "text-white drop-shadow-md" : "text-foreground"}`}>
+                <h1 className={`text-3xl md:text-5xl font-display font-bold flex items-center gap-3 leading-tight ${communityImageUrl ? "text-white drop-shadow-md" : "text-slate-950"}`}>
                   {community.name}
                   {!community.isOpen && <Lock className="h-5 w-5 opacity-70" />}
                 </h1>
@@ -582,11 +582,11 @@ const CommunityFeedPage = () => {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+      <main className="news-container py-10 space-y-8">
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_340px] gap-8">
           <section className="space-y-6">
-            <div className="rounded-lg border border-border bg-card p-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="editorial-card p-4 flex flex-wrap gap-4 text-sm text-slate-600">
               <span className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 {members.length.toLocaleString()} members
@@ -603,8 +603,8 @@ const CommunityFeedPage = () => {
               )}
             </div>
 
-            <form onSubmit={handleCreatePost} className="rounded-lg border border-border bg-card p-5 space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">Create post</h2>
+            <form onSubmit={handleCreatePost} className="editorial-card p-5 space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-950">Create post</h2>
               <Textarea
                 value={postForm.content}
                 onChange={(event) =>
@@ -635,7 +635,7 @@ const CommunityFeedPage = () => {
             </form>
 
             {posts.length === 0 && (
-              <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-slate-200 bg-white p-10 text-center text-slate-500">
                 No posts yet. Start the first discussion.
               </div>
             )}
@@ -645,7 +645,7 @@ const CommunityFeedPage = () => {
               const canDeletePost = isOwner || post.authorId === user?.id;
 
               return (
-                <article key={post.id} className="rounded-lg border border-border bg-card p-5 space-y-4">
+                <article key={post.id} className="editorial-card editorial-card-hover p-5 space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-semibold text-foreground">{post.authorName}</p>
@@ -677,7 +677,7 @@ const CommunityFeedPage = () => {
                     )}
                   </div>
 
-                  <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                  <p className="whitespace-pre-wrap font-serif text-lg leading-8 text-slate-800">{post.content}</p>
 
                   {post.mediaPaths && post.mediaPaths.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

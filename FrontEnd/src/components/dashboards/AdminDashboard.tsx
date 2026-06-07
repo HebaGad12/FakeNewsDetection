@@ -130,7 +130,7 @@ const DashStatCard = ({
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay }}
-    className="bg-card border border-border rounded-xl p-5"
+    className="bg-card border border-border rounded-lg p-5"
   >
     <div className="flex items-center justify-between mb-3">
       <Icon className="h-5 w-5 text-accent" />
@@ -233,7 +233,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
       {/* ── Brand ── */}
       <div className="px-5 pt-7 pb-5 border-b border-white/5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
             <Shield className="h-5 w-5 text-white" strokeWidth={2.5} />
           </div>
           <div>
@@ -244,7 +244,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
 
         {/* User badge */}
         {user?.name && (
-          <div className="flex items-center gap-2.5 px-3 py-3 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2.5 px-3 py-3 rounded-lg bg-white/5 border border-white/5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xs font-bold uppercase">
                 {user.name.substring(0, 2)}
@@ -282,7 +282,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
                     key={id}
                     onClick={() => onTabChange(id)}
                     className={cn(
-                      "group relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                      "group relative flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left",
                       isActive
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
                         : "text-white/45 hover:text-white hover:bg-white/6"
@@ -312,7 +312,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
         {/* Go to Home */}
         <button
           onClick={() => navigate("/")}
-          className="group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+          className="group flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
         >
           <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
           <span className="flex-1 text-left">Go to Home</span>
@@ -322,7 +322,7 @@ const SideNavBar = ({ activeTab, onTabChange, user, onLogout, isSidebarOpen }: S
         {/* Logout */}
         <button
           onClick={onLogout}
-          className="group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+          className="group flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
           <span className="flex-1 text-left">Logout</span>
@@ -410,11 +410,11 @@ const OverviewReportsPanel = () => {
       {loading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-muted/40 rounded-xl animate-pulse" />
+            <div key={i} className="h-16 bg-muted/40 rounded-lg animate-pulse" />
           ))}
         </div>
       ) : reportedPosts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-dashed border-border/60 bg-muted/20">
+        <div className="flex flex-col items-center justify-center py-12 rounded-lg border border-dashed border-border/60 bg-muted/20">
           <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
             <CheckCircle className="h-5 w-5 text-green-500" />
           </div>
@@ -431,7 +431,7 @@ const OverviewReportsPanel = () => {
                 initial={{ opacity: 0, x: 6 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
-                  "group relative flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-150 cursor-pointer",
+                  "group relative flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-150 cursor-pointer",
                   colors.bg, colors.border,
                   "hover:shadow-sm hover:scale-[1.01]"
                 )}
@@ -479,7 +479,7 @@ const OverviewReportsPanel = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
               </div>
               <div>
@@ -495,16 +495,16 @@ const OverviewReportsPanel = () => {
 
           {detailsLoading ? (
             <div className="space-y-3 py-4">
-              {[1, 2].map((i) => <div key={i} className="h-24 bg-muted/40 rounded-xl animate-pulse" />)}
+              {[1, 2].map((i) => <div key={i} className="h-24 bg-muted/40 rounded-lg animate-pulse" />)}
             </div>
           ) : !selectedPostReport || selectedPostReport.reports.length === 0 ? (
-            <div className="text-sm text-muted-foreground bg-muted/30 rounded-xl p-5 text-center">
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-5 text-center">
               No report details found.
             </div>
           ) : (
             <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
               {selectedPostReport.reports.map((item: PostReportItem, idx: number) => (
-                <div key={item.id} className="rounded-xl border border-border bg-card p-4">
+                <div key={item.id} className="rounded-lg border border-border bg-card p-4">
                   {/* report header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -1171,7 +1171,7 @@ const JournalistsTab = ({ refreshKey }: { refreshKey?: number }) => {
         ) : (
           <div className="space-y-4">
             {pending.map((j) => (
-              <div key={j.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+              <div key={j.id} className="bg-card border border-border rounded-lg p-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
                     <UserCheck className="h-6 w-6 text-accent" />
@@ -1225,7 +1225,7 @@ const JournalistsTab = ({ refreshKey }: { refreshKey?: number }) => {
         ) : (
           <div className="space-y-4">
             {rejected.map((j) => (
-              <div key={j.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+              <div key={j.id} className="bg-card border border-border rounded-lg p-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                     <XCircle className="h-6 w-6 text-red-500" />
@@ -1383,7 +1383,7 @@ const OrganizationsTab = ({ refreshKey }: { refreshKey?: number }) => {
         ) : (
           <div className="space-y-4">
             {pending.map((org) => (
-              <div key={org.userId} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+              <div key={org.userId} className="bg-card border border-border rounded-lg p-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                     <Building2 className="h-6 w-6 text-primary" />
@@ -1437,7 +1437,7 @@ const OrganizationsTab = ({ refreshKey }: { refreshKey?: number }) => {
         ) : (
           <div className="space-y-4">
             {rejected.map((org) => (
-              <div key={org.userId} className="bg-card border border-border rounded-xl p-5">
+              <div key={org.userId} className="bg-card border border-border rounded-lg p-5">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                     <XCircle className="h-6 w-6 text-red-500" />
@@ -1623,7 +1623,7 @@ const WalletsTab = ({ refreshKey }: { refreshKey?: number }) => {
           {search ? "No wallets matching your search." : "No wallets found."}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -1824,15 +1824,15 @@ const DonationsTab = ({ refreshKey }: { refreshKey?: number }) => {
     <div className="space-y-5">
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-card border border-border rounded-xl p-6">
+        <div className="bg-card border border-border rounded-lg p-6">
           <p className="text-sm text-muted-foreground mb-1">Total Donations</p>
           <p className="text-3xl font-bold text-foreground">{donations.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-6">
+        <div className="bg-card border border-border rounded-lg p-6">
           <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
           <p className="text-3xl font-bold text-emerald-500">${totalAmount.toFixed(2)}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-6">
+        <div className="bg-card border border-border rounded-lg p-6">
           <p className="text-sm text-muted-foreground mb-1">Avg Donation</p>
           <p className="text-3xl font-bold text-foreground">
             ${donations.length > 0 ? (totalAmount / donations.length).toFixed(2) : "0.00"}
@@ -1865,7 +1865,7 @@ const DonationsTab = ({ refreshKey }: { refreshKey?: number }) => {
           {search ? "No donations matching your search." : "No donations found."}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -1969,7 +1969,7 @@ const ReportsTab = () => {
         </Button>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-bold text-lg text-foreground">Reported Posts</h3>
           <span className="text-sm text-muted-foreground">Total: {reportedPosts.length}</span>

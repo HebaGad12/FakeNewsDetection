@@ -295,7 +295,7 @@ const LiveBroadcastPage = () => {
           <div className="flex flex-col lg:flex-row gap-8 mb-12">
             {/* Video */}
             <div className="flex-grow lg:w-2/3 xl:w-[70%] flex flex-col">
-              <section className="relative bg-zinc-950 rounded-2xl overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{ minHeight: "50vh" }}>
+              <section className="relative bg-zinc-950 rounded-lg overflow-hidden shadow-xl border border-border flex-shrink-0 z-10 w-full" style={{ minHeight: "50vh" }}>
                 <div className="group/video aspect-video w-full flex items-center justify-center relative bg-black/50">
                   {isCameraMuted && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-zinc-900 pointer-events-auto">
@@ -362,7 +362,7 @@ const LiveBroadcastPage = () => {
             </div>
 
             {/* Chat */}
-            <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
+            <aside className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0 flex flex-col h-[600px] lg:h-auto bg-card rounded-lg border border-border shadow-lg overflow-hidden">
               <div className="p-5 border-b border-border flex justify-between items-center bg-muted/20">
                 <h3 className="font-sans font-bold text-foreground flex items-center gap-2 text-xs">
                   <MessageSquare className="w-4 h-4 text-primary" /> Live Chat
@@ -387,7 +387,7 @@ const LiveBroadcastPage = () => {
                           senderName={msg.senderName}
                           className="w-8 h-8 rounded-full border border-primary/20 flex-shrink-0 object-cover"
                         />
-                        <div className="flex-1 bg-muted/40 p-3 rounded-2xl rounded-tl-sm border border-border/50">
+                        <div className="flex-1 bg-muted/40 p-3 rounded-lg rounded-tl-sm border border-border/50">
                           <div className="flex justify-between items-center mb-1">
                             <p className="text-[10px] font-bold text-foreground tracking-wide">{msg.senderName}</p>
                             <span className="font-mono text-muted-foreground font-normal text-[9px]">

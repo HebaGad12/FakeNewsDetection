@@ -321,7 +321,7 @@ const LiveWatchPage = () => {
 
           <div className="relative w-full max-w-5xl aspect-video group/video">
             <video ref={remoteVideoRef} autoPlay playsInline
-              className="w-full h-full rounded-2xl object-cover bg-zinc-900 border border-white/10" />
+              className="w-full h-full rounded-lg object-cover bg-zinc-900 border border-white/10" />
             <div className="absolute top-4 right-4 z-30 pointer-events-auto opacity-0 group-hover/video:opacity-100 transition-opacity">
               <button onClick={() => remoteVideoRef.current?.requestFullscreen()}
                 className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors" title="Fullscreen">

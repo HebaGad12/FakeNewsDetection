@@ -16,7 +16,7 @@ export function StatCard({ value, label, index = 0, className }: StatCardProps) 
       viewport={{ once: true }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
       className={cn(
-        "text-center p-6 rounded-2xl bg-primary/5 border border-primary/10",
+        "text-center p-6 rounded-lg bg-primary/5 border border-primary/10",
         className
       )}
     >

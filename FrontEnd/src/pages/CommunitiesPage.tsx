@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { communityService } from "@/services";
@@ -50,9 +49,6 @@ interface CreateHubForm {
   isOpen: boolean;
   image: File | null;
 }
-
-
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400";
 
 const borderColors = [
   "border-l-primary",
@@ -289,31 +285,31 @@ const CommunitiesPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background/50 text-foreground font-sans selection:bg-accent/20">
+    <div className="editorial-shell">
       <Header />
 
-      <main className="max-w-[1440px] mx-auto px-6 py-12 flex flex-col lg:flex-row gap-12">
+      <main className="news-container flex flex-col gap-10 py-10 lg:flex-row">
         <div className="flex-1">
-          <header className="mb-12">
+          <header className="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:p-8">
             <div className="flex justify-between flex-wrap gap-4 items-start mb-4">
               <div>
-                <p className="font-sans text-xs text-accent font-semibold tracking-widest uppercase mb-2">
+                <p className="font-sans text-xs text-red-700 font-semibold tracking-widest uppercase mb-2">
                   Network Expansion
                 </p>
-                <h1 className="font-display text-4xl md:text-5xl text-foreground font-light tracking-tight leading-tight">
-                  Intelligence Hubs
+                <h1 className="font-display text-4xl md:text-6xl text-slate-950 font-bold leading-tight">
+                  Community Newsrooms
                 </h1>
               </div>
               <Button
                 type="button"
                 onClick={handleCreateClick}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 h-10 px-6 rounded-md"
+                className="bg-red-600 text-white hover:bg-red-700 gap-2 h-10 px-6 rounded-md"
               >
                 <Plus className="h-4 w-4" />
                 Create Hub
               </Button>
             </div>
-            <p className="font-sans text-lg text-muted-foreground max-w-2xl leading-relaxed">
+            <p className="font-sans text-lg text-slate-600 max-w-2xl leading-relaxed">
               Connect with investigative leads, verified contributors, and specialized research communities shaping the global discourse.
             </p>
 
@@ -350,10 +346,10 @@ const CommunitiesPage = () => {
                     key={category}
                     onClick={() => setActiveCategory(category)}
                     className={cn(
-                      "px-4 py-2 rounded-sm text-xs font-medium uppercase tracking-wider whitespace-nowrap transition-all border snap-start",
-                      activeCategory === category
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-transparent text-muted-foreground border-border hover:bg-muted"
+                    "cursor-pointer rounded-md border px-4 py-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors snap-start",
+                    activeCategory === category
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
                     )}
                   >
                     {category}
@@ -387,7 +383,7 @@ const CommunitiesPage = () => {
                   transition={{ delay: index * 0.05 }}
                   onClick={() => handleViewCommunity(community)}
                   className={cn(
-                    "bg-card p-8 flex flex-col gap-6 group hover:shadow-xl transition-all duration-300 border-l-[3px] border-t border-r border-b border-border rounded-r-lg cursor-pointer",
+                    "bg-white p-6 flex flex-col gap-6 group hover:shadow-xl transition-all duration-300 border-l-[3px] border-t border-r border-b border-slate-200 rounded-r-lg cursor-pointer",
                     borderColors[index % borderColors.length]
                   )}
                 >
@@ -425,7 +421,7 @@ const CommunitiesPage = () => {
                       <img
                         src={community.image}
                         alt={community.name}
-                        className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-all duration-700"
                       />
                       <div className="absolute bottom-0 left-0 bg-primary/95 backdrop-blur-sm px-3 py-1.5 rounded-tr-md flex items-center gap-2">
                         <span className="font-sans text-[10px] text-primary-foreground font-bold uppercase tracking-wider">
@@ -443,15 +439,15 @@ const CommunitiesPage = () => {
                   )}
 
                   <div className="space-y-4 flex-1">
-                    <h3 className="font-sans text-xs font-bold uppercase text-muted-foreground tracking-wider border-b border-border pb-2">
+                    <h3 className="font-sans text-xs font-bold uppercase text-slate-500 tracking-wider border-b border-slate-200 pb-2">
                       Mission Brief
                     </h3>
-                    <p className="text-sm font-medium leading-relaxed line-clamp-3 text-foreground/80">
+                    <p className="text-sm font-medium leading-relaxed line-clamp-3 text-slate-700">
                       {community.description}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
                     <div className="flex items-center gap-4 text-[10px] font-sans text-muted-foreground uppercase tracking-tighter font-semibold">
                       <span className="flex items-center gap-1">
                         <MessageSquare className="w-3.5 h-3.5" />
@@ -479,9 +475,9 @@ const CommunitiesPage = () => {
         </div>
 
         <aside className="w-full lg:w-80 flex flex-col gap-8 flex-shrink-0">
-          <section className="bg-card border border-border p-6 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2 border-b border-border pb-3 mb-6">
-              <TrendingUp className="w-4 h-4 text-accent" />
+          <section className="editorial-card editorial-card-hover p-6">
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
+              <TrendingUp className="w-4 h-4 text-red-600" />
               <h3 className="font-sans text-xs font-bold uppercase tracking-widest text-foreground">
                 Trending Networks
               </h3>
@@ -519,9 +515,9 @@ const CommunitiesPage = () => {
             </button>
           </section>
 
-          <section className="bg-card border border-border p-6 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2 border-b border-border pb-3 mb-6">
-              <Globe className="w-4 h-4 text-primary" />
+          <section className="editorial-card p-6">
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
+              <Globe className="w-4 h-4 text-red-600" />
               <h3 className="font-sans text-xs font-bold uppercase tracking-widest text-foreground">
                 Top Contributors
               </h3>

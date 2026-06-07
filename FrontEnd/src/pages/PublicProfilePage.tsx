@@ -193,7 +193,7 @@ const PublicProfilePage = () => {
 
         {/* ── Error ── */}
         {error && !loadingPosts && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
             <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
             <p className="text-red-600 font-medium text-base">{error}</p>
             <button
@@ -211,7 +211,7 @@ const PublicProfilePage = () => {
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white border border-zinc-100 rounded-2xl overflow-hidden mb-10 shadow-sm"
+              className="bg-white border border-zinc-100 rounded-lg overflow-hidden mb-10 shadow-sm"
             >
               <div className="relative">
               {/* Top banner - made taller */}
@@ -244,7 +244,7 @@ const PublicProfilePage = () => {
                       onClick={handleToggleFollow}
                       disabled={loadingFollow}
                       className={cn(
-                        "flex items-center gap-2 px-6 py-3 rounded-xl text-base font-semibold transition-all border",
+                        "flex items-center gap-2 px-6 py-3 rounded-lg text-base font-semibold transition-all border",
                         isFollowing
                           ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-600 hover:text-white hover:border-rose-600"
                           : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700",
@@ -280,7 +280,7 @@ const PublicProfilePage = () => {
                     { icon: Heart,     label: "Total Likes",  value: totalLikes       },
                     { icon: Eye,       label: "Total Views",  value: totalViews       },
                   ].map(({ icon: Icon, label, value, color }) => (
-                    <div key={label} className="bg-zinc-50 rounded-xl p-5 border border-zinc-100">
+                    <div key={label} className="bg-zinc-50 rounded-lg p-5 border border-zinc-100">
                       <div className="flex items-center gap-2 mb-1">
                         <Icon className={cn("h-5 w-5", color ?? "text-zinc-500")} />
                         <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">{label}</span>
@@ -302,7 +302,7 @@ const PublicProfilePage = () => {
             </div>
 
             {posts.length === 0 ? (
-              <div className="bg-white border border-zinc-100 rounded-2xl p-20 text-center">
+              <div className="bg-white border border-zinc-100 rounded-lg p-20 text-center">
                 <FileText className="h-14 w-14 text-zinc-200 mx-auto mb-4" />
                 <p className="text-zinc-500 font-medium text-base">No published articles yet</p>
               </div>
@@ -317,7 +317,7 @@ const PublicProfilePage = () => {
                   >
                     <Link
                       to={`/article/${post.id}`}
-                      className="group flex items-start gap-6 bg-white border border-zinc-100 rounded-2xl p-6 hover:border-blue-200 hover:shadow-md transition-all"
+                      className="group flex items-start gap-6 bg-white border border-zinc-100 rounded-lg p-6 hover:border-blue-200 hover:shadow-md transition-all"
                     >
                       {/* Number - larger */}
                       <span className="text-4xl font-bold text-zinc-200 group-hover:text-blue-100 transition-colors flex-shrink-0 w-12 text-center leading-tight mt-1">

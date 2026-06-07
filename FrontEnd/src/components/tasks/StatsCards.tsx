@@ -31,7 +31,7 @@ export function StatsCards({ tasks }: { tasks: Task[] }) {
         return (
           <div
             key={c.key}
-            className="group rounded-xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30"
+            className="group rounded-lg border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30"
           >
             <div className="flex items-center justify-between">
               <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", c.tone)}>

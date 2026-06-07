@@ -1,4 +1,4 @@
-import { X, Calendar, Clock, User, MessageSquare, Send, CheckCircle2, XCircle, RotateCcw, Pencil, Trash2, RefreshCw, Upload } from "lucide-react";
+import { X, Calendar, Clock, User, MessageSquare, Send, CheckCircle2, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -204,65 +204,8 @@ export function TaskDetailsPanel({
           </div>
         </ScrollArea>
 
-        <div className="border-t border-border p-4">
-          {role === "Organization" ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Button 
-                size="sm" 
-                className="bg-success text-success-foreground hover:bg-success/90" 
-                onClick={() => handleStatusChange(5, "Task approved")}
-                disabled={submittingStatus}
-              >
-                <CheckCircle2 className="h-4 w-4" /> Approve
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => handleStatusChange(4, "Revision requested")}
-                disabled={submittingStatus}
-              >
-                <RotateCcw className="h-4 w-4" /> Request Revision
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => onEdit?.(task)}
-                disabled={submittingStatus}
-              >
-                <Pencil className="h-4 w-4" /> Edit
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="text-destructive hover:text-destructive" 
-                onClick={() => handleStatusChange(6, "Task rejected")}
-                disabled={submittingStatus}
-              >
-                <XCircle className="h-4 w-4" /> Reject
-              </Button>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="col-span-2 text-destructive hover:text-destructive hover:bg-destructive/10" 
-                onClick={() => onDelete?.(task)}
-                disabled={submittingStatus}
-              >
-                <Trash2 className="h-4 w-4" /> Delete task
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" onClick={() => toast.success("Status updated")}>
-                <RefreshCw className="h-4 w-4" /> Update Status
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => toast("Submitted for review")}>
-                <Upload className="h-4 w-4" /> Submit for Review
-              </Button>
-              <Button size="sm" variant="outline" className="col-span-2 bg-success/10 text-success hover:bg-success/20 border-success/30" onClick={() => toast.success("Marked completed")}>
-                <CheckCircle2 className="h-4 w-4" /> Mark as Completed
-              </Button>
-            </div>
-          )}
+        <div className="border-t border-border p-4 flex justify-end">
+          <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
         </div>
       </aside>
     </>

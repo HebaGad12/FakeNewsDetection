@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge, PriorityBadge } from "./badges";
-import { CalendarClock, Clock, FileText, Paperclip, Send, CheckCircle2, Circle, CircleDot, MessageSquarePlus } from "lucide-react";
+import { CalendarClock, Clock, FileText, Paperclip, Send, CheckCircle2, Circle, CircleDot, MessageSquarePlus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { JournalistTaskResponse } from "@/services/journalistTask";
+import type { JournalistTaskResponse, TaskDraft } from "@/services/journalistTask";
 import { STATUS_LABELS } from "@/lib/tasks-types";
 import { journalistTaskService } from "@/services/journalistTask";
 import type { User } from "@/lib/tasks-types";
@@ -39,15 +40,29 @@ interface Props {
 
 export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Props) {
   const [task, setTask] = useState<JournalistTaskResponse | null>(null);
+  const [drafts, setDrafts] = useState<TaskDraft[]>([]);
   const [comment, setComment] = useState("");
   const [posting, setPosting] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (taskId && open) {
-      journalistTaskService.getTask(taskId).then(setTask).catch(console.error);
+      setLoadingDrafts(true);
+      Promise.all([
+        journalistTaskService.getTask(taskId),
+        journalistTaskService.getTaskDrafts(taskId),
+      ])
+        .then(([taskResponse, draftResponse]) => {
+          setTask(taskResponse);
+          setDrafts(draftResponse);
+        })
+        .catch(console.error)
+        .finally(() => setLoadingDrafts(false));
     } else if (!open) {
       setTimeout(() => setTask(null), 300);
+      setDrafts([]);
     }
   }, [taskId, open]);
 
@@ -66,6 +81,12 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
     }
   };
 
+  const handleAcceptTask = () => {
+    if (!task) return;
+    void handleUpdateStatus(1);
+    navigate(`/create-article?taskId=${task.id}`);
+  };
+
   const handleAddComment = async () => {
     if (!task || !comment.trim()) return;
     try {
@@ -80,6 +101,13 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
       setPosting(false);
     }
   };
+
+  const openDraft = (draftId: string) => {
+    if (!task) return;
+    navigate(`/create-article?taskId=${task.id}&draftId=${draftId}`);
+  };
+
+  const latestDraft = drafts[0];
 
   return (
     <Sheet open={open} onOpenChange={(o) => (!o ? onClose() : null)}>
@@ -107,7 +135,7 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
 
             <div className="flex-1 space-y-7 p-6">
               {/* Meta */}
-              <div className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-card p-4">
+              <div className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4">
                 <Meta label="Assigned by (Org)">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-6 w-6">
@@ -139,6 +167,56 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
               {/* Description */}
               <Section title="Description" icon={FileText}>
                 <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">{task.description}</p>
+              </Section>
+
+              {/* Drafts */}
+              <Section title={`Drafted Tasks (${drafts.length})`} icon={Paperclip}>
+                {loadingDrafts ? (
+                  <div className="flex items-center justify-center rounded-lg border border-border bg-card py-8">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : drafts.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-xs text-muted-foreground">
+                    No drafts saved for this task yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {drafts.map((draft, index) => (
+                      <div key={draft.id} className="rounded-lg border border-border bg-card p-3">
+                        <div className="flex items-start gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-medium">{draft.title || `Draft ${index + 1}`}</p>
+                              {draft.id === latestDraft?.id && (
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                  Latest
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">
+                              {draft.content || "No draft content yet."}
+                            </p>
+                            {draft.tags?.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {draft.tags.map((tag) => (
+                                  <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <p className="mt-2 text-[11px] text-muted-foreground">
+                              Updated {fmtTime(draft.updatedAt || draft.createdAt || "")}
+                            </p>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => openDraft(draft.id)}>
+                            Resume
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Section>
 
               {/* Timeline */}
@@ -224,6 +302,12 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
 
             {/* Actions */}
             <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 p-4 backdrop-blur mt-auto">
+              {task.status === 0 && (
+                <Button variant="secondary" disabled={updating} onClick={handleAcceptTask} className="gap-1.5">
+                  <Check className="h-4 w-4" />
+                  Accept task
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" disabled={updating}>

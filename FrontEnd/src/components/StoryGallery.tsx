@@ -72,7 +72,7 @@ export function StoryGallery({ images }: { images: GalleryImage[] }) {
           {/* Featured */}
           <button
             onClick={() => open(0)}
-            className="group relative col-span-1 row-span-2 overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-900 text-left md:col-span-2"
+            className="group relative col-span-1 row-span-2 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-900 text-left md:col-span-2"
             aria-label={`Open photo 1`}
           >
             <div className="aspect-[4/3] md:aspect-auto md:h-full">
@@ -108,7 +108,7 @@ export function StoryGallery({ images }: { images: GalleryImage[] }) {
             <button
               key={img.src + idx}
               onClick={() => open(idx + 1)}
-              className="group relative overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-900 text-left"
+              className="group relative overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-900 text-left"
               aria-label={`Open photo ${idx + 2}`}
             >
               <div className="aspect-[4/3]">

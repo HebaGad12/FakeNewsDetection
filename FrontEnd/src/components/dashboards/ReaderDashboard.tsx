@@ -240,7 +240,7 @@ const ReaderDashboard = () => {
         {/* ── Brand ── */}
         <div className="px-5 pt-7 pb-5 border-b border-white/5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
               <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
             </div>
             <div>
@@ -250,7 +250,7 @@ const ReaderDashboard = () => {
           </div>
 
           {/* User badge */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/5 border border-white/5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
               <span className="text-white text-[11px] font-bold uppercase">
                 {userProfile?.name?.substring(0, 2).toUpperCase() || user?.name?.substring(0, 2).toUpperCase() || "U"}
@@ -273,7 +273,7 @@ const ReaderDashboard = () => {
                 key={item.id}
                 onClick={() => setActiveTab(item.id as Tab)}
                 className={cn(
-                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full text-left",
+                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left",
                   isActive
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
                     : "text-white/45 hover:text-white hover:bg-white/6"
@@ -298,7 +298,7 @@ const ReaderDashboard = () => {
           {/* Go to Home */}
           <button
             onClick={() => navigate("/")}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
           >
             <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
             <span className="flex-1 text-left">Go to Home</span>
@@ -308,7 +308,7 @@ const ReaderDashboard = () => {
           {/* Logout */}
           <button
             onClick={() => { if (typeof window !== "undefined") navigate("/login"); }}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
           >
             <LogOut className="h-4 w-4 flex-shrink-0" />
             <span className="flex-1 text-left">Logout</span>
@@ -514,7 +514,7 @@ const ReaderDashboard = () => {
 
                 {/* Profile Sidebar - Dynamic */}
                 <div className="lg:col-span-4 space-y-6">
-                  <div className="bg-card border border-border rounded-xl p-6 flex flex-col gap-4 sticky top-24">
+                  <div className="bg-card border border-border rounded-lg p-6 flex flex-col gap-4 sticky top-24">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
                         {user?.avatar ? (
@@ -599,7 +599,7 @@ const ReaderDashboard = () => {
                 </div>
 
                 {following.length === 0 ? (
-                  <div className="p-12 text-center bg-card border border-border rounded-xl">
+                  <div className="p-12 text-center bg-card border border-border rounded-lg">
                     <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-sm font-semibold text-foreground mb-1">Not following anyone yet</p>
                     <p className="text-xs text-muted-foreground mb-4">Discover journalists and follow their work</p>
@@ -615,7 +615,7 @@ const ReaderDashboard = () => {
                     {following.map((f) => (
                       <div
                         key={f.id}
-                        className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 hover:border-blue-500/30 hover:shadow-md transition-all"
+                        className="bg-card border border-border rounded-lg p-5 flex flex-col gap-4 hover:border-blue-500/30 hover:shadow-md transition-all"
                       >
                         {/* Top: avatar + info */}
                         <div className="flex items-center gap-3">
@@ -666,7 +666,7 @@ const ReaderDashboard = () => {
             {activeTab === "wallet" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Wallet Balance Card */}
-                <div className="bg-foreground text-background rounded-xl p-8 space-y-6">
+                <div className="bg-foreground text-background rounded-lg p-8 space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="font-display text-2xl font-bold">The Archive Wallet</h3>
                     <Wallet className="w-6 h-6 text-primary" />
@@ -710,7 +710,7 @@ const ReaderDashboard = () => {
 
                 {/* Info Section */}
                 <div className="space-y-6">
-                  <div className="p-6 bg-card rounded-xl border-l-4 border-primary shadow-sm">
+                  <div className="p-6 bg-card rounded-lg border-l-4 border-primary shadow-sm">
                     <h4 className="font-display font-bold text-lg mb-2">Independent & Unbeholden</h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       Your engagement and contributions support journalistic integrity and help maintain the quality of the Archive.
@@ -719,7 +719,7 @@ const ReaderDashboard = () => {
 
                   {/* Received Donations Summary */}
                   {receivedDonations.length > 0 && (
-                    <div className="p-6 bg-card rounded-xl border border-border">
+                    <div className="p-6 bg-card rounded-lg border border-border">
                       <h4 className="font-display font-bold text-lg mb-3 flex items-center gap-2">
                         <Heart className="w-4 h-4 text-emerald-500" /> Recent Support
                       </h4>
@@ -739,7 +739,7 @@ const ReaderDashboard = () => {
 
                   {/* Sent Donations Summary */}
                   {sentDonations.length > 0 && (
-                    <div className="p-6 bg-card rounded-xl border border-border">
+                    <div className="p-6 bg-card rounded-lg border border-border">
                       <h4 className="font-display font-bold text-lg mb-3 flex items-center gap-2">
                         <Send className="w-4 h-4 text-rose-500" /> Your Contributions
                       </h4>
@@ -795,12 +795,12 @@ const ReaderDashboard = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
-              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md overflow-hidden"
             >
               {/* ── Modal Header ── */}
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
                     <Send className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
@@ -849,7 +849,7 @@ const ReaderDashboard = () => {
                             key={f.id}
                             onClick={() => { setSelectedJournalist(f); setDonationStep("amount"); setDonationError(""); }}
                             className={cn(
-                              "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left group",
+                              "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-all text-left group",
                               selectedJournalist?.id === f.id
                                 ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
                                 : "border-border hover:border-emerald-300 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10"
@@ -884,7 +884,7 @@ const ReaderDashboard = () => {
               {donationStep === "amount" && selectedJournalist && (
                 <div className="px-6 py-5 space-y-5">
                   {/* Selected journalist preview */}
-                  <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl">
+                  <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg">
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
                       {selectedJournalist.avatar ? (
                         <img src={selectedJournalist.avatar} alt={selectedJournalist.name} className="w-full h-full object-cover" />
@@ -947,7 +947,7 @@ const ReaderDashboard = () => {
                         placeholder="0.00"
                         value={donationAmount}
                         onChange={(e) => { setDonationAmount(e.target.value); setDonationError(""); }}
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                       />
                     </div>
                   </div>
@@ -960,7 +960,7 @@ const ReaderDashboard = () => {
                       placeholder="Add a note to your donation..."
                       value={donationMessage}
                       onChange={(e) => setDonationMessage(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 resize-none transition"
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 resize-none transition"
                     />
                   </div>
 
@@ -974,7 +974,7 @@ const ReaderDashboard = () => {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => setDonationStep("select")}
-                      className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
+                      className="flex-1 py-2.5 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
                     >
                       Back
                     </button>
@@ -987,7 +987,7 @@ const ReaderDashboard = () => {
                         setDonationStep("confirm");
                       }}
                       disabled={!donationAmount}
-                      className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-all"
+                      className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-all"
                     >
                       Continue
                     </button>
@@ -999,7 +999,7 @@ const ReaderDashboard = () => {
               {donationStep === "confirm" && selectedJournalist && (
                 <div className="px-6 py-5 space-y-5">
                   {/* Summary card */}
-                  <div className="bg-muted/40 rounded-xl p-4 space-y-3">
+                  <div className="bg-muted/40 rounded-lg p-4 space-y-3">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">To</span>
                       <span className="font-semibold text-foreground">{selectedJournalist.name}</span>
@@ -1037,14 +1037,14 @@ const ReaderDashboard = () => {
                     <button
                       onClick={() => setDonationStep("amount")}
                       disabled={donationLoading}
-                      className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all disabled:opacity-40"
+                      className="flex-1 py-2.5 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all disabled:opacity-40"
                     >
                       Back
                     </button>
                     <button
                       onClick={handleDonationSubmit}
                       disabled={donationLoading}
-                      className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
                     >
                       {donationLoading ? (
                         <>
@@ -1085,7 +1085,7 @@ const ReaderDashboard = () => {
                   </div>
                   <button
                     onClick={closeDonationModal}
-                    className="mt-2 w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-bold hover:opacity-90 transition-all"
+                    className="mt-2 w-full py-2.5 rounded-lg bg-foreground text-background text-sm font-bold hover:opacity-90 transition-all"
                   >
                     Done
                   </button>

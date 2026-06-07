@@ -1,56 +1,54 @@
 import { Link } from "react-router-dom";
-import { Shield, Twitter, Github, Linkedin, Mail } from "lucide-react";
+import { Shield, Mail, Radio, Users, Newspaper } from "lucide-react";
 
 const footerLinks = {
-  Platform: [
+  Explore: [
     { label: "News Feed", href: "/feed" },
     { label: "Communities", href: "/communities" },
     { label: "Live Streams", href: "/live" },
-    { label: "For Journalists", href: "/journalists" },
   ],
-  Company: [
-    { label: "About Us", href: "/about" },
-    { label: "How It Works", href: "/how-it-works" },
-    { label: "Trust & Safety", href: "/trust" },
-    { label: "Careers", href: "/careers" },
-  ],
-  Legal: [
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
-    { label: "Cookie Policy", href: "/cookies" },
-    { label: "Content Guidelines", href: "/guidelines" },
+  Account: [
+    { label: "Sign In", href: "/login" },
+    { label: "Register", href: "/register" },
+    { label: "Dashboard", href: "/dashboard" },
   ],
 };
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-muted/30">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
-          {/* Brand */}
-          <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <Shield className="h-8 w-8 text-accent" />
-              <span className="font-display text-xl font-bold text-primary">
-                TruthTrack
-              </span>
+    <footer className="border-t border-slate-200 bg-slate-950 text-white">
+      <div className="news-container py-12">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <Link to="/" className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <span className="font-display text-2xl font-bold">TruthTrack</span>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                  Independent News Desk
+                </p>
+              </div>
             </Link>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-sm">
-              Empowering informed citizens through AI-powered news verification. 
-              We fight misinformation and foster credible journalism.
+            <p className="max-w-sm text-sm leading-6 text-slate-300">
+              A premium news and verification platform for readers, journalists, and communities that care about source-backed reporting.
             </p>
+            <div className="mt-6 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Verification Active
+            </div>
           </div>
 
-          {/* Links
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title}>
-              <h4 className="font-semibold text-primary mb-4">{title}</h4>
+              <h4 className="mb-4 font-semibold text-white">{title}</h4>
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
                     <Link
                       to={link.href}
-                      className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                      className="text-sm text-slate-400 transition-colors hover:text-white"
                     >
                       {link.label}
                     </Link>
@@ -58,20 +56,24 @@ export function Footer() {
                 ))}
               </ul>
             </div>
-          ))} */}
+          ))}
+
+          <div>
+            <h4 className="mb-4 font-semibold text-white">Signals</h4>
+            <ul className="space-y-3 text-sm text-slate-400">
+              <li className="flex items-center gap-2"><Newspaper className="h-4 w-4 text-red-400" /> Verified reporting</li>
+              <li className="flex items-center gap-2"><Users className="h-4 w-4 text-red-400" /> Community checks</li>
+              <li className="flex items-center gap-2"><Radio className="h-4 w-4 text-red-400" /> Live coverage</li>
+              <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-red-400" /> Source-first updates</li>
+            </ul>
+          </div>
         </div>
 
-        {/* Bottom */}
-        <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
+          <p className="text-sm text-slate-400">
             © {new Date().getFullYear()} TruthTrack. All rights reserved.
           </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-verified animate-pulse" />
-              AI-Powered Verification Active
-            </span>
-          </div>
+          <p className="text-sm text-slate-400">Built for readers who verify before they share.</p>
         </div>
       </div>
     </footer>

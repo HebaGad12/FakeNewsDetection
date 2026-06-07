@@ -33,7 +33,7 @@ export function BottomWidgets({ tasks }: { tasks: JournalistTaskResponse[] }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
-      <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="lg:col-span-3 rounded-lg border border-border bg-card p-5 shadow-sm">
         <div className="flex items-baseline justify-between">
           <div>
             <h3 className="text-sm font-semibold">Tasks by status</h3>
@@ -67,7 +67,7 @@ export function BottomWidgets({ tasks }: { tasks: JournalistTaskResponse[] }) {
         </div>
       </div>
 
-      <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5 shadow-sm">
         <div className="flex items-baseline justify-between">
           <div>
             <h3 className="text-sm font-semibold">Upcoming deadlines</h3>

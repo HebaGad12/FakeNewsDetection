@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
+import { AlertTriangle, XCircle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type CredibilityLevel = "verified" | "questionable" | "fake";
@@ -61,7 +61,23 @@ export function CredibilityBadge({
   const sizes = sizeConfig[size];
   const Icon = config.icon;
 
-  return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md border font-bold uppercase tracking-wide",
+        sizes.container,
+        config.bgClass,
+        config.textClass,
+        config.borderClass,
+        className
+      )}
+      aria-label={`${config.label}${score !== undefined ? `, score ${score}` : ""}`}
+    >
+      <Icon className={sizes.icon} aria-hidden="true" />
+      {showLabel && <span>{config.label}</span>}
+      {score !== undefined && <span className="tabular-nums">{score}</span>}
+    </span>
+  );
 }
 
 export function CredibilityIndicator({ level }: { level: CredibilityLevel }) {
