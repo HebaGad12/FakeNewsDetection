@@ -8,7 +8,7 @@ const cards = [
   { key: "inProgress", label: "In Progress", icon: Loader2, tone: "bg-info/15 text-info" },
   { key: "completed", label: "Completed", icon: CheckCircle2, tone: "bg-success/15 text-success" },
   { key: "overdue", label: "Overdue", icon: AlertTriangle, tone: "bg-destructive/15 text-destructive" },
-  { key: "review", label: "Under Review", icon: Eye, tone: "bg-warning/20 text-warning-foreground dark:text-warning" },
+  { key: "review", label: "Need Revision / Review", icon: Eye, tone: "bg-warning/20 text-warning-foreground dark:text-warning" },
 ] as const;
 
 export function StatsCards({ tasks }: { tasks: Task[] }) {
@@ -19,7 +19,7 @@ export function StatsCards({ tasks }: { tasks: Task[] }) {
     inProgress: tasks.filter((t) => t.status === "In Progress" || t.status === "Accepted").length,
     completed: tasks.filter((t) => t.status === "Completed").length,
     overdue: tasks.filter((t) => t.deadline < today && t.status !== "Completed" && t.status !== "Cancelled").length,
-    review: tasks.filter((t) => t.status === "Submitted for Review" || t.status === "Needs Revision").length,
+    review: tasks.filter((t) => t.status === "Submitted For Review" || t.status === "Need Revision").length,
   };
   const trends = ["+12%", "−4%", "+8%", "+15%", "−2%", "+6%"];
 

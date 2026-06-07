@@ -6,11 +6,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge, PriorityBadge } from "./badges";
 import { CalendarClock, Clock, FileText, Paperclip, Send, CheckCircle2, Circle, CircleDot, MessageSquarePlus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { JournalistTaskResponse, TaskDraft } from "@/services/journalistTask";
 import { STATUS_LABELS } from "@/lib/tasks-types";
 import { journalistTaskService } from "@/services/journalistTask";
 import type { User } from "@/lib/tasks-types";
+import { toast } from "sonner";
 
 // Pending(0) -> Accepted(1) -> InProgress(2) -> Submitted(3) -> NeedsRevision(4) -> Completed(7)
 const TIMELINE_ORDER = [0, 1, 2, 3, 4, 7];
@@ -43,48 +43,57 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
   const [drafts, setDrafts] = useState<TaskDraft[]>([]);
   const [comment, setComment] = useState("");
   const [posting, setPosting] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (taskId && open) {
-      setLoadingDrafts(true);
-      Promise.all([
+  const loadTaskData = async () => {
+    if (!taskId || !open) return;
+
+    setLoadingDrafts(true);
+    try {
+      const [taskResponse, draftResponse] = await Promise.all([
         journalistTaskService.getTask(taskId),
         journalistTaskService.getTaskDrafts(taskId),
-      ])
-        .then(([taskResponse, draftResponse]) => {
-          setTask(taskResponse);
-          setDrafts(draftResponse);
-        })
-        .catch(console.error)
-        .finally(() => setLoadingDrafts(false));
+      ]);
+      setTask(taskResponse);
+      setDrafts(draftResponse);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load task details");
+    } finally {
+      setLoadingDrafts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (taskId && open) {
+      void loadTaskData();
     } else if (!open) {
       setTimeout(() => setTask(null), 300);
       setDrafts([]);
     }
   }, [taskId, open]);
 
-  const handleUpdateStatus = async (newStatus: number) => {
+  const applyStatusChange = async (newStatus: number) => {
     if (!task) return;
-    try {
-      setUpdating(true);
-      await journalistTaskService.updateTaskStatus(task.id, newStatus);
-      const updated = await journalistTaskService.getTask(task.id);
-      setTask(updated);
-      onChanged?.();
-    } catch (e) {
-      console.error("Failed to update status", e);
-    } finally {
-      setUpdating(false);
-    }
+
+    const updatedTask = await journalistTaskService.updateTaskStatus(task.id, newStatus);
+    setTask(updatedTask);
+    window.dispatchEvent(new CustomEvent("task:status-updated", { detail: { taskId: task.id, status: newStatus } }));
+    onChanged?.();
   };
 
   const handleAcceptTask = () => {
     if (!task) return;
-    void handleUpdateStatus(1);
-    navigate(`/create-article?taskId=${task.id}`);
+    void (async () => {
+      try {
+        await applyStatusChange(1);
+        navigate(`/create-article?taskId=${task.id}`);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to accept task");
+      }
+    })();
   };
 
   const handleAddComment = async () => {
@@ -93,10 +102,12 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
       setPosting(true);
       await journalistTaskService.addComment(task.id, comment);
       setComment("");
-      const updated = await journalistTaskService.getTask(task.id);
-      setTask(updated);
+      await applyStatusChange(4);
+      await loadTaskData();
+      toast.success("Comment added and task marked for revision");
     } catch (e) {
       console.error("Failed to post comment", e);
+      toast.error("Failed to post comment");
     } finally {
       setPosting(false);
     }
@@ -303,25 +314,11 @@ export function TaskDetailsPanel({ taskId, open, onClose, onChanged, user }: Pro
             {/* Actions */}
             <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 p-4 backdrop-blur mt-auto">
               {task.status === 0 && (
-                <Button variant="secondary" disabled={updating} onClick={handleAcceptTask} className="gap-1.5">
+                <Button variant="secondary" onClick={handleAcceptTask} className="gap-1.5">
                   <Check className="h-4 w-4" />
                   Accept task
                 </Button>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={updating}>
-                    {updating ? "Updating..." : "Update status"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {TIMELINE_ORDER.map((s) => (
-                    <DropdownMenuItem key={s} onClick={() => handleUpdateStatus(s)}>
-                      {STATUS_LABELS[s]}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
               <Button variant="ghost" className="ml-auto" onClick={onClose}>Close</Button>
             </div>
           </div>

@@ -6,6 +6,17 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { type Journalist, priorityStyle, statusStyle, type Role, type Task } from "@/lib/tasks-mock";
 import { useState, useEffect } from "react";
@@ -67,6 +78,7 @@ export function TaskDetailsPanel({
       await organizationTaskService.addComment(task.id, comment.trim());
       setComment("");
       toast.success("Comment posted");
+      await handleStatusChange(4, "Task marked as need revision");
       onUpdate?.();
     } catch (err: any) {
       console.error(err);
@@ -80,6 +92,7 @@ export function TaskDetailsPanel({
     try {
       await organizationTaskService.updateTaskStatus(task.id, newStatus);
       toast.success(successMessage);
+      window.dispatchEvent(new CustomEvent("task:status-updated", { detail: { taskId: task.id, status: newStatus } }));
       onUpdate?.();
     } catch (err: any) {
       console.error(err);
@@ -149,11 +162,58 @@ export function TaskDetailsPanel({
               {loadingArticle ? (
                 <div className="text-xs text-muted-foreground">Loading article...</div>
               ) : article ? (
-                <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
-                  <p className="font-semibold text-sm line-clamp-1 text-foreground">{article.title}</p>
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-sm leading-snug text-foreground">{article.title}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Author: {article.authorName}</span>
+                      <span>Created: {new Date(article.createdAt).toLocaleString()}</span>
+                      <span>Updated: {new Date(article.updatedAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <p className="line-clamp-4 whitespace-pre-wrap text-sm text-foreground/90">
+                    {article.content.length > 280 ? `${article.content.slice(0, 280)}...` : article.content}
+                  </p>
+
+                  {article.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {article.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="rounded-full px-2 py-0.5 text-[11px]">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {article.media?.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {article.media.map((media) => (
+                        <div key={media.mediaId} className="overflow-hidden rounded-md border border-border bg-muted/30">
+                          <img
+                            src={postsService.getImageUrl(media.path)}
+                            alt={article.title}
+                            className="h-20 w-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <Button variant="secondary" size="sm" onClick={() => navigate(`/article/${article.id}`)}>
                     View Article
                   </Button>
+
+                  {task.status === "Submitted For Review" && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button size="sm" onClick={() => handleStatusChange(7, "Task completed")} disabled={submittingStatus}>
+                        Approve Article
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleStatusChange(6, "Task rejected")} disabled={submittingStatus}>
+                        Reject Article
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-border py-4 text-center text-xs text-muted-foreground">
@@ -204,7 +264,26 @@ export function TaskDetailsPanel({
           </div>
         </ScrollArea>
 
-        <div className="border-t border-border p-4 flex justify-end">
+        <div className="border-t border-border p-4 flex flex-wrap justify-end gap-2">
+          {role === "Organization" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={submittingStatus}>Cancel Task</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to cancel this task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will mark the task as cancelled and move it out of the active workflow.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep task</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleStatusChange(8, "Task cancelled")}>Cancel task</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
         </div>
       </aside>

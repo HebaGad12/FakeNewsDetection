@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { organizationTaskService } from "@/services/organizationTask";
@@ -27,52 +26,22 @@ interface Props {
 }
 
 const ALL_STATUSES: Task["status"][] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-const JOURNALIST_STATUSES: Task["status"][] = [2, 3, 4]; // can move work forward
 
 export function TaskDetailSheet({ task, user, open, onOpenChange, onChanged }: Props) {
   const comments = task?.comments || [];
   const [newComment, setNewComment] = useState("");
-  const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (task && open) {
       setNewComment("");
-      setLocalStatus(String(task.status));
     }
   }, [task, open]);
 
   if (!task) return null;
   const isOrg = user.role === "organization";
   
-  let allowedStatuses: Task["status"][] = [];
-  if (isOrg) {
-    allowedStatuses = ALL_STATUSES;
-  } else {
-    // Journalist's permitted transitions based on backend constraints
-    allowedStatuses = [task.status];
-    if (task.status === 0) allowedStatuses.push(1); // Pending -> Accepted
-    if (task.status === 1) allowedStatuses.push(2); // Accepted -> In Progress
-    if (task.status === 2) allowedStatuses.push(3); // In Progress -> Submitted For Review
-    if (task.status === 4) allowedStatuses.push(3); // Needs Revision -> Submitted For Review
-  }
-  
   const service = isOrg ? organizationTaskService : journalistTaskService;
-
-  async function saveStatus() {
-    if (!localStatus || Number(localStatus) === task.status) return;
-    setBusy(true);
-    try {
-      await service.updateTaskStatus(task!.id, Number(localStatus));
-      toast.success("Status updated");
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || "Failed to update status");
-      setLocalStatus(String(task.status)); // revert
-    } finally {
-      setBusy(false);
-      onChanged();
-    }
-  }
 
   async function reassign(id: string) {
     if (!isOrg) return;
@@ -166,18 +135,8 @@ export function TaskDetailSheet({ task, user, open, onOpenChange, onChanged }: P
           <section className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Status</label>
-              <div className="flex gap-2">
-                <Select value={localStatus || String(task.status)} onValueChange={setLocalStatus} disabled={busy}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    {allowedStatuses.map((s) => (
-                      <SelectItem key={s} value={String(s)}>{STATUS_LABELS[s]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {localStatus !== String(task.status) && (
-                  <Button size="sm" onClick={saveStatus} disabled={busy}>Save</Button>
-                )}
+              <div className="rounded-lg border border-border bg-background p-3 text-sm font-medium">
+                {STATUS_LABELS[task.status]}
               </div>
             </div>
             {isOrg && (

@@ -28,8 +28,8 @@ const STATUS_MAP: Record<number, TaskStatus> = {
   0: "Pending",
   1: "Accepted",
   2: "In Progress",
-  3: "Submitted for Review",
-  4: "Needs Revision",
+  3: "Submitted For Review",
+  4: "Need Revision",
   5: "Approved",
   6: "Rejected",
   7: "Completed",
@@ -56,29 +56,6 @@ function mapTaskResponse(res: OrganizationTaskResponse): Task {
       time: new Date(c.createdAt).toLocaleDateString(),
     })) || [],
   };
-}
-
-function getValidTransitions(status: TaskStatus): { value: number; label: string }[] {
-  switch (status) {
-    case "Submitted for Review":
-      return [
-        { value: 5, label: "Approved" },
-        { value: 6, label: "Rejected" },
-        { value: 4, label: "Needs Revision" },
-      ];
-    case "Approved":
-      return [
-        { value: 7, label: "Completed" },
-      ];
-    case "Pending":
-    case "Accepted":
-    case "In Progress":
-      return [
-        { value: 8, label: "Cancelled" },
-      ];
-    default:
-      return [];
-  }
 }
 
 function getErrorMessage(err: any, defaultMsg: string): string {
@@ -113,7 +90,6 @@ export function OrganizationTasksPage({
 
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [reassigningTask, setReassigningTask] = useState<Task | null>(null);
-  const [changingStatusTask, setChangingStatusTask] = useState<Task | null>(null);
   const [deletingTask, setDeletingTask] = useState<Task | null>(null);
 
   // Edit form states
@@ -126,10 +102,6 @@ export function OrganizationTasksPage({
   // Reassign form states
   const [reassignJournalistId, setReassignJournalistId] = useState("");
   const [submittingReassign, setSubmittingReassign] = useState(false);
-
-  // Status change form states
-  const [newStatusVal, setNewStatusVal] = useState("");
-  const [submittingStatusChange, setSubmittingStatusChange] = useState(false);
 
   // Delete form states
   const [submittingDelete, setSubmittingDelete] = useState(false);
@@ -149,17 +121,6 @@ export function OrganizationTasksPage({
       setReassignJournalistId(reassigningTask.journalistId || "none");
     }
   }, [reassigningTask]);
-
-  useEffect(() => {
-    if (changingStatusTask) {
-      const transitions = getValidTransitions(changingStatusTask.status);
-      if (transitions.length > 0) {
-        setNewStatusVal(transitions[0].value.toString());
-      } else {
-        setNewStatusVal("");
-      }
-    }
-  }, [changingStatusTask]);
 
   const handleEditSubmit = async () => {
     if (!editingTask) return;
@@ -215,27 +176,11 @@ export function OrganizationTasksPage({
     }
   };
 
-  const handleStatusChangeSubmit = async () => {
-    if (!changingStatusTask || !newStatusVal) return;
-    setSubmittingStatusChange(true);
-    try {
-      await organizationTaskService.updateTaskStatus(changingStatusTask.id, parseInt(newStatusVal));
-      toast.success("Task status updated");
-      setChangingStatusTask(null);
-      fetchTasks();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(getErrorMessage(err, "Failed to update status"));
-    } finally {
-      setSubmittingStatusChange(false);
-    }
-  };
-
   const handleDeleteSubmit = async () => {
     if (!deletingTask) return;
 
     if (deletingTask.status !== "Pending") {
-      toast.error("Only Pending tasks can be deleted. Use 'Change Status' → Cancelled instead.");
+      toast.error("Only Pending tasks can be deleted. Use Cancel Task instead.");
       setDeletingTask(null);
       return;
     }
@@ -297,6 +242,15 @@ export function OrganizationTasksPage({
     fetchTasks();
   }, [user?.organizationId, refreshKey]);
 
+  useEffect(() => {
+    const handleTaskStatusChanged = () => {
+      void fetchTasks();
+    };
+
+    window.addEventListener("task:status-updated", handleTaskStatusChanged);
+    return () => window.removeEventListener("task:status-updated", handleTaskStatusChanged);
+  }, [fetchTasks]);
+
   const visibleTasks = useMemo(() => {
     let list = tasks;
     if (filters.q) {
@@ -357,7 +311,6 @@ export function OrganizationTasksPage({
             role={role}
             onEdit={(t) => setEditingTask(t)}
             onReassign={(t) => setReassigningTask(t)}
-            onChangeStatus={(t) => setChangingStatusTask(t)}
             onDelete={(t) => setDeletingTask(t)}
           />
 
@@ -468,44 +421,6 @@ export function OrganizationTasksPage({
         </DialogContent>
       </Dialog>
 
-      {/* Change Status Dialog */}
-      <Dialog open={changingStatusTask !== null} onOpenChange={(open) => { if (!open) setChangingStatusTask(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Change Status</DialogTitle>
-            <DialogDescription>
-              Update the status of this task. Current status: <span className="font-semibold">{changingStatusTask?.status}</span>.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {changingStatusTask && getValidTransitions(changingStatusTask.status).length === 0 ? (
-              <p className="text-sm text-destructive">No status transitions are currently available for this task status.</p>
-            ) : (
-              <div>
-                <Label htmlFor="status-select">New Status</Label>
-                <Select value={newStatusVal} onValueChange={setNewStatusVal}>
-                  <SelectTrigger id="status-select"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {changingStatusTask && getValidTransitions(changingStatusTask.status).map((s) => (
-                      <SelectItem key={s.value} value={s.value.toString()}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setChangingStatusTask(null)} disabled={submittingStatusChange}>Cancel</Button>
-            <Button 
-              onClick={handleStatusChangeSubmit} 
-              disabled={submittingStatusChange || !newStatusVal || (changingStatusTask && getValidTransitions(changingStatusTask.status).length === 0)}
-            >
-              {submittingStatusChange ? "Updating..." : "Update Status"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Delete Task Dialog */}
       <Dialog open={deletingTask !== null} onOpenChange={(open) => { if (!open) setDeletingTask(null); }}>
         <DialogContent className="sm:max-w-md">
@@ -521,7 +436,7 @@ export function OrganizationTasksPage({
                       This task is currently <span className="font-semibold">{deletingTask.status}</span>.
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      To remove it from view, use <span className="font-semibold">Change Status → Cancelled</span> instead.
+                      To remove it from view, use <span className="font-semibold">Cancel Task</span> instead.
                     </p>
                   </div>
                 ) : (

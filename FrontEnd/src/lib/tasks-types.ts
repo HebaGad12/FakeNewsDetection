@@ -39,7 +39,7 @@ export const STATUS_LABELS: Record<number, string> = {
   1: "Accepted", // Was Pending, backend maps 1 to Accepted
   2: "In Progress", // Was Assigned, backend maps 2 to InProgress
   3: "Submitted For Review", // Was In Progress, backend maps 3 to SubmittedForReview
-  4: "Needs Revision", // Was Under Review, backend maps 4 to NeedsRevision
+  4: "Need Revision", // Was Under Review, backend maps 4 to NeedsRevision
   5: "Approved",
   6: "Rejected", // Backend maps 6 to Rejected
   7: "Completed", // Backend maps 7 to Completed

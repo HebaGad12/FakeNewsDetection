@@ -35,7 +35,7 @@ export function StatsCards({ tasks }: { tasks: JournalistTaskResponse[] }) {
     { key: "in_progress", label: "In Progress", count: counts.in_progress, icon: Loader2, accent: "from-info/15 to-transparent", iconBg: "bg-info/10 text-info" },
     { key: "submitted", label: "Submitted", count: counts.submitted, icon: Send, accent: "from-chart-5/15 to-transparent", iconBg: "bg-chart-5/10 text-chart-5" },
     { key: "completed", label: "Completed", count: counts.completed, icon: CheckCircle2, accent: "from-success/15 to-transparent", iconBg: "bg-success/10 text-success" },
-    { key: "needs_revision", label: "Needs Revision", count: counts.needs_revision, icon: RefreshCw, accent: "from-warning/20 to-transparent", iconBg: "bg-warning/15 text-[var(--warning)]" },
+    { key: "needs_revision", label: "Need Revision", count: counts.needs_revision, icon: RefreshCw, accent: "from-warning/20 to-transparent", iconBg: "bg-warning/15 text-[var(--warning)]" },
   ];
 
   return (

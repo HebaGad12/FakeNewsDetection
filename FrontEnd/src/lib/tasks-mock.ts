@@ -2,8 +2,8 @@ export type TaskStatus =
   | "Pending"
   | "Accepted"
   | "In Progress"
-  | "Submitted for Review"
-  | "Needs Revision"
+  | "Submitted For Review"
+  | "Need Revision"
   | "Approved"
   | "Rejected"
   | "Completed"
@@ -77,7 +77,7 @@ export const tasks: Task[] = [
     description: "Reader-friendly explainer with embedded timeline graphic. 1200 words.",
     journalistId: "j3",
     priority: "High",
-    status: "Submitted for Review",
+    status: "Submitted For Review",
     deadline: "2026-05-14",
     createdAt: "2026-05-05",
     updatedAt: "2026-05-12",
@@ -116,7 +116,7 @@ export const tasks: Task[] = [
     description: "800-word review filed within 3 hours of screening.",
     journalistId: "j4",
     priority: "Medium",
-    status: "Needs Revision",
+    status: "Need Revision",
     deadline: "2026-05-15",
     createdAt: "2026-05-08",
     updatedAt: "2026-05-12",
@@ -155,7 +155,7 @@ export const tasks: Task[] = [
     description: "Lightly edited transcript, 1500 words.",
     journalistId: "j1",
     priority: "Medium",
-    status: "Submitted for Review",
+    status: "Submitted For Review",
     deadline: "2026-05-16",
     createdAt: "2026-05-06",
     updatedAt: "2026-05-12",
@@ -191,7 +191,7 @@ export const tasks: Task[] = [
 ];
 
 export const statusList: TaskStatus[] = [
-  "Pending", "Accepted", "In Progress", "Submitted for Review", "Needs Revision", "Approved", "Rejected", "Completed", "Cancelled",
+  "Pending", "Accepted", "In Progress", "Submitted For Review", "Need Revision", "Approved", "Rejected", "Completed", "Cancelled",
 ];
 export const priorityList: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -202,8 +202,8 @@ export const statusStyle: Record<TaskStatus, string> = {
   "Pending": "bg-muted text-muted-foreground border-border",
   "Accepted": "bg-info/15 text-info border-info/30",
   "In Progress": "bg-primary/15 text-primary border-primary/30",
-  "Submitted for Review": "bg-warning/20 text-warning-foreground border-warning/40 dark:text-warning",
-  "Needs Revision": "bg-destructive/15 text-destructive border-destructive/30",
+  "Submitted For Review": "bg-warning/20 text-warning-foreground border-warning/40 dark:text-warning",
+  "Need Revision": "bg-destructive/15 text-destructive border-destructive/30",
   "Approved": "bg-success/10 text-success border-success/20 dark:text-success",
   "Rejected": "bg-destructive/10 text-destructive border-destructive/20",
   "Completed": "bg-success/15 text-success border-success/30",

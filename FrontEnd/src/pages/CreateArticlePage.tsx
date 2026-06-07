@@ -131,6 +131,18 @@ const CreateArticlePage = () => {
   const handleRemoveMedia = (mediaId: string) => setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
   const handleToggleCopyright = (mediaId: string, isCopyrighted: boolean) => setUploadedMedia((prev) => prev.map((m) => (m.id === mediaId ? { ...m, isCopyrighted } : m)));
 
+  const syncTaskStatus = async (status: number) => {
+    if (!taskId) return;
+
+    try {
+      await journalistTaskService.updateTaskStatus(taskId, status);
+      window.dispatchEvent(new CustomEvent("task:status-updated", { detail: { taskId, status } }));
+    } catch (error: any) {
+      console.error("Failed to update task status", error);
+      toast.error(error?.response?.data?.message || "Failed to update task status");
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error("Please enter a title and content first");
@@ -154,6 +166,7 @@ const CreateArticlePage = () => {
           publishNow: false,
         });
         toast.success("Draft updated successfully!");
+        await syncTaskStatus(2);
       } else {
         const result = await journalistService.createPost({
           title: formData.title,
@@ -167,6 +180,7 @@ const CreateArticlePage = () => {
         setActiveDraftId(result.postId);
         navigate(`?taskId=${taskId}&draftId=${result.postId}`, { replace: true });
         toast.success("Draft saved successfully!");
+        await syncTaskStatus(2);
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to save draft");
@@ -189,6 +203,7 @@ const CreateArticlePage = () => {
           tags: formData.category,
           publishNow: true,
         });
+        await syncTaskStatus(3);
         toast.success("Draft published successfully!");
         navigate("/dashboard");
       } else {
@@ -198,12 +213,13 @@ const CreateArticlePage = () => {
           tags: formData.category ? [formData.category] : [],
           images: uploadedMedia.map((item) => item.file),
           isCopyrightedFlags: uploadedMedia.map((item) => (item.mediaType === "image" ? item.isCopyrighted : false)),
-          isDraft: !!taskId,
+          isDraft: false,
           taskId: taskId || undefined,
         });
         if (result.moderationStatus === "Approved") toast.success("Article published successfully!");
         else if (result.moderationStatus === "Pending") toast.success("Article submitted for approval!");
         else toast.success("Article created successfully!");
+        await syncTaskStatus(3);
         navigate("/dashboard");
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

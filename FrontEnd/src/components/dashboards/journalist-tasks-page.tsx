@@ -52,18 +52,18 @@ export function JournalistTasksPage({ user, refreshKey }: Props) {
     loadTasks();
   }, [user.id, refreshKey, loadTasks]);
 
+  useEffect(() => {
+    const handleTaskStatusChanged = () => {
+      void loadTasks();
+    };
+
+    window.addEventListener("task:status-updated", handleTaskStatusChanged);
+    return () => window.removeEventListener("task:status-updated", handleTaskStatusChanged);
+  }, [loadTasks]);
+
   const handleSelect = (t: JournalistTaskResponse) => {
     setSelectedTaskId(t.id);
     setPanelOpen(true);
-  };
-
-  const handleUpdateStatus = async (taskId: string, newStatus: number) => {
-    try {
-      await journalistTaskService.updateTaskStatus(taskId, newStatus);
-      await loadTasks();
-    } catch (e) {
-      console.error("Failed to update status", e);
-    }
   };
 
   if (loading && tasks.length === 0) {
@@ -137,7 +137,6 @@ export function JournalistTasksPage({ user, refreshKey }: Props) {
           tasks={tasks} 
           selectedTaskId={selectedTaskId} 
           onSelect={handleSelect} 
-          onUpdateStatus={handleUpdateStatus}
           user={user} 
         />
         

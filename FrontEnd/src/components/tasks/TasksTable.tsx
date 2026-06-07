@@ -19,7 +19,6 @@ interface Props {
   journalists: Journalist[];
   onEdit?: (t: Task) => void;
   onReassign?: (t: Task) => void;
-  onChangeStatus?: (t: Task) => void;
   onDelete?: (t: Task) => void;
 }
 
@@ -45,7 +44,6 @@ export function TasksTable({
   journalists,
   onEdit,
   onReassign,
-  onChangeStatus,
   onDelete
 }: Props) {
   if (loading) {
@@ -148,13 +146,11 @@ export function TasksTable({
                           <>
                             <DropdownMenuItem onClick={() => onEdit?.(t)}>Edit task</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onReassign?.(t)}>Reassign</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onChangeStatus?.(t)}>Change status</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(t)}>Delete</DropdownMenuItem>
                           </>
                         ) : (
                           <>
-                            <DropdownMenuItem>Update status</DropdownMenuItem>
                             <DropdownMenuItem>Add comment</DropdownMenuItem>
                             <DropdownMenuItem>Submit for review</DropdownMenuItem>
                           </>
