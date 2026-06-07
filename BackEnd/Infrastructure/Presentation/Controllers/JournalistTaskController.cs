@@ -112,8 +112,9 @@ namespace Presentation.Controllers
             if (task is null) return NotFound();
             if (task.AssignedJournalistId != journalistId) return Forbid();
 
-            var (valid, error) = ValidateJournalistStatusTransition(task.Status, req.NewStatus);
-            if (!valid) return BadRequest(error);
+            // Only validate that the new status is a defined enum value
+            if (!Enum.IsDefined(typeof(OrganizationTaskStatus), req.NewStatus))
+                return BadRequest($"Invalid status value: {(int)req.NewStatus}.");
 
             task.Status = req.NewStatus;
             task.UpdatedAt = DateTime.UtcNow;
@@ -276,21 +277,6 @@ namespace Presentation.Controllers
         // ════════════════════════════════════════════════════════════════════
         //  PRIVATE HELPERS
         // ════════════════════════════════════════════════════════════════════
-
-        private static (bool valid, string error) ValidateJournalistStatusTransition(
-            OrganizationTaskStatus current,
-            OrganizationTaskStatus next)
-        {
-            return (current, next) switch
-            {
-                (OrganizationTaskStatus.Pending, OrganizationTaskStatus.Accepted) => (true, ""),
-                (OrganizationTaskStatus.Accepted, OrganizationTaskStatus.InProgress) => (true, ""),
-                (OrganizationTaskStatus.InProgress, OrganizationTaskStatus.SubmittedForReview) => (true, ""),
-                // After revision is requested, journalist resubmits
-                (OrganizationTaskStatus.NeedsRevision, OrganizationTaskStatus.SubmittedForReview) => (true, ""),
-                _ => (false, $"Invalid status transition from {current} to {next} for a Journalist.")
-            };
-        }
 
         private static string BuildNotificationTitle(OrganizationTaskStatus status) => status switch
         {
