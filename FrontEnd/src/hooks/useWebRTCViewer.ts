@@ -11,8 +11,8 @@ interface UseWebRTCViewerOptions {
   liveId: string;
   /** Send a WebRTC answer via SignalR */
   sendAnswer: (liveId: string, answer: string) => Promise<void>;
-  /** Send an ICE candidate via SignalR */
-  sendIceCandidate: (liveId: string, candidate: string) => Promise<void>;
+  /** Send an ICE candidate via SignalR (no target needed — hub routes to broadcaster) */
+  sendIceCandidate: (liveId: string, candidate: string, targetConnectionId?: string) => Promise<void>;
 }
 
 interface UseWebRTCViewerReturn {

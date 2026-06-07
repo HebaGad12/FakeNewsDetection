@@ -12,8 +12,54 @@ import { cn } from "@/lib/utils";
 import { useSignalR } from "@/hooks/useSignalR";
 import { useWebRTCViewer } from "@/hooks/useWebRTCViewer";
 import { liveService } from "@/services/liveService";
+import { userService } from "@/services/userService";
 import { getAuthToken } from "@/lib/authStorage";
 import type { LiveCard, LiveChatMessage } from "@/services/types";
+
+// ============================================================================
+// Module-level picture cache + UserAvatar
+// ============================================================================
+
+const pictureCache = new Map<string, string>();
+
+async function fetchUserPicture(userId: string): Promise<string> {
+  if (!userId) return "";
+  if (pictureCache.has(userId)) return pictureCache.get(userId)!;
+  try {
+    const url = await userService.fetchPictureBlobUrl(userId);
+    const result = url ?? "";
+    pictureCache.set(userId, result);
+    return result;
+  } catch {
+    pictureCache.set(userId, "");
+    return "";
+  }
+}
+
+interface AvatarProps { userId?: string; senderName: string; className?: string; }
+
+function UserAvatar({ userId, senderName, className }: AvatarProps) {
+  const [picUrl, setPicUrl] = useState("");
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    if (userId) {
+      fetchUserPicture(userId).then((url) => { if (mounted.current) setPicUrl(url); });
+    } else {
+      setPicUrl("");
+    }
+    return () => { mounted.current = false; };
+  }, [userId]);
+  const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(senderName || "?")}`;
+  return (
+    <img
+      src={picUrl || fallback}
+      alt={senderName}
+      className={className}
+      onError={(e) => { (e.currentTarget as HTMLImageElement).src = fallback; }}
+    />
+  );
+}
 
 // ============================================================================
 // Constants
@@ -66,9 +112,12 @@ const LivePage = () => {
   const [activeStream, setActiveStream] = useState<LiveCard | null>(null);
   const [chatMessages, setChatMessages] = useState<LiveChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [viewerCount, setViewerCount] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  /** Ref updated synchronously so onViewerCountUpdated never has a stale liveId. */
+  const activeLiveIdRef = useRef<string>("");
 
-  const appendUniqueMessage = useCallback((senderName: string, text: string) => {
+  const appendUniqueMessage = useCallback((senderName: string, text: string, senderId?: string) => {
     setChatMessages((prev) => {
       const last = prev[prev.length - 1];
       const isDuplicate =
@@ -78,7 +127,13 @@ const LivePage = () => {
         && Date.now() - new Date(last.timestamp).getTime() < 1500;
 
       if (isDuplicate) return prev;
-      return [...prev, { senderName, text, timestamp: new Date() }];
+      return [...prev, {
+        messageId: `${Date.now()}-${Math.random()}`,
+        senderName,
+        senderId,
+        text,
+        timestamp: new Date(),
+      }];
     });
   }, []);
 
@@ -119,9 +174,16 @@ const LivePage = () => {
     onReceiveIceCandidate: useCallback((candidate: string) => {
       handleRemoteIceCandidateRef.current(candidate);
     }, []),
-    onReceiveComment: useCallback((senderName: string, text: string) => {
-      appendUniqueMessage(senderName, text);
+    onReceiveComment: useCallback((senderId: string, senderName: string, text: string) => {
+      appendUniqueMessage(senderName, text, senderId || undefined);
     }, [appendUniqueMessage]),
+    onViewerCountUpdated: useCallback((updatedLiveId: string, count: number) => {
+      // Use ref instead of activeStream state to avoid stale-closure timing issues.
+      // The ref is set synchronously in handleWatch before followJournalist is awaited.
+      if (activeLiveIdRef.current && updatedLiveId === activeLiveIdRef.current) {
+        setViewerCount(count);
+      }
+    }, []),
   });
 
   const { webRTCState, remoteVideoRef, handleOffer, handleRemoteIceCandidate, stopWatching } =
@@ -207,8 +269,13 @@ const LivePage = () => {
         throw new Error("Live session metadata is unavailable.");
       }
 
+      // Set ref synchronously BEFORE followJournalist so the ViewerCountUpdated
+      // SignalR event (which fires during followJournalist) finds the right liveId.
+      activeLiveIdRef.current = card.liveId;
+
       await followJournalist(journalistId);
       setChatMessages([]);
+      setViewerCount(0);
       setActiveStream(card);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
@@ -217,6 +284,8 @@ const LivePage = () => {
   };
 
   const handleLeaveWatch = () => {
+    activeLiveIdRef.current = "";
+    setViewerCount(0);
     stopWatching();
     setActiveStream(null);
   };
@@ -224,14 +293,17 @@ const LivePage = () => {
   const handleSendComment = async () => {
     const text = chatInput.trim();
     if (!text || !activeStream?.liveId) return;
-    await sendComment(activeStream.liveId, text);
-    appendUniqueMessage(user?.name || "Viewer", text);
+    // Clear input immediately; the SignalR Group echo will render the message.
     setChatInput("");
+    try {
+      await sendComment(activeStream.liveId, text);
+    } catch (err) {
+      console.error("[LivePage] Failed to send comment:", err);
+    }
   };
 
   const isConnecting = webRTCState === "connecting" || webRTCState === "idle";
   const isWatching = webRTCState === "connected";
-  const viewerCount = isWatching ? "42,812" : (isConnecting ? "Connecting..." : "0");
   const broadcasterName = activeStream?.journalistName || "Unknown Journalist";
 
   return (
@@ -549,10 +621,10 @@ const LivePage = () => {
                         </h3>
                         <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest">Encrypted Feed</p>
                     </div>
-                    <div className="flex items-center gap-2 bg-background px-2.5 py-1.5 rounded-md border border-border shadow-sm">
+                    {/* <div className="flex items-center gap-2 bg-background px-2.5 py-1.5 rounded-md border border-border shadow-sm">
                         <Users className="w-3.5 h-3.5 text-muted-foreground"/>
-                        <span className="text-[10px] font-bold font-mono text-foreground">{(chatMessages.length + 1).toString().padStart(3, '0')}</span>
-                    </div>
+                        <span className="text-[10px] font-bold font-mono text-foreground">{viewerCount.toString().padStart(3, '0')}</span>
+                    </div> */}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-background/30 scrollbar-thin">
@@ -563,12 +635,12 @@ const LivePage = () => {
                       </div>
                     ) : (
                       chatMessages.map((msg, i) => (
-                        <motion.div key={i} className="group" initial={{opacity:0, y:10}} animate={{opacity:1, y:0}}>
+                        <motion.div key={msg.messageId ?? i} className="group" initial={{opacity:0, y:10}} animate={{opacity:1, y:0}}>
                           <div className="flex items-start gap-3">
-                            <img
-                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(msg.senderName)}`}
-                                alt={msg.senderName}
-                                className="w-8 h-8 rounded-full border border-primary/20 flex items-center justify-center flex-shrink-0 object-cover"
+                            <UserAvatar
+                                userId={msg.senderId}
+                                senderName={msg.senderName}
+                                className="w-8 h-8 rounded-full border border-primary/20 flex-shrink-0 object-cover"
                             />
                             <div className="flex-1 bg-muted/40 p-3 rounded-2xl rounded-tl-sm border border-border/50">
                                 <div className="flex justify-between items-center mb-1">

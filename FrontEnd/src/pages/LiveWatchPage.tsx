@@ -151,11 +151,10 @@ const LiveWatchPage = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []),
 
-      // Backend resolves the real senderName from the JWT claim or DB.
-      // No senderId in payload — use dicebear for incoming messages.
+      // Backend now sends (senderId, senderName, text) so avatars work for ALL senders.
       onReceiveComment: useCallback(
-        (senderName: string, text: string) => {
-          appendMessage(senderName, text, undefined, makeId());
+        (senderId: string, senderName: string, text: string) => {
+          appendMessage(senderName, text, senderId || undefined, makeId());
         },
         [appendMessage]
       ),
@@ -220,15 +219,12 @@ const LiveWatchPage = () => {
     const text = chatInput.trim();
     if (!text || !liveId) return;
 
-    const msgId = makeId();
-    const senderName = user?.name || "";
-    const senderId = user?.userId;
-
-    // Optimistic local insert for the viewer's own message
-    appendMessage(senderName, text, senderId, msgId);
+    // Clear input immediately for responsiveness
     setChatInput("");
 
     try {
+      // The backend will echo the comment back via ReceiveComment (Clients.Group includes caller).
+      // No optimistic local insert needed — the SignalR echo IS the insert.
       await sendComment(liveId, text);
     } catch (err) {
       console.error("[LiveWatch] Failed to send comment:", err);

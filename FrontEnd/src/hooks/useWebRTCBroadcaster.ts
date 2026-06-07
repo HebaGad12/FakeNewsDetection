@@ -9,40 +9,45 @@ import type { WebRTCState } from "@/services/types";
 interface UseWebRTCBroadcasterOptions {
   /** liveId used as the channel identifier for signaling */
   liveId: string;
-  /** Send a WebRTC offer via SignalR */
-  sendOffer: (liveId: string, offer: string) => Promise<void>;
-  /** Send an ICE candidate via SignalR */
-  sendIceCandidate: (liveId: string, candidate: string) => Promise<void>;
+  /**
+   * Send a WebRTC offer to a specific viewer via SignalR.
+   * viewerConnectionId identifies the target viewer's SignalR connection.
+   */
+  sendOffer: (liveId: string, offer: string, viewerConnectionId: string) => Promise<void>;
+  /**
+   * Send an ICE candidate to a specific viewer via SignalR.
+   * targetConnectionId routes the candidate to the correct peer.
+   */
+  sendIceCandidate: (liveId: string, candidate: string, targetConnectionId?: string) => Promise<void>;
 }
 
 interface UseWebRTCBroadcasterReturn {
-  /** Current WebRTC connection state */
   webRTCState: WebRTCState;
-  /** Whether the local camera is muted */
   isCameraMuted: boolean;
-  /** Whether the local microphone is muted */
   isMicMuted: boolean;
-  /** Ref to attach to the local <video> element */
   localVideoRef: React.RefObject<HTMLVideoElement>;
-  /**
-   * Initialize camera/mic, create RTCPeerConnection, and send offer.
-   * Call this once after startLive() succeeds.
-   */
   startBroadcast: () => Promise<void>;
-  /**
-   * Stop all tracks and close the peer connection.
-   * Call this before or after endLive().
-   */
   stopBroadcast: () => void;
-  /** Handle the SDP answer received from a viewer via SignalR */
-  handleAnswer: (answer: string) => Promise<void>;
-  /** Handle an ICE candidate received from a viewer via SignalR */
-  handleRemoteIceCandidate: (candidate: string) => Promise<void>;
-  /** Re-send a fresh SDP offer (used when viewers join after initial offer) */
-  resendOffer: () => Promise<void>;
-  /** Toggle camera track on/off */
+  /**
+   * Create a new dedicated RTCPeerConnection for the given viewer and send them an offer.
+   * Called by LiveBroadcastPage when ViewerJoined fires.
+   */
+  handleViewerJoined: (viewerConnectionId: string) => Promise<void>;
+  /**
+   * Handle the SDP answer from a specific viewer.
+   * viewerConnectionId identifies which peer connection to update.
+   */
+  handleAnswer: (answer: string, viewerConnectionId: string) => Promise<void>;
+  /**
+   * Handle an ICE candidate from a specific viewer.
+   * viewerConnectionId identifies which peer connection to add it to.
+   */
+  handleRemoteIceCandidate: (candidate: string, viewerConnectionId: string) => Promise<void>;
+  /**
+   * Clean up the peer connection for a viewer who has left.
+   */
+  handleViewerLeft: (viewerConnectionId: string) => void;
   toggleCamera: () => void;
-  /** Toggle microphone track on/off */
   toggleMic: () => void;
 }
 
@@ -53,24 +58,23 @@ interface UseWebRTCBroadcasterReturn {
 /**
  * useWebRTCBroadcaster
  *
- * Manages the journalist's side of the WebRTC connection:
- *  1. Opens camera + microphone via getUserMedia
- *  2. Creates RTCPeerConnection with STUN servers
- *  3. Creates and sends SDP offer via SignalR
- *  4. Handles incoming SDP answer from viewers
- *  5. Exchanges ICE candidates
+ * Multi-viewer architecture:
+ *  - One RTCPeerConnection per viewer, stored in peerConnectionsRef (Map<viewerConnId, pc>)
+ *  - When a viewer joins (handleViewerJoined): create new PC, add tracks, send targeted offer
+ *  - When viewer answers (handleAnswer): set remote description on that viewer's PC
+ *  - When viewer ICE candidate arrives (handleRemoteIceCandidate): add to that viewer's PC
+ *  - When viewer leaves (handleViewerLeft): close and remove that PC
  *
- * WebRTC flow (broadcaster side):
- *   startBroadcast()
- *     → getUserMedia (camera + mic)
+ * WebRTC flow per viewer:
+ *   handleViewerJoined(viewerConnectionId)
  *     → new RTCPeerConnection
- *     → addTrack (video + audio)
+ *     → addTrack (video + audio from local stream)
  *     → createOffer → setLocalDescription
- *     → sendOffer via SignalR
- *   handleAnswer(answer)
- *     → setRemoteDescription
- *   handleRemoteIceCandidate(candidate)
- *     → addIceCandidate
+ *     → sendOffer(liveId, offer, viewerConnectionId)
+ *   handleAnswer(answer, viewerConnectionId)
+ *     → peerConnectionsRef.get(viewerConnectionId).setRemoteDescription
+ *   handleRemoteIceCandidate(candidate, viewerConnectionId)
+ *     → peerConnectionsRef.get(viewerConnectionId).addIceCandidate
  */
 export function useWebRTCBroadcaster({
   liveId,
@@ -82,100 +86,167 @@ export function useWebRTCBroadcaster({
   const [isMicMuted, setIsMicMuted] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
+  // Map: viewerConnectionId → RTCPeerConnection
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+
   // --------------------------------------------------------------------------
-  // Send/re-send SDP offer
+  // Create a peer connection for one viewer and send them an offer
   // --------------------------------------------------------------------------
 
-  const resendOffer = useCallback(async () => {
-    const pc = peerConnectionRef.current;
-    if (!pc) return;
+  const createPeerForViewer = useCallback(async (viewerConnectionId: string) => {
+    const stream = localStreamRef.current;
+    if (!stream) {
+      console.warn("[WebRTC Broadcaster] No local stream yet, cannot create peer for", viewerConnectionId);
+      return;
+    }
 
+    // Clean up any stale connection for this viewer
+    const existing = peerConnectionsRef.current.get(viewerConnectionId);
+    if (existing) {
+      existing.close();
+      peerConnectionsRef.current.delete(viewerConnectionId);
+    }
+
+    const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+    peerConnectionsRef.current.set(viewerConnectionId, pc);
+
+    // Add all local tracks to this viewer's peer connection
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+    // ICE candidates for this viewer are sent ONLY to them
+    pc.onicecandidate = async (event) => {
+      if (event.candidate) {
+        try {
+          await sendIceCandidate(
+            liveId,
+            JSON.stringify(event.candidate.toJSON()),
+            viewerConnectionId  // ← targeted: only this viewer gets this candidate
+          );
+        } catch (err) {
+          console.error(`[WebRTC Broadcaster] ICE send to ${viewerConnectionId} failed:`, err);
+        }
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState;
+      console.log(`[WebRTC Broadcaster] Peer ${viewerConnectionId}: ${state}`);
+      if (state === "failed" || state === "closed") {
+        // Clean up this viewer's PC but keep the broadcaster LIVE
+        peerConnectionsRef.current.delete(viewerConnectionId);
+      }
+    };
+
+    // Create and send the targeted offer
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await sendOffer(liveId, JSON.stringify(offer));
-  }, [liveId, sendOffer]);
+    await sendOffer(liveId, JSON.stringify(offer), viewerConnectionId);
+  }, [liveId, sendOffer, sendIceCandidate]);
 
   // --------------------------------------------------------------------------
-  // Start broadcast
+  // Start broadcast — get media, show preview
   // --------------------------------------------------------------------------
 
   const startBroadcast = useCallback(async () => {
     setWebRTCState("connecting");
 
     try {
-      // Step 1: Request camera and microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
       localStreamRef.current = stream;
 
-      // Step 2: Show local preview in the <video> element
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
 
-      // Step 3: Create peer connection with STUN servers for NAT traversal
-      const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
-      peerConnectionRef.current = pc;
-
-      // Step 4: Add all local tracks (video + audio) to the peer connection
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      // Step 5: When ICE candidates are found, send them to viewers via SignalR
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          await sendIceCandidate(
-            liveId,
-            JSON.stringify(event.candidate.toJSON())
-          );
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        switch (pc.connectionState) {
-          case "connected":
-            setWebRTCState("connected");
-            break;
-          case "disconnected":
-          case "closed":
-            setWebRTCState("disconnected");
-            break;
-          case "failed":
-            setWebRTCState("error");
-            break;
-        }
-      };
-
-      // Step 6: Create SDP offer and set as local description
-      // Step 7: Send the offer to all viewers via SignalR
-      await resendOffer();
-
+      // Mark as "connected" (i.e. LIVE) as soon as we have media access.
+      // Viewer peer connections are created on-demand when viewers join.
       setWebRTCState("connected");
+      console.log("[WebRTC Broadcaster] Media acquired. Broadcast is LIVE.");
     } catch (err) {
       console.error("[WebRTC Broadcaster] startBroadcast failed:", err);
       setWebRTCState("error");
       throw err;
     }
-  }, [resendOffer, liveId, sendIceCandidate]);
+  }, []);
 
   // --------------------------------------------------------------------------
-  // Stop broadcast
+  // Public: called when ViewerJoined fires
+  // --------------------------------------------------------------------------
+
+  const handleViewerJoined = useCallback(async (viewerConnectionId: string) => {
+    console.log("[WebRTC Broadcaster] Viewer joined:", viewerConnectionId);
+    try {
+      await createPeerForViewer(viewerConnectionId);
+    } catch (err) {
+      console.error("[WebRTC Broadcaster] handleViewerJoined failed:", err);
+    }
+  }, [createPeerForViewer]);
+
+  // --------------------------------------------------------------------------
+  // Handle SDP answer from a specific viewer
+  // --------------------------------------------------------------------------
+
+  const handleAnswer = useCallback(async (answer: string, viewerConnectionId: string) => {
+    const pc = peerConnectionsRef.current.get(viewerConnectionId);
+    if (!pc) {
+      console.warn("[WebRTC Broadcaster] No peer connection for viewer:", viewerConnectionId);
+      return;
+    }
+
+    try {
+      const answerDesc = new RTCSessionDescription(JSON.parse(answer));
+      await pc.setRemoteDescription(answerDesc);
+    } catch (err) {
+      console.error(`[WebRTC Broadcaster] handleAnswer for ${viewerConnectionId} failed:`, err);
+    }
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // Handle ICE candidate from a specific viewer
+  // --------------------------------------------------------------------------
+
+  const handleRemoteIceCandidate = useCallback(async (candidate: string, viewerConnectionId: string) => {
+    const pc = peerConnectionsRef.current.get(viewerConnectionId);
+    if (!pc) return;
+
+    try {
+      const iceCandidate = new RTCIceCandidate(JSON.parse(candidate));
+      await pc.addIceCandidate(iceCandidate);
+    } catch (err) {
+      console.error(`[WebRTC Broadcaster] ICE candidate for ${viewerConnectionId} failed:`, err);
+    }
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // Handle viewer leaving — clean up their peer connection
+  // --------------------------------------------------------------------------
+
+  const handleViewerLeft = useCallback((viewerConnectionId: string) => {
+    const pc = peerConnectionsRef.current.get(viewerConnectionId);
+    if (pc) {
+      pc.close();
+      peerConnectionsRef.current.delete(viewerConnectionId);
+      console.log("[WebRTC Broadcaster] Cleaned up peer for:", viewerConnectionId);
+    }
+    // Broadcaster stays LIVE regardless of viewer count
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // Stop broadcast — close all peer connections
   // --------------------------------------------------------------------------
 
   const stopBroadcast = useCallback(() => {
-    // Stop all media tracks (turns off camera/mic indicator light)
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
 
-    // Close the peer connection
-    peerConnectionRef.current?.close();
-    peerConnectionRef.current = null;
+    peerConnectionsRef.current.forEach((pc) => pc.close());
+    peerConnectionsRef.current.clear();
 
-    // Clear the local video element
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
@@ -186,63 +257,20 @@ export function useWebRTCBroadcaster({
   }, []);
 
   // --------------------------------------------------------------------------
-  // Handle answer from viewer
-  // --------------------------------------------------------------------------
-
-  /**
-   * Called when a viewer sends their SDP answer via SignalR "ReceiveAnswer".
-   * Sets the remote description on the peer connection.
-   */
-  const handleAnswer = useCallback(async (answer: string) => {
-    const pc = peerConnectionRef.current;
-    if (!pc) return;
-
-    try {
-      const answerDesc = new RTCSessionDescription(JSON.parse(answer));
-      await pc.setRemoteDescription(answerDesc);
-    } catch (err) {
-      console.error("[WebRTC Broadcaster] handleAnswer failed:", err);
-    }
-  }, []);
-
-  // --------------------------------------------------------------------------
-  // Handle ICE candidate from viewer
-  // --------------------------------------------------------------------------
-
-  /**
-   * Called when a viewer sends an ICE candidate via SignalR "ReceiveIceCandidate".
-   */
-  const handleRemoteIceCandidate = useCallback(async (candidate: string) => {
-    const pc = peerConnectionRef.current;
-    if (!pc) return;
-
-    try {
-      const iceCandidate = new RTCIceCandidate(JSON.parse(candidate));
-      await pc.addIceCandidate(iceCandidate);
-    } catch (err) {
-      console.error("[WebRTC Broadcaster] handleRemoteIceCandidate failed:", err);
-    }
-  }, []);
-
-  // --------------------------------------------------------------------------
   // Camera / Mic toggles
   // --------------------------------------------------------------------------
 
   const toggleCamera = useCallback(() => {
     const stream = localStreamRef.current;
     if (!stream) return;
-    stream.getVideoTracks().forEach((t) => {
-      t.enabled = !t.enabled;
-    });
+    stream.getVideoTracks().forEach((t) => { t.enabled = !t.enabled; });
     setIsCameraMuted((prev) => !prev);
   }, []);
 
   const toggleMic = useCallback(() => {
     const stream = localStreamRef.current;
     if (!stream) return;
-    stream.getAudioTracks().forEach((t) => {
-      t.enabled = !t.enabled;
-    });
+    stream.getAudioTracks().forEach((t) => { t.enabled = !t.enabled; });
     setIsMicMuted((prev) => !prev);
   }, []);
 
@@ -253,9 +281,10 @@ export function useWebRTCBroadcaster({
     localVideoRef,
     startBroadcast,
     stopBroadcast,
+    handleViewerJoined,
     handleAnswer,
     handleRemoteIceCandidate,
-    resendOffer,
+    handleViewerLeft,
     toggleCamera,
     toggleMic,
   };

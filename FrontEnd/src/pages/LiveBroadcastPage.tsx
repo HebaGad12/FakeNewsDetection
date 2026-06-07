@@ -140,29 +140,31 @@ const LiveBroadcastPage = () => {
   // --------------------------------------------------------------------------
   const { isConnected, sendOffer, sendAnswer, sendIceCandidate, sendComment, followJournalist } =
     useSignalR({
+      // Answer now includes viewerConnectionId so we update the right peer connection
       onReceiveAnswer: useCallback(
-        (answer: string) => { handleAnswer(answer); },
+        (answer: string, viewerConnectionId: string) => { handleAnswer(answer, viewerConnectionId); },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         []
       ),
-      onReceiveIceCandidate: useCallback((candidate: string) => {
-        handleRemoteIceCandidate(candidate);
+      // ICE candidate from a viewer — includes their connectionId so we route to the right PC
+      onReceiveIceCandidate: useCallback((candidate: string, senderConnectionId?: string) => {
+        if (senderConnectionId) {
+          handleRemoteIceCandidate(candidate, senderConnectionId);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []),
-      // Backend sends ReceiveComment only to OthersInGroup → viewers only.
-      // Broadcaster receives viewer comments here.
       onReceiveComment: useCallback(
-        (senderName: string, text: string) => {
-          // No senderId available from backend — use dicebear fallback
-          appendMessage(senderName, text, undefined, makeId());
+        (senderId: string, senderName: string, text: string) => {
+          appendMessage(senderName, text, senderId || undefined, makeId());
         },
         [appendMessage]
       ),
+      // Each ViewerJoined now carries the viewer's SignalR connectionId
       onViewerJoined: useCallback(
-        (joinedLiveId: string) => {
+        (joinedLiveId: string, viewerConnectionId: string) => {
           if (joinedLiveId !== liveId) return;
-          resendOffer().catch((err) => {
-            console.error("[LiveBroadcast] Failed to resend offer:", err);
+          handleViewerJoined(viewerConnectionId).catch((err) => {
+            console.error("[LiveBroadcast] Failed to create peer for viewer:", err);
           });
           // eslint-disable-next-line react-hooks/exhaustive-deps
         },
@@ -172,6 +174,14 @@ const LiveBroadcastPage = () => {
         if (updatedLiveId !== liveId) return;
         setViewerCount(count);
       }, [liveId]),
+      onViewerLeft: useCallback(
+        (leftLiveId: string, viewerConnectionId: string) => {
+          if (leftLiveId !== liveId) return;
+          handleViewerLeft(viewerConnectionId);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        },
+        [liveId]
+      ),
     });
 
   // --------------------------------------------------------------------------
@@ -179,8 +189,8 @@ const LiveBroadcastPage = () => {
   // --------------------------------------------------------------------------
   const {
     webRTCState, isCameraMuted, isMicMuted, localVideoRef,
-    startBroadcast, stopBroadcast, handleAnswer, handleRemoteIceCandidate,
-    resendOffer, toggleCamera, toggleMic,
+    startBroadcast, stopBroadcast, handleViewerJoined, handleAnswer, handleRemoteIceCandidate,
+    handleViewerLeft, toggleCamera, toggleMic,
   } = useWebRTCBroadcaster({ liveId, sendOffer, sendIceCandidate });
 
   // --------------------------------------------------------------------------
@@ -229,15 +239,12 @@ const LiveBroadcastPage = () => {
     const text = chatInput.trim();
     if (!text || !liveId) return;
 
-    const msgId = makeId();
-    const senderName = user?.name || "";
-    const senderId = user?.userId;
-
-    // Optimistic local insert (broadcaster's own message)
-    appendMessage(senderName, text, senderId, msgId);
+    // Clear input immediately for responsiveness
     setChatInput("");
 
     try {
+      // The backend will echo the comment back via ReceiveComment (Clients.Group includes caller).
+      // No optimistic local insert needed — the SignalR echo IS the insert.
       await sendComment(liveId, text);
     } catch (err) {
       console.error("[LiveBroadcast] Failed to send comment:", err);

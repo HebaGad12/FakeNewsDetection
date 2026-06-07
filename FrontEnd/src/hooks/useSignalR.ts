@@ -12,18 +12,36 @@ interface UseSignalROptions {
   onLiveStarted?: (liveId: string) => void;
   /** Called when the backend fires "LiveEnded" */
   onLiveEnded?: (liveId: string) => void;
-  /** Called when the hub broadcasts "ReceiveOffer" (viewer side) */
+  /**
+   * Called when the hub broadcasts "ReceiveOffer" (viewer side).
+   * The journalist now sends offers targeted per-viewer so only the target viewer
+   * receives this event.
+   */
   onReceiveOffer?: (offer: string) => void;
-  /** Called when the hub broadcasts "ReceiveAnswer" (journalist side) */
-  onReceiveAnswer?: (answer: string) => void;
-  /** Called when the hub broadcasts "ReceiveIceCandidate" */
-  onReceiveIceCandidate?: (candidate: string) => void;
-  /** Called when a chat comment arrives — args: senderName, text */
-  onReceiveComment?: (senderName: string, text: string) => void;
-  /** Called when a viewer joins an active live session */
-  onViewerJoined?: (liveId: string) => void;
+  /**
+   * Called when the hub broadcasts "ReceiveAnswer" (journalist side).
+   * Now includes viewerConnectionId so the broadcaster knows which peer to update.
+   */
+  onReceiveAnswer?: (answer: string, viewerConnectionId: string) => void;
+  /**
+   * Called when the hub broadcasts "ReceiveIceCandidate".
+   * senderConnectionId is included so the broadcaster can route it to the right peer.
+   */
+  onReceiveIceCandidate?: (candidate: string, senderConnectionId?: string) => void;
+  /** Called when a chat comment arrives — args: senderId, senderName, text */
+  onReceiveComment?: (senderId: string, senderName: string, text: string) => void;
+  /**
+   * Called when a viewer joins an active live session.
+   * Now includes viewerConnectionId so the broadcaster creates a dedicated peer connection.
+   */
+  onViewerJoined?: (liveId: string, viewerConnectionId: string) => void;
   /** Called when live viewer count changes */
   onViewerCountUpdated?: (liveId: string, count: number) => void;
+  /**
+   * Called when a viewer disconnects.
+   * The broadcaster should close and remove the peer connection for this viewer.
+   */
+  onViewerLeft?: (liveId: string, viewerConnectionId: string) => void;
 }
 
 interface UseSignalRReturn {
@@ -35,20 +53,20 @@ interface UseSignalRReturn {
    */
   followJournalist: (journalistId: string) => Promise<void>;
   /**
-   * Send a WebRTC offer to all members of the liveId group.
-   * Calls hub method: SendOffer(liveId, offer)
+   * Send a WebRTC offer to a specific viewer.
+   * Calls hub method: SendOffer(liveId, offer, viewerConnectionId)
    */
-  sendOffer: (liveId: string, offer: string) => Promise<void>;
+  sendOffer: (liveId: string, offer: string, viewerConnectionId: string) => Promise<void>;
   /**
    * Send a WebRTC answer back to the journalist.
    * Calls hub method: SendAnswer(liveId, answer)
    */
   sendAnswer: (liveId: string, answer: string) => Promise<void>;
   /**
-   * Send an ICE candidate to the other peer.
-   * Calls hub method: SendIceCandidate(liveId, candidate)
+   * Send an ICE candidate to a specific target (viewer or broadcaster).
+   * Calls hub method: SendIceCandidate(liveId, candidate, targetConnectionId?)
    */
-  sendIceCandidate: (liveId: string, candidate: string) => Promise<void>;
+  sendIceCandidate: (liveId: string, candidate: string, targetConnectionId?: string) => Promise<void>;
   /**
    * Send a chat comment to everyone watching the live session.
    * Calls hub method: SendComment(liveId, comment)
@@ -101,7 +119,6 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
 
     /**
      * "LiveStarted" — fired by LiveController when a journalist starts.
-     * Payload: liveId (Guid serialized as string)
      */
     conn.on("LiveStarted", (liveId: string) => {
       optionsRef.current.onLiveStarted?.(liveId);
@@ -109,15 +126,14 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
 
     /**
      * "LiveEnded" — fired by LiveController when a journalist ends.
-     * Payload: liveId (Guid serialized as string)
      */
     conn.on("LiveEnded", (liveId: string) => {
       optionsRef.current.onLiveEnded?.(liveId);
     });
 
     /**
-     * "ReceiveOffer" — fired by LiveHub.SendOffer().
-     * The journalist sends their WebRTC SDP offer; viewers receive it here.
+     * "ReceiveOffer" — fired by LiveHub.SendOffer() to a specific viewer.
+     * Only the targeted viewer receives this event.
      */
     conn.on("ReceiveOffer", (offer: string) => {
       optionsRef.current.onReceiveOffer?.(offer);
@@ -125,40 +141,46 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
 
     /**
      * "ReceiveAnswer" — fired by LiveHub.SendAnswer().
-     * A viewer sends their SDP answer; the journalist receives it here.
+     * Now includes viewerConnectionId so the broadcaster can route to the right peer.
      */
-    conn.on("ReceiveAnswer", (answer: string) => {
-      optionsRef.current.onReceiveAnswer?.(answer);
+    conn.on("ReceiveAnswer", (answer: string, viewerConnectionId: string) => {
+      optionsRef.current.onReceiveAnswer?.(answer, viewerConnectionId);
     });
 
     /**
      * "ReceiveIceCandidate" — fired by LiveHub.SendIceCandidate().
-     * Both sides exchange ICE candidates for NAT traversal.
+     * senderConnectionId identifies who sent the candidate (viewer or broadcaster).
      */
-    conn.on("ReceiveIceCandidate", (candidate: string) => {
-      optionsRef.current.onReceiveIceCandidate?.(candidate);
+    conn.on("ReceiveIceCandidate", (candidate: string, senderConnectionId?: string) => {
+      optionsRef.current.onReceiveIceCandidate?.(candidate, senderConnectionId);
     });
 
     /**
      * "ReceiveComment" — fired by LiveHub.SendComment().
-     * Chat messages sent during a live session.
-     * Backend (LiveHub.cs line 83) sends: (senderName, comment) — only 2 args.
-     * NOTE: senderId is NOT included in the SignalR payload.
+     * Includes senderId, senderName, text.
      */
-    conn.on("ReceiveComment", (senderName: string, text: string) => {
-      optionsRef.current.onReceiveComment?.(senderName, text);
+    conn.on("ReceiveComment", (senderId: string, senderName: string, text: string) => {
+      optionsRef.current.onReceiveComment?.(senderId, senderName, text);
     });
 
     /**
      * "ViewerJoined" — fired when a viewer follows a journalist with an active live.
-     * Useful for re-sending WebRTC offers to late joiners.
+     * Now includes viewerConnectionId for per-viewer peer connection management.
      */
-    conn.on("ViewerJoined", (liveId: string) => {
-      optionsRef.current.onViewerJoined?.(liveId);
+    conn.on("ViewerJoined", (liveId: string, viewerConnectionId: string) => {
+      optionsRef.current.onViewerJoined?.(liveId, viewerConnectionId);
     });
 
     conn.on("ViewerCountUpdated", (liveId: string, count: number) => {
       optionsRef.current.onViewerCountUpdated?.(liveId, count);
+    });
+
+    /**
+     * "ViewerLeft" — fired when a viewer disconnects.
+     * The broadcaster should close the peer connection for this viewer.
+     */
+    conn.on("ViewerLeft", (liveId: string, viewerConnectionId: string) => {
+      optionsRef.current.onViewerLeft?.(liveId, viewerConnectionId);
     });
 
     // ── Connection state handlers ─────────────────────────────────────────────
@@ -200,23 +222,19 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
             throw err;
           }
 
-          // Brief backoff for transient startup races/network hiccups.
           await new Promise((resolve) => setTimeout(resolve, 250));
         }
       }
     };
 
     const startPromise = startWithRetry();
-
     startPromiseRef.current = startPromise;
 
     return () => {
       isDisposed = true;
       startPromiseRef.current = null;
       connectionRef.current = null;
-      conn.stop().catch(() => {
-        // Connection can already be disposed during strict-mode remount cycles.
-      });
+      conn.stop().catch(() => {});
     };
   }, []); // Run once on mount
 
@@ -225,7 +243,7 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
   // --------------------------------------------------------------------------
 
   const invokeWhenConnected = useCallback(
-    async (methodName: string, ...args: string[]) => {
+    async (methodName: string, ...args: unknown[]) => {
       const conn = connectionRef.current;
       if (!conn) {
         throw new Error("SignalR connection is not initialized yet.");
@@ -255,17 +273,19 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
     await invokeWhenConnected("FollowJournalist", journalistId);
   }, [invokeWhenConnected]);
 
-  const sendOffer = useCallback(async (liveId: string, offer: string) => {
-    await invokeWhenConnected("SendOffer", liveId, offer);
+  /** Send offer to a specific viewer's connection ID */
+  const sendOffer = useCallback(async (liveId: string, offer: string, viewerConnectionId: string) => {
+    await invokeWhenConnected("SendOffer", liveId, offer, viewerConnectionId);
   }, [invokeWhenConnected]);
 
   const sendAnswer = useCallback(async (liveId: string, answer: string) => {
     await invokeWhenConnected("SendAnswer", liveId, answer);
   }, [invokeWhenConnected]);
 
+  /** Send ICE candidate, optionally targeting a specific connection */
   const sendIceCandidate = useCallback(
-    async (liveId: string, candidate: string) => {
-      await invokeWhenConnected("SendIceCandidate", liveId, candidate);
+    async (liveId: string, candidate: string, targetConnectionId?: string) => {
+      await invokeWhenConnected("SendIceCandidate", liveId, candidate, targetConnectionId ?? null);
     },
     [invokeWhenConnected]
   );
@@ -273,7 +293,6 @@ export function useSignalR(options: UseSignalROptions = {}): UseSignalRReturn {
   const sendComment = useCallback(async (liveId: string, comment: string) => {
     await invokeWhenConnected("SendComment", liveId, comment);
   }, [invokeWhenConnected]);
-  
 
   return {
     isConnected,
