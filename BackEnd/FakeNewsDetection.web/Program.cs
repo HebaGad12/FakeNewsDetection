@@ -68,7 +68,7 @@ namespace FakeNewsDetection.web
 
                         if (!string.IsNullOrWhiteSpace(accessToken)
                             && (path.StartsWithSegments("/livehub")
-                                || path.StartsWithSegments("/notificationhub"))) 
+                                || path.StartsWithSegments("/notificationhub")))
                         {
                             context.Token = accessToken;
                         }
@@ -101,6 +101,7 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
             builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
             builder.Services.AddScoped<IOrganizationTaskRepository, OrganizationTaskRepository>();
+            builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
             // ── Python AI Services ───────────────────────────────────────────
             var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8000";
 
@@ -128,18 +129,28 @@ namespace FakeNewsDetection.web
                 client.Timeout     = TimeSpan.FromSeconds(15);
             });
 
+            // ── Recommendation Service ────────────────────────────────────────
+            // Needs HttpClient (to call Python) + AppDbContext (for Memberships),
+            // so it is registered in two steps: typed HttpClient first, then Scoped.
+            builder.Services.AddHttpClient<RecommendationService>(client =>
+            {
+                client.BaseAddress = new Uri(pythonUrl);
+                client.Timeout     = TimeSpan.FromSeconds(30);
+            });
+            builder.Services.AddScoped<IRecommendationService, RecommendationService>();
+
             // ── Swagger ──────────────────────────────────────────────────────
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
-                    In          = ParameterLocation.Header,
-                    Description = "Please enter JWT with Bearer into field",
-                    Name        = "Authorization",
-                    Type        = SecuritySchemeType.Http,
+                    In           = ParameterLocation.Header,
+                    Description  = "Please enter JWT with Bearer into field",
+                    Name         = "Authorization",
+                    Type         = SecuritySchemeType.Http,
                     BearerFormat = "JWT",
-                    Scheme      = "Bearer",
+                    Scheme       = "Bearer",
                 });
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
@@ -178,14 +189,10 @@ namespace FakeNewsDetection.web
 
             app.UseCors("AllowFrontend");
 
-            // ── Serve uploaded media files ────────────────────────────────────
-            // Images are stored at:  <wwwroot>/media/posts/{id}.ext
-            // Accessible via URL:    /media/posts/{id}.ext
-
             app.UseStaticFiles();
 
             var mediaDir = Path.Combine(Directory.GetCurrentDirectory(), "media");
-            Directory.CreateDirectory(mediaDir); // ensure root exists on first run
+            Directory.CreateDirectory(mediaDir);
 
             app.UseStaticFiles(new StaticFileOptions
             {

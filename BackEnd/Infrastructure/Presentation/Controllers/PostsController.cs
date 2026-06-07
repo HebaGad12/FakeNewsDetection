@@ -13,6 +13,11 @@ using Domain.Enums;
 using Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using Persistence;
+using Presentation.SignalR_Hubs;
+using ServicesAbstraction;
 using Shared.DTOs;
 using System;
 using System.Collections.Generic;
@@ -31,110 +36,90 @@ namespace Presentation.Controllers
         private readonly IInteractionRepository _interactions;
         private readonly IUserRepository _users;
         private readonly IPostMediaRepository _media;
-        private readonly IModerationRepository _moderation;
+        private readonly IToxicityService _toxicity;
+        private readonly INotificationRepository _notifications;
+        private readonly IHubContext<NotificationHub> _hub;
 
         public PostsController(
             IPostRepository posts,
             IInteractionRepository interactions,
             IUserRepository users,
             IPostMediaRepository media,
-            IModerationRepository moderation)
+            IToxicityService toxicity,
+            INotificationRepository notifications,
+            IHubContext<NotificationHub> hub)
         {
-            _posts        = posts;
+            _posts = posts;
             _interactions = interactions;
-            _users        = users;
-            _media        = media;
-            _moderation   = moderation;
+            _users = users;
+            _media = media;
+            _toxicity = toxicity;
+            _notifications = notifications;
+            _hub = hub;
         }
 
-        private Guid   GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        private string GetRole()   => User.FindFirstValue(ClaimTypes.Role) ?? "";
+        private Guid GetUserId() =>
+            Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // ── GET /api/posts ────────────────────────────────────────────────
+        private string GetUserName() =>
+            User.FindFirstValue(ClaimTypes.Name)
+            ?? User.FindFirstValue("name")
+            ?? User.FindFirstValue("unique_name")
+            ?? "Someone";
+
         [HttpGet]
         [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<object>>> GetAll()
+        public async Task<ActionResult<IEnumerable<PostWithCommentsResponse>>> GetAllPosts()
         {
-            var posts    = await _posts.GetAllAsync();
+            var posts = await _posts.GetAllAsync();
             var allUsers = await _users.GetAllAsync();
             var userDict = allUsers.ToDictionary(u => u.Id);
 
-            var approved = posts
+            var result = new List<PostWithCommentsResponse>();
+
+            foreach (var p in posts
                 .Where(p => p.ModerationStatus == ModerationStatus.Approved)
-                .OrderByDescending(p => p.CreatedAt);
-
-            var result = new List<object>();
-            foreach (var p in approved)
+                .OrderByDescending(p => p.CreatedAt))
             {
-                var mediaItems = await _media.GetByPostIdAsync(p.Id);
-                userDict.TryGetValue(p.AuthorId, out var author);
+                var comments = p.Interactions?
+                    .Where(i => i.Type == InteractionType.Comment)
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i =>
+                    {
+                        userDict.TryGetValue(i.UserId, out var commenter);
+                        return new CommentDto(
+                            i.Id,
+                            commenter?.Name ?? "Unknown",
+                            commenter?.Role.ToString() ?? "Unknown",
+                            i.Content ?? "",
+                            i.CreatedAt
+                        );
+                    }).ToList() ?? new();
 
+                userDict.TryGetValue(p.AuthorId, out var author);
                 string orgName = "Independent";
                 if (p.OrganizationId.HasValue && userDict.TryGetValue(p.OrganizationId.Value, out var org))
                     orgName = org.Name;
 
-                result.Add(new
-                {
-                    p.Id,
-                    p.Title,
-                    p.Content,
-                    p.Tags,
-                    p.CreatedAt,
-                    p.VerificationStatus,
-                    p.ConfidenceScore,
-                    AuthorId           = p.AuthorId,
-                    AuthorName         = author?.Name ?? "Unknown",
-                    OrganizationName   = orgName,
-                    Likes              = p.Interactions?.Count(i => i.Type == InteractionType.Like)    ?? 0,
-                    Comments           = p.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
-                    Media              = mediaItems.Select(m => new MediaDto(
-                                             m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt))
-                });
+                var mediaItems = await _media.GetByPostIdAsync(p.Id);
+                var mediaDtos = mediaItems.Select(m => new MediaDto(
+                    m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt
+                )).ToList();
+
+                result.Add(new PostWithCommentsResponse(
+                    p.Id, p.Title, p.Content, p.Tags,
+                    author?.Name ?? "Unknown", p.AuthorId, orgName,
+                    p.CreatedAt, p.UpdatedAt,
+                    p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                    comments, mediaDtos
+                ));
             }
 
             return Ok(result);
         }
 
-        // ── GET /api/posts/{id} ───────────────────────────────────────────
-        [HttpGet("{id:guid}")]
-        [AllowAnonymous]
-        public async Task<ActionResult<object>> GetById(Guid id)
-        {
-            var post = await _posts.GetByIdAsync(id);
-            if (post is null || post.ModerationStatus != ModerationStatus.Approved)
-                return NotFound("Post not found.");
 
-            var allUsers   = await _users.GetAllAsync();
-            var userDict   = allUsers.ToDictionary(u => u.Id);
-            var mediaItems = await _media.GetByPostIdAsync(id);
-
-            userDict.TryGetValue(post.AuthorId, out var author);
-            string orgName = "Independent";
-            if (post.OrganizationId.HasValue && userDict.TryGetValue(post.OrganizationId.Value, out var org))
-                orgName = org.Name;
-
-            return Ok(new
-            {
-                post.Id,
-                post.Title,
-                post.Content,
-                post.Tags,
-                post.CreatedAt,
-                post.VerificationStatus,
-                post.ConfidenceScore,
-                post.CommunityCredibilityPercent,
-                AuthorId         = post.AuthorId,
-                AuthorName       = author?.Name ?? "Unknown",
-                OrganizationName = orgName,
-                Likes            = post.Interactions?.Count(i => i.Type == InteractionType.Like)    ?? 0,
-                Comments         = post.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
-                Media            = mediaItems.Select(m => new MediaDto(
-                                       m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt))
-            });
-        }
-
-        // ── POST /api/posts/{postId}/like ─────────────────────────────────
-        [HttpPost("{postId:guid}/like")]
+        [HttpPost("{postId}/like")]
         public async Task<ActionResult> Like(Guid postId)
         {
             var userId = GetUserId();
@@ -154,25 +139,52 @@ namespace Presentation.Controllers
 
             await _interactions.AddAsync(new Interaction
             {
-                PostId    = postId,
-                UserId    = userId,
-                Type      = InteractionType.Like,
+                Id = Guid.NewGuid(),
+                PostId = postId,
+                UserId = userId,
+                Type = InteractionType.Like,
                 CreatedAt = DateTime.UtcNow
             });
 
-            return Ok(new { Message = "Post liked." });
+            // ── Notify post author ────────────────────────────────────────
+            if (post.AuthorId != userId)
+            {
+                var actorName = GetUserName();
+                var n = new Notification
+                {
+                    UserId = post.AuthorId,
+                    ActorId = userId,
+                    Type = "like",
+                    Title = "New like",
+                    Message = $"{actorName} liked your post \"{post.Title}\"."
+                };
+                await _notifications.AddAsync(n);
+                await _hub.Clients.Group($"user:{post.AuthorId}")
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        n.Id,
+                        n.Title,
+                        n.Message,
+                        n.Type,
+                        n.IsRead,
+                        n.CreatedAt,
+                        ActorId = userId,
+                        ActorName = actorName
+                    });
+            }
+            // ─────────────────────────────────────────────────────────────
+
+            post = await _posts.GetByIdAsync(postId);
+            return Ok(new { Likes = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0 });
         }
 
-        // ── POST /api/posts/{postId}/comment ──────────────────────────────
-        [HttpPost("{postId:guid}/comment")]
-        public async Task<ActionResult> Comment(Guid postId, [FromBody] JournalistCommentRequest req)
+        [HttpDelete("{postId}/like")]
+        public async Task<ActionResult> Unlike(Guid postId)
         {
             var userId = GetUserId();
-            var post   = await _posts.GetByIdAsync(postId);
-            if (post is null) return NotFound("Post not found.");
-
-            if (string.IsNullOrWhiteSpace(req.Content))
-                return BadRequest("Comment content cannot be empty.");
+            var interactions = await _interactions.GetByUserAsync(userId);
+            var like = interactions.FirstOrDefault(i => i.PostId == postId && i.Type == InteractionType.Like);
+            if (like == null) return NotFound("Like not found.");
 
             await _interactions.AddAsync(new Interaction
             {
@@ -186,127 +198,85 @@ namespace Presentation.Controllers
             return Ok(new { Message = "Comment added." });
         }
 
-        // ── POST /api/posts/{postId}/report ───────────────────────────────
-        [HttpPost("{postId:guid}/report")]
-        public async Task<ActionResult> Report(Guid postId, [FromBody] JournalistReportRequest req)
+        [HttpPost("{postId}/comment")]
+        public async Task<ActionResult> Comment(Guid postId, [FromBody] CommentRequestDto req)
         {
             var userId = GetUserId();
             var post   = await _posts.GetByIdAsync(postId);
             if (post is null) return NotFound("Post not found.");
 
-            await _interactions.AddAsync(new Interaction
+            if (await _toxicity.IsToxicAsync(req.Content))
+                return BadRequest(new
+                {
+                    Error = "ToxicContent",
+                    Message = "Your comment contains toxic language and cannot be posted."
+                });
+
+            var interaction = new Interaction
             {
-                PostId    = postId,
-                UserId    = userId,
-                Type      = InteractionType.Report,
-                Content   = req.Reason,
+                Id = Guid.NewGuid(),
+                PostId = postId,
+                UserId = userId,
+                Type = InteractionType.Comment,
+                Content = req.Content,
                 CreatedAt = DateTime.UtcNow
             });
 
-            return Ok(new { Message = "Post reported." });
-        }
+            await _interactions.AddAsync(interaction);
 
-        // ── GET /api/posts/by-author/{authorId} ───────────────────────────
-        [HttpGet("by-author/{authorId:guid}")]
-        [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<object>>> GetByAuthor(Guid authorId)
-        {
-            var posts    = await _posts.GetByAuthorAsync(authorId);
-            var allUsers = await _users.GetAllAsync();
-            var userDict = allUsers.ToDictionary(u => u.Id);
-
-            var approved = posts
-                .Where(p => p.ModerationStatus == ModerationStatus.Approved)
-                .OrderByDescending(p => p.CreatedAt);
-
-            var result = new List<object>();
-            foreach (var p in approved)
+            // ── Notify post author ────────────────────────────────────────
+            if (post.AuthorId != userId)
             {
-                var mediaItems = await _media.GetByPostIdAsync(p.Id);
-                userDict.TryGetValue(p.AuthorId, out var author);
-
-                string orgName = "Independent";
-                if (p.OrganizationId.HasValue && userDict.TryGetValue(p.OrganizationId.Value, out var org))
-                    orgName = org.Name;
-
-                result.Add(new
+                var actorName = GetUserName();
+                var n = new Notification
                 {
-                    p.Id,
-                    p.Title,
-                    p.Content,
-                    p.Tags,
-                    p.CreatedAt,
-                    p.VerificationStatus,
-                    p.ConfidenceScore,
-                    AuthorId         = p.AuthorId,
-                    AuthorName       = author?.Name ?? "Unknown",
-                    OrganizationName = orgName,
-                    Likes            = p.Interactions?.Count(i => i.Type == InteractionType.Like)    ?? 0,
-                    Comments         = p.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
-                    Media            = mediaItems.Select(m => new MediaDto(
-                                           m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt))
-                });
+                    UserId = post.AuthorId,
+                    ActorId = userId,
+                    Type = "comment",
+                    Title = "New comment",
+                    Message = $"{actorName} commented on your post \"{post.Title}\"."
+                };
+                await _notifications.AddAsync(n);
+                await _hub.Clients.Group($"user:{post.AuthorId}")
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        n.Id,
+                        n.Title,
+                        n.Message,
+                        n.Type,
+                        n.IsRead,
+                        n.CreatedAt,
+                        ActorId = userId,
+                        ActorName = actorName
+                    });
             }
+            // ─────────────────────────────────────────────────────────────
 
-            return Ok(result);
+            post = await _posts.GetByIdAsync(postId);
+            return Ok(new { CommentId = interaction.Id, Comments = post?.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0 });
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // NEW ── GET /api/posts/by-task/{taskId}
-        //
-        // Returns the single post that was written for a given task.
-        // Every task that has been delivered should have exactly one post with a
-        // matching TaskId.  If no post is linked yet, 404 is returned so the
-        // front-end can show "No article submitted yet."
-        // ─────────────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Retrieve the post associated with a specific task ID.
-        /// Returns 404 when the journalist has not yet submitted an article for that task.
-        /// Accessible by any authenticated user (journalist checks their own submission,
-        /// org checks the delivered article).
-        /// </summary>
-        [HttpGet("by-task/{taskId:guid}")]
-        public async Task<ActionResult<object>> GetByTaskId(Guid taskId)
+        [HttpDelete("{postId}/comment/{commentId}")]
+        public async Task<ActionResult> DeleteComment(Guid postId, Guid commentId)
         {
-            var allPosts = await _posts.GetAllAsync();
+            var userId = GetUserId();
+            var interactions = await _interactions.GetByUserAsync(userId);
+            var comment = interactions.FirstOrDefault(i =>
+                i.Id == commentId && i.PostId == postId && i.Type == InteractionType.Comment);
 
-            // TaskId is nullable on Post — only posts submitted against a task have it set
-            var post = allPosts.FirstOrDefault(p => p.TaskId == taskId);
-
-            if (post is null)
-                return NotFound(new { Message = "No article has been submitted for this task yet." });
-
-            var allUsers   = await _users.GetAllAsync();
-            var userDict   = allUsers.ToDictionary(u => u.Id);
-            var mediaItems = await _media.GetByPostIdAsync(post.Id);
-
-            userDict.TryGetValue(post.AuthorId, out var author);
-            string orgName = "Independent";
-            if (post.OrganizationId.HasValue && userDict.TryGetValue(post.OrganizationId.Value, out var org))
-                orgName = org.Name;
-
-            return Ok(new
-            {
-                post.Id,
-                post.Title,
-                post.Content,
-                post.Tags,
-                post.CreatedAt,
-                post.UpdatedAt,
-                post.VerificationStatus,
-                post.ModerationStatus,
-                post.ConfidenceScore,
-                TaskId           = post.TaskId,         // echo back so the caller can confirm
-                AuthorId         = post.AuthorId,
-                AuthorName       = author?.Name ?? "Unknown",
-                OrganizationName = orgName,
-                Likes            = post.Interactions?.Count(i => i.Type == InteractionType.Like)    ?? 0,
-                Comments         = post.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0,
-                Media            = mediaItems.Select(m => new MediaDto(
-                                       m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt))
-            });
+            if (comment == null) return NotFound("Comment not found or not owned by you.");
+            await _interactions.DeleteAsync(comment.Id);
+            return NoContent();
         }
-        // ─────────────────────────────────────────────────────────────────────
     }
+
+    public record CommentDto(Guid Id, string AuthorName, string AuthorRole, string Content, DateTime CreatedAt);
+
+    public record PostWithCommentsResponse(
+        Guid Id, string Title, string Content, string[] Tags,
+        string AuthorName, Guid AuthorId, string OrganizationName,
+        DateTime CreatedAt, DateTime? UpdatedAt,
+        int LikesCount, List<CommentDto> Comments, List<MediaDto> Media);
+
+    public record CommentRequestDto(string Content);
 }

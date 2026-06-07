@@ -3,12 +3,14 @@ from fastapi import FastAPI, HTTPException, File, UploadFile, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-
+from pydantic import BaseModel
+from typing import Optional
 from toxic import predict_toxicity
 from FactChecker import FactChecker
 from images import ImageDuplicateStore
 from searchimages import search_similar_images, check_web_similarity
 from chat import ChatAnalyzer          # ← NEW
+from fastapi import APIRouter
 
 
 # ── Request / Response schemas ──────────────────────────────────────────────
@@ -81,6 +83,52 @@ class WebSearchResponse(BaseModel):
     count: int
     results: list[dict]
 
+
+class PostData(BaseModel):
+    """Represents one post sent from the C# backend."""
+    id:           str
+    title:        str
+    content:      str
+    tags:         list[str]         = []
+    community_id: Optional[str]     = None
+    author_id:    str
+    created_at:   str               # ISO-8601 UTC, e.g. "2026-05-10T14:30:00Z"
+    has_media:    bool              = False
+ 
+ 
+class InteractionData(BaseModel):
+    """One interaction the user made — matches InteractionType C# enum."""
+    post_id: str
+    type:    str    # "Like" | "Share" | "Comment" | "Report"
+ 
+ 
+class UserContext(BaseModel):
+    """Communities and authors the user is connected to."""
+    community_ids: list[str] = []   # community IDs the user is a member of
+    followee_ids:  list[str] = []   # author IDs the user follows
+ 
+ 
+class RecommendRequest(BaseModel):
+    """
+    Full payload sent by C# backend to get a ranked feed for one user.
+    
+    candidate_posts    : all posts eligible to be shown (approved, not banned)
+    user_interactions  : everything this user has ever liked/shared/commented/reported
+    user_context       : user's community memberships + followed authors
+    top_n              : how many post IDs to return (default 20)
+    """
+    candidate_posts:   list[PostData]        = []
+    user_interactions: list[InteractionData] = []
+    user_context:      UserContext           = UserContext()
+    top_n:             int                   = 20
+ 
+ 
+class RecommendResponse(BaseModel):
+    """Ordered list of post IDs — best recommendation first."""
+    ranked_post_ids: list[str]
+    total_candidates: int
+    total_interactions: int
+ 
 
 # ── Shared resources ────────────────────────────────────────────────────────
 
@@ -365,5 +413,38 @@ async def search_web(
     return WebSearchResponse(count=len(results), results=results)
 
 
+@app.post("/recommend/feed", response_model=RecommendResponse)
+def get_feed(req: RecommendRequest):
+    """
+    Content-Based Filtering recommendation endpoint.
+ 
+    The C# backend sends:
+      - All approved posts (candidate pool)
+      - The requesting user's full interaction history
+      - The user's community memberships + followed authors
+ 
+    Returns a ranked list of post IDs tailored to this user.
+ 
+    Cold-start behaviour:
+      - New user (no interactions) → returns newest posts first.
+      - New post (no interactions on it) → still appears in ranking via TF-IDF similarity.
+    """
+    # Convert Pydantic models to plain dicts for the recommender
+    candidate_posts    = [p.model_dump() for p in req.candidate_posts]
+    user_interactions  = [i.model_dump() for i in req.user_interactions]
+    user_context       = req.user_context.model_dump()
+ 
+    ranked_ids = recommender.recommend(
+        candidate_posts=candidate_posts,
+        user_interactions=user_interactions,
+        user_context=user_context,
+        top_n=req.top_n,
+    )
+ 
+    return RecommendResponse(
+        ranked_post_ids=ranked_ids,
+        total_candidates=len(candidate_posts),
+        total_interactions=len(user_interactions),
+    )
 if __name__ == "__main__":
     uvicorn.run("grad:app", host="0.0.0.0", port=8000, reload=True)
