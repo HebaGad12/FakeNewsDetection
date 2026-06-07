@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { journalistTaskService } from "@/services/journalistTask";
 import type { JournalistTaskResponse } from "@/services/journalistTask";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { StatsCards } from "./tasks/stats-cards";
 import { TasksTable } from "./tasks/tasks-table";
 import { BottomWidgets } from "./tasks/bottom-widgets";
@@ -10,10 +12,9 @@ import type { User } from "@/lib/tasks-types";
 interface Props {
   user: User;
   refreshKey?: number;
-  onRefresh?: () => void;
 }
 
-export function JournalistTasksPage({ user, refreshKey, onRefresh }: Props) {
+export function JournalistTasksPage({ user, refreshKey }: Props) {
   const [tasks, setTasks] = useState<JournalistTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -44,7 +45,6 @@ export function JournalistTasksPage({ user, refreshKey, onRefresh }: Props) {
     try {
       await journalistTaskService.updateTaskStatus(taskId, newStatus);
       await loadTasks();
-      if (onRefresh) onRefresh();
     } catch (e) {
       console.error("Failed to update status", e);
     }
@@ -61,11 +61,17 @@ export function JournalistTasksPage({ user, refreshKey, onRefresh }: Props) {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <main className="flex-1 space-y-6">
-        <div className="md:hidden">
-          <h1 className="text-xl font-semibold tracking-tight">My Tasks</h1>
-          <p className="text-xs text-muted-foreground">
-            Assignments from your partner organizations
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl md:text-2xl font-semibold tracking-tight">My Tasks</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Assignments from your partner organizations
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadTasks} disabled={loading}>
+            <RefreshCw className={loading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+            Refresh
+          </Button>
         </div>
 
         <StatsCards tasks={tasks} />
@@ -87,7 +93,6 @@ export function JournalistTasksPage({ user, refreshKey, onRefresh }: Props) {
         onClose={() => setPanelOpen(false)}
         onChanged={() => {
           loadTasks();
-          if (onRefresh) onRefresh();
         }}
         user={user}
       />

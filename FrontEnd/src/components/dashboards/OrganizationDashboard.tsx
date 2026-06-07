@@ -837,6 +837,7 @@ const OrganizationDashboard = () => {
   const [taskDashboard, setTaskDashboard] = useState<OrganizationTaskDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
   // FIX #3: استخدام "Removed" بدل "Rejected" كقيمة افتراضية في الفلتر
   const [postFilter, setPostFilter] = useState<PostFilter>("All");
@@ -957,6 +958,19 @@ const OrganizationDashboard = () => {
             </div>
           </div>
           <div className="flex gap-4 items-center">
+            {activeTab !== "tasks" && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  loadAll();
+                  setTasksRefreshKey((value) => value + 1);
+                }}
+                disabled={loading}
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                Refresh
+              </Button>
+            )}
             {analytics && (
               <>
                 <div className="text-right">
@@ -1371,7 +1385,12 @@ const OrganizationDashboard = () => {
 
           {/* TASKS TAB */}
           {activeTab == "tasks" && (
-            <OrganizationTasksPage user={user} journalists={journalists} onCreate={() => setShowAddTask(true)} />
+            <OrganizationTasksPage
+              user={user}
+              journalists={journalists}
+              refreshKey={tasksRefreshKey}
+              onCreate={() => setShowAddTask(true)}
+            />
           )}
           </AnimatePresence>
       </main>

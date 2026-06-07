@@ -25,6 +25,7 @@ import { Menu,
   Check,
   X,
   ChevronDown,
+  RefreshCw,
  } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { userService } from "@/services";
@@ -35,6 +36,7 @@ import donationService, {
   WalletTransactionResponse,
 } from "@/services/donationService";
 import { postsService, Post } from "@/services/postsService";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -335,6 +337,10 @@ const ReaderDashboard = () => {
             </div>
           </div>
           <div className="flex gap-4 items-center">
+            <Button variant="outline" onClick={() => loadDashboardData()} disabled={isLoading}>
+              <RefreshCw className={isLoading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+              Refresh
+            </Button>
             <div className="text-right">
               <p className="font-label text-[10px] uppercase text-outline">System Status</p>
               <p className="text-secondary font-bold flex items-center gap-1 justify-end">

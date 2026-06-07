@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Menu, 
-  Search,
   Database,
   Cloud,
   Lock,
@@ -565,14 +564,6 @@ const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
         <div className="col-span-12 lg:col-span-7">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-headline text-2xl font-bold">User Management</h3>
-            <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-outline" />
-              <input 
-                className="bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary font-body text-sm w-48 py-1" 
-                placeholder="Filter by name or role..." 
-                type="text"
-              />
-            </div>
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-5 bg-surface-container-low rounded-lg">
@@ -624,7 +615,7 @@ const OverviewTab = ({ stats }: { stats: AdminDashboardStats | null }) => {
 // Tab: Users - Enhanced Table Typography
 // ============================================================================
 
-const UsersTab = () => {
+const UsersTab = ({ refreshKey }: { refreshKey?: number }) => {
   const [result, setResult] = useState<PaginatedResult<AdminUserListItem> | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -652,7 +643,7 @@ const UsersTab = () => {
     }
   }, [page, roleFilter, activeFilter]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   const openDetail = async (id: string) => {
     try {
@@ -849,7 +840,7 @@ const UsersTab = () => {
 // Tab: Posts - Enhanced Table Typography
 // ============================================================================
 
-const PostsTab = () => {
+const PostsTab = ({ refreshKey }: { refreshKey?: number }) => {
   const [result, setResult] = useState<PaginatedResult<AdminPostListItem> | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -874,7 +865,7 @@ const PostsTab = () => {
     }
   }, [page, modFilter]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   const openDetail = async (id: string) => {
     try {
@@ -1072,6 +1063,10 @@ const PostsTab = () => {
                   <SelectItem value="Removed">Deactivated</SelectItem>
                 </SelectContent>
               </Select>
+              <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                Refresh
+              </Button>
             </div>
           </div>
           <DialogFooter>
@@ -1101,7 +1096,7 @@ const PostsTab = () => {
 // Tab: Journalists - Enhanced Cards Typography
 // ============================================================================
 
-const JournalistsTab = () => {
+const JournalistsTab = ({ refreshKey }: { refreshKey?: number }) => {
   const [pending, setPending] = useState<PendingJournalistRequest[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
   const [rejected, setRejected] = useState<RejectedJournalistRequest[]>([]);
@@ -1136,7 +1131,7 @@ const JournalistsTab = () => {
   useEffect(() => {
     if (subTab === "pending") void loadPending();
     else void loadRejected();
-  }, [subTab, loadPending, loadRejected]);
+  }, [subTab, loadPending, loadRejected, refreshKey]);
 
   const submitReview = async () => {
     if (!reviewDialog) return;
@@ -1155,12 +1150,16 @@ const JournalistsTab = () => {
 
   return (
     <div>
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <Button variant={subTab === "pending" ? "default" : "outline"} size="default" onClick={() => setSubTab("pending")}>
           Pending ({pending.length})
         </Button>
         <Button variant={subTab === "rejected" ? "default" : "outline"} size="default" onClick={() => setSubTab("rejected")}>
           Rejected ({rejected.length})
+        </Button>
+        <Button variant="outline" size="default" onClick={() => (subTab === "pending" ? void loadPending() : void loadRejected())} disabled={loadingPending || loadingRejected}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", (loadingPending || loadingRejected) && "animate-spin")} />
+          Refresh
         </Button>
       </div>
 
@@ -1309,7 +1308,7 @@ const JournalistsTab = () => {
 // Tab: Organizations - Enhanced Cards Typography
 // ============================================================================
 
-const OrganizationsTab = () => {
+const OrganizationsTab = ({ refreshKey }: { refreshKey?: number }) => {
   const [pending, setPending] = useState<PendingOrganizationRequest[]>([]);
   const [rejected, setRejected] = useState<RejectedOrganizationRequest[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
@@ -1344,7 +1343,7 @@ const OrganizationsTab = () => {
   useEffect(() => {
     if (subTab === "pending") void loadPending();
     else void loadRejected();
-  }, [subTab, loadPending, loadRejected]);
+  }, [subTab, loadPending, loadRejected, refreshKey]);
 
   const submitReview = async () => {
     if (!reviewDialog) return;
@@ -1363,12 +1362,16 @@ const OrganizationsTab = () => {
 
   return (
     <div>
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <Button variant={subTab === "pending" ? "default" : "outline"} size="default" onClick={() => setSubTab("pending")}>
           Pending ({pending.length})
         </Button>
         <Button variant={subTab === "rejected" ? "default" : "outline"} size="default" onClick={() => setSubTab("rejected")}>
           Rejected ({rejected.length})
+        </Button>
+        <Button variant="outline" size="default" onClick={() => (subTab === "pending" ? void loadPending() : void loadRejected())} disabled={loadingPending || loadingRejected}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", (loadingPending || loadingRejected) && "animate-spin")} />
+          Refresh
         </Button>
       </div>
 
@@ -1508,7 +1511,7 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
-const WalletsTab = () => {
+const WalletsTab = ({ refreshKey }: { refreshKey?: number }) => {
   const [wallets, setWallets] = useState<WalletSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -1537,7 +1540,7 @@ const WalletsTab = () => {
 
   useEffect(() => {
     void loadWallets();
-  }, [loadWallets]);
+  }, [loadWallets, refreshKey]);
 
   const openTransactions = async (wallet: WalletSummary) => {
     setSelectedWallet(wallet);
@@ -1788,7 +1791,7 @@ const WalletsTab = () => {
 // Tab: Donations (all platform donations) - Enhanced Typography
 // ============================================================================
 
-const DonationsTab = () => {
+const DonationsTab = ({ refreshKey }: { refreshKey?: number }) => {
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -1806,7 +1809,7 @@ const DonationsTab = () => {
 
   useEffect(() => {
     void loadDonations();
-  }, [loadDonations]);
+  }, [loadDonations, refreshKey]);
 
   const filtered = donations.filter(
     (d) =>
@@ -2099,6 +2102,7 @@ const AdminDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -2112,7 +2116,7 @@ const AdminDashboard = () => {
       }
     };
     void fetchStats();
-  }, []);
+  }, [refreshTick]);
 
   const tabLabel: Record<Tab, string> = {
     overview: "Dashboard",
@@ -2146,6 +2150,10 @@ const AdminDashboard = () => {
               System Administration Portal · {tabLabel[activeTab]}
             </p>
           </div>
+          <Button variant="outline" onClick={() => setRefreshTick((value) => value + 1)} disabled={statsLoading}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", statsLoading && "animate-spin")} />
+            Refresh
+          </Button>
         </header>
 
         {/* ── Tab Content ── */}
@@ -2157,12 +2165,12 @@ const AdminDashboard = () => {
             transition={{ duration: 0.2 }}
           >
             {activeTab === "overview" && <OverviewTab stats={statsLoading ? null : stats} />}
-            {activeTab === "users" && <UsersTab />}
-            {activeTab === "posts" && <PostsTab />}
-            {activeTab === "journalists" && <JournalistsTab />}
-            {activeTab === "organizations" && <OrganizationsTab />}
-            {activeTab === "wallets" && <WalletsTab />}
-            {activeTab === "donations" && <DonationsTab />}
+            {activeTab === "users" && <UsersTab refreshKey={refreshTick} />}
+            {activeTab === "posts" && <PostsTab refreshKey={refreshTick} />}
+            {activeTab === "journalists" && <JournalistsTab refreshKey={refreshTick} />}
+            {activeTab === "organizations" && <OrganizationsTab refreshKey={refreshTick} />}
+            {activeTab === "wallets" && <WalletsTab refreshKey={refreshTick} />}
+            {activeTab === "donations" && <DonationsTab refreshKey={refreshTick} />}
           </motion.div>
         </div>
       </main>

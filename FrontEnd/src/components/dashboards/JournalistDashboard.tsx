@@ -9,7 +9,6 @@ import { Menu,
   Archive,
   Building2,
   Settings,
-  PlusCircle,
   Eye,
   TrendingUp,
   Wallet,
@@ -19,7 +18,6 @@ import { Menu,
   MessageCircle,
   Share2,
   Megaphone,
-  FileText,
   Clock,
   X,
   Plus,
@@ -642,6 +640,7 @@ const JournalistDashboard = () => {
   const [myCommunities, setMyCommunities] = useState<CommunityDto[]>([]);
   const [communitySearch, setCommunitySearch] = useState("");
   const [tasks, setTasks] = useState<JournalistTaskResponse[]>([]);
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
   const createSubmitRef = useRef<(() => void) | null>(null);
 
   const loadDashboardData = () => {
@@ -760,15 +759,6 @@ const JournalistDashboard = () => {
 
         {/* ── Footer Buttons ── */}
         <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
-          {/* New Investigation CTA */}
-          <button
-            onClick={() => setActiveTab("create")}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold w-full transition-all duration-150 bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50"
-          >
-            <PlusCircle className="w-4 h-4 flex-shrink-0 transition-transform group-hover:rotate-90 duration-200" />
-            <span className="flex-1 text-left">New Investigation</span>
-          </button>
-
           {/* Go to Home */}
           <button
             onClick={() => navigate("/")}
@@ -908,19 +898,6 @@ const JournalistDashboard = () => {
             </section>
 
             {/* Quick Action Area */}
-            <section className="mt-12 grid grid-cols-1 gap-8">
-              <div className="bg-surface-container-low p-10 flex flex-col items-center justify-center text-center border-2 border-dashed border-outline-variant">
-                <FileText className="w-12 h-12 text-primary-dim opacity-50 mb-6" />
-                <h3 className="font-headline text-2xl font-bold mb-2 text-on-surface">Create New Investigation</h3>
-                <p className="text-on-surface-variant text-sm mb-8 max-w-xs">Start a fresh thread, upload raw evidence, or begin drafting your next investigative piece.</p>
-                <button 
-                  onClick={() => setActiveTab("create")}
-                  className="bg-primary text-on-primary px-8 py-4 font-label text-xs uppercase font-bold tracking-[0.2em] shadow-lg active:scale-95 transition-transform"
-                >
-                  Initialize Draft
-                </button>
-              </div>
-            </section>
           </motion.div>
         )}
 
@@ -1115,7 +1092,7 @@ const JournalistDashboard = () => {
         )}
 
         {activeTab === "tasks" && (
-          <JournalistTasksPage user={user} />
+          <JournalistTasksPage user={user} refreshKey={tasksRefreshKey} />
         )}
 
       </main>
@@ -1127,9 +1104,6 @@ const JournalistDashboard = () => {
         </button>
         <button onClick={() => setActiveTab("dashboard")} className={cn("flex flex-col items-center font-bold font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "dashboard" ? "text-[#2D3435] dark:text-white" : "text-[#5B5E66]/60 dark:text-stone-500")}>
           <LayoutDashboard className="w-5 h-5" /> Dash
-        </button>
-        <button onClick={() => setActiveTab("create")} className={cn("flex flex-col items-center font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "create" ? "text-[#2D3435] dark:text-white font-bold" : "text-[#5B5E66]/60 dark:text-stone-500")}>
-          <PlusCircle className="w-5 h-5" /> New
         </button>
         <button onClick={() => setActiveTab("wallet")} className={cn("flex flex-col items-center font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "wallet" ? "text-[#2D3435] dark:text-white font-bold" : "text-[#5B5E66]/60 dark:text-stone-500")}>
           <Wallet className="w-5 h-5" /> Funds

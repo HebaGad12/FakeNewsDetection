@@ -55,7 +55,11 @@ export function useNotificationSignalR(options: UseNotificationSignalROptions = 
         }
         setIsConnected(true);
       } catch (err) {
-        console.warn("[NotificationSignalR] Connection failed:", err);
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        const isDisposedDuringStart = isDisposed || (typeof err === "object" && err !== null && "message" in err && String((err as { message?: string }).message).includes("stopped during negotiation"));
+        if (!isAbort && !isDisposedDuringStart) {
+          console.warn("[NotificationSignalR] Connection failed:", err);
+        }
       }
     };
 

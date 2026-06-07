@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { RefreshCw } from "lucide-react";
 
 const defaultFilters: Filters = { q: "", status: "all", priority: "all", journalist: "all" };
 
@@ -92,7 +93,6 @@ export function OrganizationTasksPage({
   user, 
   journalists, 
   refreshKey, 
-  onRefresh,
   onCreate,
 }: { 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +100,6 @@ export function OrganizationTasksPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   journalists: any[]; 
   refreshKey?: number; 
-  onRefresh?: () => void; 
   onCreate?: () => void;
 }) {
   const role = "Organization";
@@ -324,9 +323,15 @@ export function OrganizationTasksPage({
     <div className="flex min-h-[calc(100vh-theme(spacing.16))] w-full bg-background">
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="flex-1 space-y-5 p-4 md:p-6">
-          <div className="mb-4">
-            <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Editorial assignments and production pipeline</p>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
+              <p className="text-muted-foreground mt-1 text-sm">Editorial assignments and production pipeline</p>
+            </div>
+            <Button variant="outline" onClick={fetchTasks} disabled={loading}>
+              <RefreshCw className={loading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+              Refresh
+            </Button>
           </div>
 
           <StatsCards tasks={tasks} />
@@ -367,8 +372,7 @@ export function OrganizationTasksPage({
         onClose={() => setPanelOpen(false)} 
         role={role} 
         onUpdate={() => {
-           fetchTasks();
-           if(onRefresh) onRefresh();
+          fetchTasks();
         }}
         onEdit={(t) => setEditingTask(t)}
         onDelete={(t) => setDeletingTask(t)}

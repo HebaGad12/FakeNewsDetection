@@ -193,13 +193,6 @@ export function TasksTable({ tasks, selectedTaskId, onSelect, onUpdateStatus, us
                             Accept Task
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem onClick={() => {
-                          if(onUpdateStatus && task.status < 7) {
-                            onUpdateStatus(task.id, task.status + 1);
-                          }
-                        }}>
-                          Advance status
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
