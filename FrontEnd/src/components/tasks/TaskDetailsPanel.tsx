@@ -155,6 +155,37 @@ export function TaskDetailsPanel({
               </div>
             </div>
 
+            {role === "Organization" && task.status === "Submitted For Review" && (
+              <>
+                <Separator />
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="mb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review Decision</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Approve this task to mark it completed, or reject it to close the review.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleStatusChange(7, "Task approved and completed")}
+                      disabled={submittingStatus}
+                    >
+                      Approve Task
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleStatusChange(6, "Task rejected")}
+                      disabled={submittingStatus}
+                    >
+                      Reject Task
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
             <Separator />
 
             <div>
