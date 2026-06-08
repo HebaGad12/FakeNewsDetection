@@ -50,6 +50,7 @@ import { Menu,
   ClipboardList,
   Calendar,
   AlertTriangle,
+  FilePlus2,
   Bold,
   Italic,
   Heading2,
@@ -57,7 +58,8 @@ import { Menu,
   List,
   ListOrdered,
   Quote,
- } from "lucide-react";
+  Newspaper,
+} from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -614,11 +616,7 @@ function CreatePostForm({ onSuccess, submitRef }: { onSuccess: () => void; submi
           </div>
         </div>
 
-        {/* AI Credibility Note */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
-          <h3 className="font-semibold text-slate-900 mb-2">AI Credibility Check</h3>
-          <p className="text-sm text-slate-500">Your article will be analyzed by our AI system for credibility scoring after submission.</p>
-        </div>
+        
       </div>
     </div>
   );
@@ -684,12 +682,14 @@ const JournalistDashboard = () => {
 
   const hasOrganization = !!profile.organization && profile.organization.trim().toLowerCase() !== "independent";
 
+
   const navItems = [
     { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { id: "archive", icon: Archive, label: "Archive" },
     { id: "community", icon: Users, label: "Community" },
     ...(hasOrganization ? [{ id: "tasks", icon: ClipboardList, label: "Tasks" }] : []),
     { id: "wallet", icon: Wallet, label: "Finances" },
+    { id: "create", icon: FilePlus2, label: "New Investigation" },
   ];
 
   return (
@@ -780,16 +780,13 @@ const JournalistDashboard = () => {
       </aside>
 
       {/* Main Content Canvas */}
-      <main className={cn("transition-all duration-300 p-4 md:p-8 max-w-[1200px] mb-20 md:mb-0", isSidebarOpen ? "md:ml-64" : "ml-0")}>
+      <main className={cn("transition-all duration-300 p-4 md:p-8 max-w-[1400px] mb-20 md:mb-0", isSidebarOpen ? "md:ml-64" : "ml-0")}>
         <header className={cn("mb-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6", activeTab === "create" && "hidden")}>
           <div className="flex items-start gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 flex-shrink-0 -ml-2 mt-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors hidden md:inline-flex">
               <Menu className="w-5 h-5" />
             </button>
             <div>
-              <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
-                Archive System v4.2
-              </span>
               <h1 className="font-headline text-4xl text-on-surface font-bold">
                 {activeTab === "dashboard" && "Dashboard"}
                 {activeTab === "archive" && "Your Published Intel"}
@@ -799,21 +796,12 @@ const JournalistDashboard = () => {
               </h1>
             </div>
           </div>
-          <div className="flex gap-4 items-center">
-            <div className="text-right">
-              <p className="font-label text-[10px] uppercase text-outline">System Status</p>
-              <p className="text-secondary font-bold flex items-center gap-1 justify-end">
-                <span className="w-2 h-2 bg-secondary rounded-full"></span>
-                ENCRYPTED
-              </p>
-            </div>
-          </div>
         </header>
 
         {activeTab === "dashboard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {/* At a Glance: Analytics */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
               <div className="bg-surface-container-lowest p-6 flex flex-col justify-between group transition-all duration-300">
                 <div className="flex justify-between items-start mb-4">
                   <span className="font-label text-xs font-bold text-on-surface-variant uppercase tracking-wider">Total Followers</span>
@@ -821,10 +809,6 @@ const JournalistDashboard = () => {
                 </div>
                 <div>
                   <h3 className="text-4xl font-headline font-extrabold text-on-surface">{formatNum(profile.followers)}</h3>
-                  <p className="text-xs text-secondary font-medium mt-2 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" />
-                    Building trust
-                  </p>
                 </div>
               </div>
 
@@ -846,7 +830,6 @@ const JournalistDashboard = () => {
             <section className="bg-surface-container-low p-8 text-on-surface">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
                 <h2 className="font-headline text-2xl font-bold">Content Pipeline</h2>
-                
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -895,28 +878,196 @@ const JournalistDashboard = () => {
                 </table>
               </div>
             </section>
-
-            {/* Quick Action Area */}
           </motion.div>
         )}
 
         {activeTab === "archive" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {posts.map(post => (
-              <div key={post.id} className="bg-surface-container-low p-6 flex flex-col justify-between text-on-surface">
-                 <h3 className="font-headline text-xl font-bold mb-3 max-w-full truncate">{post.title}</h3>
-                 <p className="text-sm text-on-surface-variant mb-6 line-clamp-3">{post.content}</p>
-                 <div className="flex justify-between items-center text-xs font-label uppercase font-bold tracking-widest text-outline">
-                    <span className="flex gap-3">
-                      <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> {post.likes}</span>
-                      <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {post.comments}</span>
-                    </span>
-                    <button onClick={() => navigate(`/article/${post.id}`)} className="text-primary hover:underline">Read Intel</button>
-                 </div>
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            {/* Header with stats */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-headline text-2xl font-bold text-slate-900">Your Published Intel</h2>
+                <p className="text-sm text-slate-500 mt-1">Total {posts.length} article{posts.length !== 1 ? 's' : ''} published</p>
               </div>
-            ))}
-            {posts.length === 0 && (
-              <div className="col-span-full py-20 text-center text-on-surface-variant">Data vault is empty.</div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveTab("create")}
+                  className="border-[#430909] text-[#430909] hover:bg-[#430909] hover:text-white transition-colors"
+                >
+                  <FilePlus2 className="w-4 h-4 mr-2" />
+                  New Article
+                </Button>
+              </div>
+            </div>
+
+            {posts.length === 0 ? (
+              <div className="text-center py-16 bg-slate-50 rounded-lg border border-slate-200">
+                <Archive className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500 font-medium">Your archive is empty</p>
+                <p className="text-sm text-slate-400 mt-1">Start by creating your first investigative piece</p>
+                <Button
+                  onClick={() => setActiveTab("create")}
+                  variant="outline"
+                  className="mt-4 border-[#430909] text-[#430909] hover:bg-[#430909] hover:text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Article
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {posts.map((post, index) => {
+                  // Get first image from media if available
+                  const coverImage = post.media && post.media.length > 0 
+                    ? postsService.getImageUrl(post.media[0].path)
+                    : null;
+                  
+                  const statusColors = {
+                    Approved: "bg-emerald-100 text-emerald-700",
+                    Pending: "bg-amber-100 text-amber-700",
+                    Rejected: "bg-red-100 text-red-700",
+                    Draft: "bg-slate-100 text-slate-600"
+                  };
+                  
+                  const statusColor = statusColors[post.moderationStatus as keyof typeof statusColors] || statusColors.Pending;
+                  
+                  return (
+                    <motion.div
+                      key={post.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="group bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer"
+                      onClick={() => navigate(`/article/${post.id}`)}
+                    >
+                      {/* Image Section */}
+                      <div className="relative h-48 bg-slate-100 overflow-hidden">
+                        {coverImage ? (
+                          <img
+                            src={coverImage}
+                            alt={post.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                            <Newspaper className="w-12 h-12 text-slate-300" />
+                          </div>
+                        )}
+                        {/* Status Badge */}
+                        <div className="absolute top-3 right-3">
+                          <span className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm",
+                            statusColor
+                          )}>
+                            <span className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              post.moderationStatus === "Approved" ? "bg-emerald-500" :
+                              post.moderationStatus === "Pending" ? "bg-amber-500" :
+                              post.moderationStatus === "Rejected" ? "bg-red-500" : "bg-slate-500"
+                            )} />
+                            {post.moderationStatus}
+                          </span>
+                        </div>
+                        {/* Date overlay at bottom */}
+                        <div className="absolute bottom-3 left-3">
+                          <div className="bg-black/50 backdrop-blur-sm rounded-md px-2 py-1">
+                            <span className="text-white text-[10px] font-medium flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(post.createdAt).toLocaleDateString("en-US", { 
+                                month: "short", 
+                                day: "numeric",
+                                year: "numeric" 
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Content Section */}
+                      <div className="p-5">
+                        {/* Category/Tags */}
+                        {post.tags && post.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {(Array.isArray(post.tags) ? post.tags : []).slice(0, 2).map((tag: string, i: number) => (
+                              <span 
+                                key={i}
+                                className="text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {(Array.isArray(post.tags) ? post.tags : []).length > 2 && (
+                              <span className="text-[9px] font-bold text-slate-400">
+                                +{(Array.isArray(post.tags) ? post.tags : []).length - 2}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Title */}
+                        <h3 className="font-serif text-xl font-bold text-slate-900 leading-tight mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
+                          {post.title}
+                        </h3>
+
+                        {/* Excerpt */}
+                        <p className="text-slate-500 text-sm leading-relaxed line-clamp-2 mb-4">
+                          {post.content.replace(/<[^>]*>/g, '').substring(0, 120)}...
+                        </p>
+
+                        {/* Stats Footer */}
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                          <div className="flex items-center gap-4">
+                            <span className="flex items-center gap-1.5 text-slate-500 text-xs">
+                              <Heart className="w-3.5 h-3.5" />
+                              {formatNum(post.likes)}
+                            </span>
+                            <span className="flex items-center gap-1.5 text-slate-500 text-xs">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              {formatNum(post.comments)}
+                            </span>
+                          </div>
+                          <span className="text-xs text-slate-400 flex items-center gap-1">
+                            Read more
+                            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Quick Stats Section */}
+            {posts.length > 0 && (
+              <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
+                  <p className="text-2xl font-bold text-slate-800">{formatNum(posts.reduce((sum, p) => sum + p.likes, 0))}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Likes</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
+                  <p className="text-2xl font-bold text-slate-800">{formatNum(posts.reduce((sum, p) => sum + p.comments, 0))}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Comments</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
+                  <p className="text-2xl font-bold text-slate-800">
+                    {posts.filter(p => p.moderationStatus === "Approved").length}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Published</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
+                  <p className="text-2xl font-bold text-slate-800">
+                    {posts.filter(p => p.moderationStatus === "Pending").length}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Review</p>
+                </div>
+              </div>
             )}
           </motion.div>
         )}
@@ -1073,7 +1224,7 @@ const JournalistDashboard = () => {
               <div className="flex gap-3">
                 <Button
                   onClick={() => createSubmitRef.current?.()}
-                  className="bg-slate-900 hover:bg-slate-800 rounded-full"
+                  className="bg-[#430909] hover:bg-[#430909]/80 text-white rounded-full"
                 >
                   <Send className="h-4 w-4 mr-2" />
                   {user?.organization ? "Submit for Review" : "Publish"}
@@ -1103,6 +1254,9 @@ const JournalistDashboard = () => {
         </button>
         <button onClick={() => setActiveTab("dashboard")} className={cn("flex flex-col items-center font-bold font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "dashboard" ? "text-[#2D3435] dark:text-white" : "text-[#5B5E66]/60 dark:text-stone-500")}>
           <LayoutDashboard className="w-5 h-5" /> Dash
+        </button>
+        <button onClick={() => setActiveTab("create")} className={cn("flex flex-col items-center font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "create" ? "text-[#2D3435] dark:text-white font-bold" : "text-[#5B5E66]/60 dark:text-stone-500")}>
+          <FilePlus2 className="w-5 h-5" /> Create
         </button>
         <button onClick={() => setActiveTab("wallet")} className={cn("flex flex-col items-center font-sans text-[10px] uppercase tracking-widest gap-1", activeTab === "wallet" ? "text-[#2D3435] dark:text-white font-bold" : "text-[#5B5E66]/60 dark:text-stone-500")}>
           <Wallet className="w-5 h-5" /> Funds
