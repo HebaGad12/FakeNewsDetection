@@ -293,9 +293,6 @@ const CommunitiesPage = () => {
           <header className="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:p-8">
             <div className="flex justify-between flex-wrap gap-4 items-start mb-4">
               <div>
-                <p className="font-sans text-xs text-red-700 font-semibold tracking-widest uppercase mb-2">
-                  Network Expansion
-                </p>
                 <h1 className="font-display text-4xl md:text-6xl text-slate-950 font-bold leading-tight">
                   Community Newsrooms
                 </h1>
@@ -309,9 +306,6 @@ const CommunitiesPage = () => {
                 Create Hub
               </Button>
             </div>
-            <p className="font-sans text-lg text-slate-600 max-w-2xl leading-relaxed">
-              Connect with investigative leads, verified contributors, and specialized research communities shaping the global discourse.
-            </p>
 
             <div className="mt-8 space-y-4">
               <div className="flex flex-wrap gap-2">
@@ -397,23 +391,6 @@ const CommunitiesPage = () => {
                         {!community.isPublic && <Lock className="h-4 w-4 text-muted-foreground" />}
                       </h2>
                     </div>
-                    {/* <button
-                      type="button"
-                      onClick={() => handleJoin(community.id)}
-                      disabled={!community.isPublic || membershipActionId === community.id}
-                      className={cn(
-                        "bg-primary/10 text-primary whitespace-nowrap text-xs font-sans font-semibold px-4 py-2 rounded-sm transition-all",
-                        community.isPublic
-                          ? "hover:bg-primary hover:text-primary-foreground"
-                          : "cursor-not-allowed opacity-60"
-                      )}
-                    >
-                      {membershipActionId === community.id
-                        ? "Joining..."
-                        : community.isPublic
-                        ? "Join Hub"
-                        : "Closed"}
-                    </button> */}
                   </div>
 
                   {community.image && (
@@ -505,28 +482,6 @@ const CommunitiesPage = () => {
                 </button>
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="w-full mt-8 py-3 border border-border text-xs font-sans font-semibold uppercase tracking-widest text-muted-foreground hover:bg-muted hover:text-foreground transition-colors rounded-sm shadow-sm hover:shadow-md"
-            >
-              View All Categories
-            </button>
-          </section>
-
-          <section className="editorial-card p-6">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
-              <Globe className="w-4 h-4 text-red-600" />
-              <h3 className="font-sans text-xs font-bold uppercase tracking-widest text-foreground">
-                Top Contributors
-              </h3>
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Contributor data is not available yet.
-              </p>
-            </div>
           </section>
         </aside>
       </main>
@@ -580,20 +535,6 @@ const CommunitiesPage = () => {
                 }
               />
             </div>
-            {/* <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Open community</p>
-                <p className="text-xs text-muted-foreground">
-                  Allow anyone to join without approval.
-                </p>
-              </div>
-              <Switch
-                checked={createForm.isOpen}
-                onCheckedChange={(checked) =>
-                  setCreateForm((prev) => ({ ...prev, isOpen: checked }))
-                }
-              />
-            </div> */}
             {createError && (
               <p className="text-sm text-destructive">{createError}</p>
             )}
@@ -613,8 +554,6 @@ const CommunitiesPage = () => {
           </form>
         </DialogContent>
       </Dialog>
-
-
 
       <Footer />
     </div>

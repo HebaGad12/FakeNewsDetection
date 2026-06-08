@@ -124,33 +124,33 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
     : "ORG";
 
   return (
-    <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+    <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#430909] border-r border-[#FCF8F8]/10 shadow-2xl transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
 
       {/* ── Brand ── */}
-      <div className="px-5 pt-7 pb-5 border-b border-white/5">
+      <div className="px-5 pt-7 pb-5 border-b border-[#FCF8F8]/10">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
-            <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
+          <div className="w-9 h-9 rounded-lg bg-[#FCF8F8]/15 border border-[#FCF8F8]/20 flex items-center justify-center shadow-lg flex-shrink-0">
+            <Shield className="h-4 w-4 text-[#FCF8F8]" strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-white font-bold text-sm leading-tight tracking-wide">Organization</h1>
-            <p className="text-blue-400/60 text-[10px] font-mono uppercase tracking-widest mt-0.5">Management Portal</p>
+            <h1 className="text-[#FCF8F8] font-bold text-sm leading-tight tracking-wide">Organization</h1>
+            <p className="text-[#FCF8F8]/50 text-[10px] font-mono uppercase tracking-widest mt-0.5">Management Portal</p>
           </div>
         </div>
 
         {/* User badge */}
         {profile && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-[#FCF8F8]/8 border border-[#FCF8F8]/10">
             {avatarUrl ? (
                 <img src={avatarUrl} alt="avatar" className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
             ) : (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-[11px] font-bold">{initials}</span>
+                <div className="w-8 h-8 rounded-full bg-[#FCF8F8]/20 border border-[#FCF8F8]/30 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[#FCF8F8] text-[11px] font-bold">{initials}</span>
                 </div>
             )}
             <div className="min-w-0">
-              <p className="text-white text-xs font-semibold truncate">{profile.name}</p>
-              <p className="text-white/35 text-[10px] font-mono truncate">{profile.email}</p>
+              <p className="text-[#FCF8F8] text-xs font-semibold truncate">{profile.name}</p>
+              <p className="text-[#FCF8F8]/40 text-[10px] font-mono truncate">{profile.email}</p>
             </div>
           </div>
         )}
@@ -158,7 +158,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
 
       {/* ── Nav Items ── */}
       <nav className="flex-1 flex flex-col gap-0.5 px-3 py-4 overflow-y-auto">
-        <p className="text-white/20 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
+        <p className="text-[#FCF8F8]/30 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
         {navItems.map(({ id, icon: Icon, label }) => {
           const isActive = activeTab === id;
           return (
@@ -168,30 +168,30 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
               className={cn(
                 "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left",
                 isActive
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
-                  : "text-white/45 hover:text-white hover:bg-white/6"
+                  ? "bg-[#FCF8F8] text-[#430909] shadow-lg"
+                  : "text-[#FCF8F8]/50 hover:text-[#FCF8F8] hover:bg-[#FCF8F8]/10"
               )}
             >
               {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#430909]/40 rounded-r-full" />
               )}
               <Icon className={cn(
                 "h-4 w-4 flex-shrink-0 transition-colors",
-                isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+                isActive ? "text-[#430909]" : "text-[#FCF8F8]/40 group-hover:text-[#FCF8F8]/80"
               )} />
               <span className="flex-1">{label}</span>
-              {isActive && <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />}
+              {isActive && <ChevronRight className="h-3.5 w-3.5 text-[#430909]/40 flex-shrink-0" />}
             </button>
           );
         })}
       </nav>
 
       {/* ── Footer Buttons ── */}
-      <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
+      <div className="px-3 pb-5 pt-3 border-t border-[#FCF8F8]/10 flex flex-col gap-2">
         {/* Go to Home */}
         <button
           onClick={() => navigate("/")}
-          className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+          className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-[#FCF8F8]/8 text-[#FCF8F8]/70 hover:bg-[#FCF8F8] hover:text-[#430909] border border-[#FCF8F8]/15 hover:border-[#FCF8F8] hover:shadow-lg"
         >
           <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
           <span className="flex-1 text-left">Go to Home</span>
@@ -201,7 +201,7 @@ const SideNavBar = ({ activeTab, onTabChange, profile, onLogout, isSidebarOpen, 
         {/* Logout */}
         <button
           onClick={onLogout}
-          className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+          className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-[#FCF8F8]/5 text-[#FCF8F8]/40 hover:bg-red-700/60 hover:text-[#FCF8F8] border border-[#FCF8F8]/8 hover:border-red-500/40 hover:shadow-lg"
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
           <span className="flex-1 text-left">Logout</span>

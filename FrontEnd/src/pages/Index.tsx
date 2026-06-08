@@ -9,7 +9,6 @@ import {
   Globe,
   Heart,
   MessageSquare,
-  Shield,
   TrendingUp,
 } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -22,12 +21,10 @@ import {
   BreakingTicker,
   CategoryPill,
   LiveUpdateBadge,
-  NewsletterPanel,
   SectionHeader,
   StoryMeta,
   StoryPreview,
   StoryRail,
-  TrendingTags,
 } from "@/components/news/NewsPrimitives";
 
 const SECTIONS = [
@@ -86,11 +83,6 @@ const Index = () => {
     [allPosts]
   );
 
-  const tags = useMemo(
-    () => Array.from(new Set(allPosts.flatMap((post) => post.tags || []))).filter(Boolean),
-    [allPosts]
-  );
-
   const sectionPosts = useMemo(() => {
     switch (activeSection) {
       case "trending":
@@ -126,21 +118,6 @@ const Index = () => {
       <Header />
       <main id="main-content">
         <BreakingTicker items={latestPosts.slice(0, 5).map(toStoryPreview)} />
-
-        <section className="editorial-band news-grid-lines">
-          <div className="news-container py-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <Shield className="h-4 w-4 text-red-600" />
-                <span className="text-slate-600">
-                  <span className="font-bold text-slate-950">AI-powered</span> verification desk for source-backed reporting.
-                </span>
-                <LiveUpdateBadge label="Morning edition" />
-              </div>
-              <TrendingTags tags={tags} />
-            </div>
-          </div>
-        </section>
 
         <div className="news-container py-8">
           {isLoading ? (
@@ -211,16 +188,8 @@ const Index = () => {
                 </div>
               </section>
 
-              <section className="mb-12 grid gap-8 lg:grid-cols-[minmax(0,2fr)_340px]">
+              <section className="mb-12">
                 <div>
-                  <SectionHeader
-                    kicker="Daily Edition"
-                    title="Latest from the newsroom"
-                    description="A live mix of investigations, community reports, and verified updates."
-                    actionHref="/feed"
-                    actionLabel="Open feed"
-                  />
-
                   <div className="mb-6 border-b border-slate-200">
                     <div className="flex gap-1 overflow-x-auto">
                       {SECTIONS.map((section) => (
@@ -272,18 +241,13 @@ const Index = () => {
                     })}
                   </div>
                 </div>
-
-                <div className="space-y-6">
-                  <StoryRail title="Most Read" items={trendingStories} />
-                  <StoryRail title="Editor's Picks" items={editorStories} icon={MessageSquare} />
-                </div>
               </section>
 
               <section className="mb-12">
                 <SectionHeader
                   kicker="Explore"
                   title="Category highlights"
-                  description="Scan the beats shaping today&apos;s conversation."
+                  description="Scan the beats shaping today's conversation."
                 />
                 <div className="grid gap-6 md:grid-cols-3">
                   {categoryBlocks.map((block) => (
@@ -322,34 +286,6 @@ const Index = () => {
             </>
           )}
         </div>
-
-        <section className="border-y border-slate-200 bg-white py-14">
-          <div className="news-container">
-            <SectionHeader
-              kicker="Trust Layer"
-              title="Built for readers who verify before they share"
-              description="TruthTrack combines AI-powered verification, transparent article metadata, community moderation, and live reporting tools."
-            />
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-              {[
-                { icon: Shield, title: "AI Detection", desc: "Real-time fake news detection." },
-                { icon: TrendingUp, title: "Signal Ranking", desc: "Readable indicators for story quality." },
-                { icon: MessageSquare, title: "Community Checks", desc: "Readers help flag weak claims." },
-                { icon: Globe, title: "Live Coverage", desc: "Streams and updates from verified desks." },
-              ].map((item) => (
-                <div key={item.title} className="news-panel p-5">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-slate-950">
-                    <item.icon className="h-6 w-6 text-red-500" />
-                  </div>
-                  <h3 className="mb-2 font-display text-xl font-bold text-slate-950">{item.title}</h3>
-                  <p className="text-sm leading-6 text-slate-600">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <NewsletterPanel />
       </main>
 
       <Footer />

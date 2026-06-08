@@ -361,7 +361,7 @@ export default function PostDetailPage() {
             </div>
           </section>
 
-          {/* Publisher strip */}
+          {/* Publisher strip - removed Save and Share buttons */}
           <div className="mb-8 border-b border-slate-200 bg-white animate-in fade-in duration-700 delay-300 fill-mode-both">
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-4 px-4 py-5 sm:px-6">
               <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
@@ -424,22 +424,6 @@ export default function PostDetailPage() {
                     <Flag className="h-4 w-4" />
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
-                  title="Save article"
-                >
-                  <Bookmark className="h-3.5 w-3.5" />
-                  Save
-                </button>
-                <button
-                  type="button"
-                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
-                  title="Share article"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  Share
-                </button>
               </div>
             </div>
           </div>
@@ -787,7 +771,7 @@ export default function PostDetailPage() {
                   </div>
                 </div>
               )}
-              {relatedStories.length > 0 && <StoryRail title="Related Articles" items={relatedStories} numbered={false} icon={Newspaper} />}
+              {/* Related Articles section removed */}
               </div>
             </aside>
           </div>

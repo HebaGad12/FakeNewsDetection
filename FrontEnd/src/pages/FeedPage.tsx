@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
-  Clock,
   Flame,
   Globe,
   Heart,
@@ -27,7 +26,6 @@ import {
   CategoryPill,
   DiscoveryEmptyState,
   LiveUpdateBadge,
-  NewsletterPanel,
   SectionHeader,
   StoryPreview,
   StoryRail,
@@ -46,11 +44,6 @@ const categories = [
   { id: "Entertainment", name: "Entertainment", icon: Video },
 ];
 
-const sortOptions = [
-  { value: "trending", label: "Trending", icon: Flame },
-  { value: "recent", label: "Latest", icon: Clock },
-  { value: "relevance", label: "Relevance", icon: Sparkles },
-];
 
 const toPreview = (article: ReturnType<typeof postsService.postToNewsCardProps> & { _createdAt: string; _likesCount: number }): StoryPreview => ({
   id: article.id,
@@ -173,35 +166,13 @@ const FeedPage = () => {
           <div className="news-container py-8 md:py-10">
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
               <div>
-                <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <div className="news-kicker">
-                    <Newspaper className="h-4 w-4" />
-                    News Wire
-                  </div>
-                  <LiveUpdateBadge />
-                </div>
                 <h1 className="font-display text-5xl font-bold leading-[1.02] text-slate-950 md:text-7xl">
                   Latest News, Curated for Context
                 </h1>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-                  Follow verified reporting, public-interest updates, and source-backed stories in one focused feed.
-                </p>
+
               </div>
 
-              <div className="grid grid-cols-3 divide-x divide-slate-200 border border-slate-200 bg-white text-center">
-                <div className="px-4 py-4">
-                  <p className="text-2xl font-bold text-slate-950">{allPosts.length}</p>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Stories</p>
-                </div>
-                <div className="px-4 py-4">
-                  <p className="text-2xl font-bold text-slate-950">{categories.length - 1}</p>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Sections</p>
-                </div>
-                <div className="px-4 py-4">
-                  <p className="text-2xl font-bold text-slate-950">{filteredAndSortedNews.length}</p>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Shown</p>
-                </div>
-              </div>
+              {/* Stats cards removed */}
             </div>
           </div>
         </section>
@@ -221,27 +192,6 @@ const FeedPage = () => {
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {sortOptions.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={activeSort === option.value ? "default" : "outline"}
-                      size="sm"
-                      aria-pressed={activeSort === option.value}
-                      onClick={() => setActiveSort(option.value)}
-                      className={cn(
-                        "gap-2 rounded-md transition-colors",
-                        activeSort === option.value
-                          ? "bg-slate-950 text-white hover:bg-slate-800"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      <option.icon className="h-4 w-4" />
-                      <span>{option.label}</span>
-                    </Button>
-                  ))}
-                </div>
               </div>
 
               <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
@@ -265,7 +215,7 @@ const FeedPage = () => {
               </div>
             </div>
 
-            <TrendingTags tags={tags} activeTag={activeCategory === "all" ? undefined : activeCategory} onSelect={setActiveCategory} />
+            {/* TrendingTags component removed */}
           </div>
 
           {isLoading && <ArticleSkeletonGrid count={9} />}
@@ -362,7 +312,6 @@ const FeedPage = () => {
                 </div>
 
                 <aside className="space-y-6">
-                  <StoryRail title="Latest Updates" items={latest} numbered={false} icon={Clock} />
                   <div className="editorial-card editorial-card-hover p-5">
                     <div className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-red-700">
                       Popular Topics
@@ -392,7 +341,6 @@ const FeedPage = () => {
           )}
         </section>
 
-        <NewsletterPanel />
       </main>
 
       <Footer />

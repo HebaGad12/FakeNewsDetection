@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Menu, X, Shield, Search, Bell, User, LogOut, Lock, LayoutDashboard, Edit, Radio } from "lucide-react";
+import { Menu, X, Shield, Search, Bell, User, LogOut, Lock, LayoutDashboard, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,14 +33,6 @@ const navLinks = [
   { href: "/live", label: "Live" },
 ];
 
-const sectionLinks = [
-  { label: "Politics", href: "/feed", description: "Policy, elections, public institutions" },
-  { label: "Technology", href: "/feed", description: "Platforms, AI, cybersecurity, startups" },
-  { label: "Health", href: "/feed", description: "Public health, research, science desk" },
-  { label: "Economy", href: "/feed", description: "Markets, business, consumer signals" },
-  { label: "Environment", href: "/feed", description: "Climate, energy, local impact" },
-  { label: "Live", href: "/live", description: "Broadcasts and live reporting rooms" },
-];
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -202,17 +194,6 @@ export function Header() {
       >
         Skip to main content
       </a>
-      <div className="hidden border-b border-slate-100 bg-slate-950 text-white lg:block">
-        <div className="news-container flex h-9 items-center justify-between text-xs">
-          <div className="flex items-center gap-2 font-bold uppercase tracking-[0.18em] text-red-200">
-            <Radio className="h-3.5 w-3.5 text-red-500" />
-            Live desk open
-          </div>
-          <div className="text-slate-300">
-            Source-backed reporting, community review, and live coverage.
-          </div>
-        </div>
-      </div>
       <div className="news-container">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="group flex items-center gap-3">
@@ -244,36 +225,6 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1 rounded-md px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                >
-                  Sections
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-[520px] rounded-lg border-slate-200 p-3">
-                <DropdownMenuLabel className="text-xs font-bold uppercase tracking-[0.18em] text-red-700">
-                  Newsroom Sections
-                </DropdownMenuLabel>
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  {sectionLinks.map((section) => (
-                    <DropdownMenuItem key={section.label} asChild>
-                      <Link
-                        to={section.href}
-                        className="flex cursor-pointer flex-col items-start rounded-md p-3 transition-colors hover:bg-red-50"
-                      >
-                        <span className="text-sm font-bold text-slate-950">{section.label}</span>
-                        <span className="mt-1 text-xs leading-5 text-slate-500">{section.description}</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
@@ -422,21 +373,6 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
-              <div className="border-t border-slate-200 pt-3">
-                <p className="px-4 pb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                  Sections
-                </p>
-                {sectionLinks.map((section) => (
-                  <Link
-                    key={section.label}
-                    to={section.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block rounded-md px-4 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
-                  >
-                    {section.label}
-                  </Link>
-                ))}
-              </div>
               <div className="pt-4 border-t border-slate-200 space-y-2">
                 <Button
                   variant="outline"

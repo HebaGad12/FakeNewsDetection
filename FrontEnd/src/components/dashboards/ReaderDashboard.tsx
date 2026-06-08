@@ -235,37 +235,36 @@ const ReaderDashboard = () => {
   return (
     <div className="bg-background text-on-surface min-h-screen font-body">
       {/* SideNavBar */}
-      <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#0f172a] border-r border-white/5 shadow-2xl hidden md:flex transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+      <aside className={cn("h-screen w-64 fixed left-0 top-0 flex flex-col z-40 bg-[#430909] border-r border-[#FCF8F8]/10 shadow-2xl hidden md:flex transition-transform duration-300", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
 
         {/* ── Brand ── */}
-        <div className="px-5 pt-7 pb-5 border-b border-white/5">
+        <div className="px-5 pt-7 pb-5 border-b border-[#FCF8F8]/10">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 flex-shrink-0">
-              <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
+            <div className="w-9 h-9 rounded-lg bg-[#FCF8F8]/15 border border-[#FCF8F8]/20 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Shield className="h-4 w-4 text-[#FCF8F8]" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-white font-bold text-sm leading-tight tracking-wide">Reader Portal</h1>
-              <p className="text-blue-400/60 text-[10px] font-mono uppercase tracking-widest mt-0.5">The Veritas Archive</p>
+              <h1 className="text-[#FCF8F8] font-bold text-sm leading-tight tracking-wide">Reader Portal</h1>
             </div>
           </div>
 
           {/* User badge */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-[11px] font-bold uppercase">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-[#FCF8F8]/8 border border-[#FCF8F8]/10">
+            <div className="w-8 h-8 rounded-full bg-[#FCF8F8]/20 border border-[#FCF8F8]/30 flex items-center justify-center flex-shrink-0">
+              <span className="text-[#FCF8F8] text-[11px] font-bold uppercase">
                 {userProfile?.name?.substring(0, 2).toUpperCase() || user?.name?.substring(0, 2).toUpperCase() || "U"}
               </span>
             </div>
             <div className="min-w-0">
-              <p className="text-white text-xs font-semibold truncate">{userProfile?.name || user?.name}</p>
-              <p className="text-white/35 text-[10px] font-mono">Reader Account</p>
+              <p className="text-[#FCF8F8] text-xs font-semibold truncate">{userProfile?.name || user?.name}</p>
+              <p className="text-[#FCF8F8]/40 text-[10px] font-mono">Reader Account</p>
             </div>
           </div>
         </div>
 
         {/* ── Nav Items ── */}
         <nav className="flex-1 flex flex-col gap-0.5 px-3 py-4">
-          <p className="text-white/20 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
+          <p className="text-[#FCF8F8]/30 text-[9px] font-mono uppercase tracking-[0.18em] px-2 mb-2">Navigation</p>
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -275,30 +274,30 @@ const ReaderDashboard = () => {
                 className={cn(
                   "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left",
                   isActive
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
-                    : "text-white/45 hover:text-white hover:bg-white/6"
+                    ? "bg-[#FCF8F8] text-[#430909] shadow-lg"
+                    : "text-[#FCF8F8]/50 hover:text-[#FCF8F8] hover:bg-[#FCF8F8]/10"
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-300 rounded-r-full" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#430909]/40 rounded-r-full" />
                 )}
                 <item.icon className={cn(
                   "w-4 h-4 flex-shrink-0 transition-colors",
-                  isActive ? "text-white" : "text-white/35 group-hover:text-white/70"
+                  isActive ? "text-[#430909]" : "text-[#FCF8F8]/40 group-hover:text-[#FCF8F8]/80"
                 )} strokeWidth={2} />
                 <span className="flex-1">{item.label}</span>
-                {isActive && <ChevronRight className="h-3.5 w-3.5 text-blue-200/50 flex-shrink-0" />}
+                {isActive && <ChevronRight className="h-3.5 w-3.5 text-[#430909]/40 flex-shrink-0" />}
               </button>
             );
           })}
         </nav>
 
         {/* ── Footer Buttons ── */}
-        <div className="px-3 pb-5 pt-3 border-t border-white/5 flex flex-col gap-2">
+        <div className="px-3 pb-5 pt-3 border-t border-[#FCF8F8]/10 flex flex-col gap-2">
           {/* Go to Home */}
           <button
             onClick={() => navigate("/")}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-blue-600/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/20 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-900/30"
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-[#FCF8F8]/8 text-[#FCF8F8]/70 hover:bg-[#FCF8F8] hover:text-[#430909] border border-[#FCF8F8]/15 hover:border-[#FCF8F8] hover:shadow-lg"
           >
             <Home className="h-4 w-4 flex-shrink-0 transition-transform group-hover:-translate-y-0.5 duration-150" />
             <span className="flex-1 text-left">Go to Home</span>
@@ -308,7 +307,7 @@ const ReaderDashboard = () => {
           {/* Logout */}
           <button
             onClick={() => { if (typeof window !== "undefined") navigate("/login"); }}
-            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-white/4 text-white/40 hover:bg-red-600/80 hover:text-white border border-white/5 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/20"
+            className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold w-full transition-all duration-150 bg-[#FCF8F8]/5 text-[#FCF8F8]/40 hover:bg-red-700/60 hover:text-[#FCF8F8] border border-[#FCF8F8]/8 hover:border-red-500/40 hover:shadow-lg"
           >
             <LogOut className="h-4 w-4 flex-shrink-0" />
             <span className="flex-1 text-left">Logout</span>
@@ -324,15 +323,10 @@ const ReaderDashboard = () => {
               <Menu className="w-5 h-5" />
             </button>
             <div>
-              <span className="font-label text-xs uppercase tracking-[0.2em] text-outline mb-2 block">
-                {activeTab === "dashboard" && "Reader Interface"}
-                {activeTab === "following" && "Intelligence Network"}
-                {activeTab === "wallet" && "Financial Operations"}
-              </span>
               <h1 className="font-headline text-4xl text-on-surface font-bold">
-                {activeTab === "dashboard" && "Your Archive"}
-                {activeTab === "following" && "Your Network"}
-                {activeTab === "wallet" && "Your Treasury"}
+                {activeTab === "dashboard" && "Dashboard"}
+                {activeTab === "following" && "Following"}
+                {activeTab === "wallet" && "Archive Wallet"}
               </h1>
             </div>
           </div>
@@ -341,13 +335,6 @@ const ReaderDashboard = () => {
               <RefreshCw className={isLoading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
               Refresh
             </Button>
-            <div className="text-right">
-              <p className="font-label text-[10px] uppercase text-outline">System Status</p>
-              <p className="text-secondary font-bold flex items-center gap-1 justify-end">
-                <span className="w-2 h-2 bg-secondary rounded-full"></span>
-                ACTIVE
-              </p>
-            </div>
           </div>
         </header>
 
@@ -710,13 +697,6 @@ const ReaderDashboard = () => {
 
                 {/* Info Section */}
                 <div className="space-y-6">
-                  <div className="p-6 bg-card rounded-lg border-l-4 border-primary shadow-sm">
-                    <h4 className="font-display font-bold text-lg mb-2">Independent & Unbeholden</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Your engagement and contributions support journalistic integrity and help maintain the quality of the Archive.
-                    </p>
-                  </div>
-
                   {/* Received Donations Summary */}
                   {receivedDonations.length > 0 && (
                     <div className="p-6 bg-card rounded-lg border border-border">

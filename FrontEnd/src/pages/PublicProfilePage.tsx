@@ -162,14 +162,13 @@ const PublicProfilePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f8f6]">
+    <div className="min-h-screen bg-[#FCF8F8]">
       <Header />
 
       <main className="container max-w-7xl mx-auto px-6 py-10">
         {/* ── Back button ── */}
         <button
           onClick={() => {
-            // If came from dashboard, go back and signal a following refresh
             const from = (location.state as { from?: string })?.from;
             if (from === "dashboard") {
               navigate("/dashboard", { state: { refreshFollowing: true } });
@@ -177,7 +176,7 @@ const PublicProfilePage = () => {
               navigate(-1);
             }
           }}
-          className="flex items-center gap-2 text-base text-zinc-500 hover:text-zinc-900 mb-10 font-medium transition-colors group"
+          className="flex items-center gap-2 text-base text-[#430909]/50 hover:text-[#430909] mb-10 font-medium transition-colors group"
         >
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
           Back
@@ -186,8 +185,8 @@ const PublicProfilePage = () => {
         {/* ── Loading ── */}
         {loadingPosts && (
           <div className="flex flex-col items-center justify-center py-32">
-            <Loader className="h-8 w-8 animate-spin text-zinc-400 mb-4" />
-            <p className="text-zinc-500 text-base">Loading profile…</p>
+            <Loader className="h-8 w-8 animate-spin text-[#430909]/40 mb-4" />
+            <p className="text-[#430909]/50 text-base">Loading profile…</p>
           </div>
         )}
 
@@ -198,7 +197,7 @@ const PublicProfilePage = () => {
             <p className="text-red-600 font-medium text-base">{error}</p>
             <button
               onClick={() => navigate(-1)}
-              className="mt-4 text-sm text-zinc-500 hover:text-zinc-800 underline"
+              className="mt-4 text-sm text-[#430909]/50 hover:text-[#430909] underline"
             >
               Go back
             </button>
@@ -211,23 +210,26 @@ const PublicProfilePage = () => {
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white border border-zinc-100 rounded-lg overflow-hidden mb-10 shadow-sm"
+              className="bg-white border border-[#430909]/10 rounded-lg overflow-hidden mb-10 shadow-sm"
             >
               <div className="relative">
-              {/* Top banner - made taller */}
-              <div className="h-44 bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 relative">
-                <div className="absolute inset-0 opacity-20"
-                  style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #3b82f6 0%, transparent 50%), radial-gradient(circle at 80% 20%, #6366f1 0%, transparent 40%)" }}
-                />
-              </div>
+                {/* Top banner */}
+                <div className="h-44 bg-[#430909] relative overflow-hidden">
+                  <div className="absolute inset-0"
+                    style={{ backgroundImage: "radial-gradient(circle at 25% 60%, rgba(252,248,248,0.12) 0%, transparent 55%), radial-gradient(circle at 80% 30%, rgba(0,0,0,0.3) 0%, transparent 50%)" }}
+                  />
+                  <div className="absolute inset-0 opacity-5"
+                    style={{ backgroundImage: "repeating-linear-gradient(45deg, #FCF8F8 0px, #FCF8F8 1px, transparent 1px, transparent 14px)" }}
+                  />
+                </div>
 
                 <div className="absolute -bottom-14 left-10">
-                  <div className="w-28 h-35 rounded-[1.5rem] bg-white border-3 border-white shadow-2xl overflow-hidden">
-                    <div className="w-full h-full rounded-[1rem] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center overflow-hidden">
+                  <div className="w-28 h-28 rounded-[1.5rem] bg-white border-4 border-white shadow-xl overflow-hidden">
+                    <div className="w-full h-full rounded-[1rem] bg-[#430909]/10 flex items-center justify-center overflow-hidden">
                       {profileAvatarUrl ? (
                         <img src={profileAvatarUrl} alt={journalistName} className="w-full h-full object-contain bg-white" />
                       ) : (
-                        <span className="text-white text-3xl font-bold uppercase">
+                        <span className="text-[#430909] text-3xl font-bold uppercase">
                           {journalistName.substring(0, 2)}
                         </span>
                       )}
@@ -238,7 +240,6 @@ const PublicProfilePage = () => {
 
               <div className="px-10 pb-10 pt-20">
                 <div className="mb-6 flex items-start justify-end">
-                  {/* Follow / Unfollow button - larger text */}
                   {user && !isOwnProfile && (
                     <button
                       onClick={handleToggleFollow}
@@ -246,8 +247,8 @@ const PublicProfilePage = () => {
                       className={cn(
                         "flex items-center gap-2 px-6 py-3 rounded-lg text-base font-semibold transition-all border",
                         isFollowing
-                          ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-600 hover:text-white hover:border-rose-600"
-                          : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700",
+                          ? "bg-[#430909]/8 text-[#430909] border-[#430909]/20 hover:bg-red-600 hover:text-white hover:border-red-600"
+                          : "bg-[#430909] text-[#FCF8F8] border-[#430909] hover:bg-[#430909]/85",
                         loadingFollow && "opacity-60 cursor-not-allowed"
                       )}
                     >
@@ -263,29 +264,29 @@ const PublicProfilePage = () => {
                   )}
                 </div>
 
-                {/* Name & role - larger text */}
+                {/* Name & role */}
                 <div className="mb-6">
-                  <h1 className="text-4xl font-bold text-zinc-900 tracking-tight">{journalistName}</h1>
-                  <p className="text-zinc-500 text-base mt-0.5 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                  <h1 className="text-4xl font-bold text-[#430909] tracking-tight">{journalistName}</h1>
+                  <p className="text-[#430909]/50 text-base mt-0.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-[#430909]/40" />
                     Verified Journalist
                   </p>
                 </div>
 
-                {/* Stats row - larger numbers and labels */}
+                {/* Stats row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
                   {[
-                    { icon: FileText,  label: "Posts",        value: posts.length     },
-                    { icon: CheckCircle2, label: "Approved", value: approvedPosts, color: "text-emerald-600" },
-                    { icon: Heart,     label: "Total Likes",  value: totalLikes       },
-                    { icon: Eye,       label: "Total Views",  value: totalViews       },
+                    { icon: FileText,     label: "Posts",       value: posts.length,  color: "" },
+                    { icon: CheckCircle2, label: "Approved",    value: approvedPosts, color: "text-emerald-600" },
+                    { icon: Heart,        label: "Total Likes", value: totalLikes,    color: "" },
+                    { icon: Eye,          label: "Total Views", value: totalViews,    color: "" },
                   ].map(({ icon: Icon, label, value, color }) => (
-                    <div key={label} className="bg-zinc-50 rounded-lg p-5 border border-zinc-100">
+                    <div key={label} className="bg-[#FCF8F8] rounded-lg p-5 border border-[#430909]/10">
                       <div className="flex items-center gap-2 mb-1">
-                        <Icon className={cn("h-5 w-5", color ?? "text-zinc-500")} />
-                        <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">{label}</span>
+                        <Icon className={cn("h-5 w-5", color || "text-[#430909]/40")} />
+                        <span className="text-xs font-mono text-[#430909]/40 uppercase tracking-wider">{label}</span>
                       </div>
-                      <p className="text-3xl font-bold text-zinc-900">{value.toLocaleString()}</p>
+                      <p className="text-3xl font-bold text-[#430909]">{value.toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
@@ -294,17 +295,17 @@ const PublicProfilePage = () => {
 
             {/* ── Posts section ── */}
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
-                <Newspaper className="h-5 w-5 text-zinc-500" />
+              <h2 className="text-xl font-bold text-[#430909] flex items-center gap-2">
+                <Newspaper className="h-5 w-5 text-[#430909]/50" />
                 Published Articles
               </h2>
-              <span className="text-sm text-zinc-500 font-mono">{posts.length} articles</span>
+              <span className="text-sm text-[#430909]/40 font-mono">{posts.length} articles</span>
             </div>
 
             {posts.length === 0 ? (
-              <div className="bg-white border border-zinc-100 rounded-lg p-20 text-center">
-                <FileText className="h-14 w-14 text-zinc-200 mx-auto mb-4" />
-                <p className="text-zinc-500 font-medium text-base">No published articles yet</p>
+              <div className="bg-white border border-[#430909]/10 rounded-lg p-20 text-center">
+                <FileText className="h-14 w-14 text-[#430909]/15 mx-auto mb-4" />
+                <p className="text-[#430909]/40 font-medium text-base">No published articles yet</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -317,10 +318,10 @@ const PublicProfilePage = () => {
                   >
                     <Link
                       to={`/article/${post.id}`}
-                      className="group flex items-start gap-6 bg-white border border-zinc-100 rounded-lg p-6 hover:border-blue-200 hover:shadow-md transition-all"
+                      className="group flex items-start gap-6 bg-white border border-[#430909]/10 rounded-lg p-6 hover:border-[#430909]/30 hover:shadow-md transition-all"
                     >
-                      {/* Number - larger */}
-                      <span className="text-4xl font-bold text-zinc-200 group-hover:text-blue-100 transition-colors flex-shrink-0 w-12 text-center leading-tight mt-1">
+                      {/* Number */}
+                      <span className="text-4xl font-bold text-[#430909]/15 group-hover:text-[#430909]/25 transition-colors flex-shrink-0 w-12 text-center leading-tight mt-1">
                         {String(i + 1).padStart(2, "0")}
                       </span>
 
@@ -333,20 +334,20 @@ const PublicProfilePage = () => {
                             </span>
                           )}
                           {post.tags?.slice(0, 2).map((tag) => (
-                            <span key={tag} className="text-xs font-mono px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 uppercase tracking-wider">
+                            <span key={tag} className="text-xs font-mono px-2 py-0.5 rounded-full bg-[#430909]/8 text-[#430909]/60 border border-[#430909]/10 uppercase tracking-wider">
                               {tag}
                             </span>
                           ))}
                         </div>
-                        <h3 className="text-lg font-bold text-zinc-800 group-hover:text-blue-700 transition-colors line-clamp-2 leading-snug mb-2">
+                        <h3 className="text-lg font-bold text-[#430909] group-hover:text-[#430909]/70 transition-colors line-clamp-2 leading-snug mb-2">
                           {post.title}
                         </h3>
                         {post.content && (
-                          <p className="text-base text-zinc-500 line-clamp-2 mb-3">
+                          <p className="text-base text-[#430909]/50 line-clamp-2 mb-3">
                             {post.content.substring(0, 160)}…
                           </p>
                         )}
-                        <div className="flex items-center gap-5 text-sm text-zinc-400 font-mono">
+                        <div className="flex items-center gap-5 text-sm text-[#430909]/35 font-mono">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" /> {formatDate(post.createdAt)}
                           </span>
@@ -356,7 +357,7 @@ const PublicProfilePage = () => {
                           <span className="flex items-center gap-1">
                             <Eye className="h-3.5 w-3.5" /> {post.views ?? 0}
                           </span>
-                          <span className="flex items-center gap-1 text-blue-500 group-hover:text-blue-700">
+                          <span className="flex items-center gap-1 text-[#430909]/50 group-hover:text-[#430909]">
                             <ExternalLink className="h-3.5 w-3.5" /> Read
                           </span>
                         </div>
@@ -364,7 +365,7 @@ const PublicProfilePage = () => {
 
                       {/* Thumbnail */}
                       {post.media?.[0] && (
-                        <div className="w-24 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-100">
+                        <div className="w-24 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-[#430909]/5 border border-[#430909]/10">
                           <img
                             src={postsService.getImageUrl(post.media[0].path)}
                             alt={post.title}
