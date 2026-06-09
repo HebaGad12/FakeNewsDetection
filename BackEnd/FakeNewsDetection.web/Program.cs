@@ -10,7 +10,7 @@ using Presentation.SignalR_Hubs;
 using Services;
 using ServicesAbstraction;
 using System.Text;
-
+using Presentation;
 namespace FakeNewsDetection.web
 {
     public class Program
@@ -36,7 +36,7 @@ namespace FakeNewsDetection.web
 
             // ── Database ─────────────────────────────────────────────────────
                 builder.Services.AddDbContext<AppDbContext>(opts =>
-                    opts.UseSqlServer(builder.Configuration.GetConnectionString("sohila")));
+                    opts.UseSqlServer(builder.Configuration.GetConnectionString("Muhammad")));
 
             // ── Authentication ───────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
@@ -102,6 +102,10 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
             builder.Services.AddScoped<IOrganizationTaskRepository, OrganizationTaskRepository>();
             builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
+            builder.Services.AddHttpClient<NewsApiSeeder>();
+            builder.Services.AddScoped<NewsApiSeeder>();
+            builder.Services.AddHostedService<NewsApiSeederService>();
+
             // ── Python AI Services ───────────────────────────────────────────
             var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8000";
 
