@@ -16,5 +16,6 @@ namespace Domain.Contracts
         Task AddAsync(Post post);
         Task UpdateAsync(Post post);
         Task DeleteAsync(Guid id);
+        Task<List<Post>> GetFeedPostsAsync(int take = 100);
     }
 }

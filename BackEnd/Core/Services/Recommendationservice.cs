@@ -1,6 +1,5 @@
 // RecommendationService.cs
 // Place in: Core/Services/
-// Follows the exact same pattern as ToxicityService.cs
 
 using Domain.Contracts;
 using Domain.Enums;
@@ -11,37 +10,28 @@ using System.Text.Json.Serialization;
 
 namespace Services
 {
-    /// <summary>
-    /// Calls the Python FastAPI recommendation endpoint at POST /recommend/feed.
-    /// Assembles all required data from the database and returns ranked post IDs.
-    /// </summary>
     public class RecommendationService : IRecommendationService
     {
-        private readonly HttpClient            _http;
-        private readonly IPostRepository       _posts;
+        private readonly HttpClient             _http;
+        private readonly IPostRepository        _posts;
         private readonly IInteractionRepository _interactions;
-        private readonly IFollowRepository     _follows;
-
-        private readonly IMembershipRepository _memberships;
-
+        private readonly IFollowRepository      _follows;
+        private readonly IMembershipRepository  _memberships;
 
         public RecommendationService(
-        HttpClient                   http,
-        IPostRepository              posts,
-        IInteractionRepository       interactions,
-        IFollowRepository            follows,
-        IMembershipRepository        memberships)  // ← new param
-    {
-        _http         = http;
-        _posts        = posts;
-        _interactions = interactions;
-        _follows      = follows;
-        _memberships  = memberships;           // ← new line
-    }
+            HttpClient              http,
+            IPostRepository         posts,
+            IInteractionRepository  interactions,
+            IFollowRepository       follows,
+            IMembershipRepository   memberships)
+        {
+            _http         = http;
+            _posts        = posts;
+            _interactions = interactions;
+            _follows      = follows;
+            _memberships  = memberships;
+        }
 
-        /// <summary>
-        /// Builds the recommendation request from the DB and calls Python.
-        /// </summary>
         public async Task<List<string>> GetRankedFeedAsync(RecommendRequest request)
         {
             try
@@ -55,56 +45,50 @@ namespace Services
                 });
 
                 if (!response.IsSuccessStatusCode)
-                    return new List<string>(); // fail gracefully
+                    return new List<string>();
 
                 var result = await response.Content.ReadFromJsonAsync<PythonRecommendResponse>();
                 return result?.RankedPostIds ?? new List<string>();
             }
             catch
             {
-                // Python service unreachable — fail open, return empty (caller falls back to default feed)
                 return new List<string>();
             }
         }
 
-        /// <summary>
-        /// Convenience method: loads everything from DB for a given user and calls Python.
-        /// Use this from your PostsController / FeedController.
-        /// </summary>
         public async Task<List<Guid>> GetRankedFeedForUserAsync(Guid userId, int topN = 20)
         {
-            // 1. Load all approved posts (ModerationStatus.Approved)
-            var allPosts = (await _posts.GetAllAsync())
-                .Where(p => p.ModerationStatus == ModerationStatus.Approved)
-                .ToList();
+            // ✅ FIX: Use GetFeedPostsAsync instead of GetAllAsync.
+            //   - Runs the WHERE/ORDER BY/Take in SQL, not in C# after loading everything.
+            //   - "take: 200" is a generous ceiling — Python only needs candidates to rank.
+            var allPosts = await _posts.GetFeedPostsAsync(take: 200);
 
-            // 2. Load user's interaction history
             var userInteractions = (await _interactions.GetByUserAsync(userId)).ToList();
 
-            // 3. Load who the user follows
             var followees = (await _follows.GetFolloweesAsync(userId))
                 .Select(f => f.FolloweeId.ToString())
                 .ToList();
 
-            // 4. Load communities the user is a member of (and not banned from)
             var communityIds = await _memberships.GetActiveCommunityIdsAsync(userId);
 
-
-            // 5. Map to DTOs
             var candidatePosts = allPosts.Select(p => new RecommendPostData(
                 Id:          p.Id.ToString(),
                 Title:       p.Title,
-                Content:     p.Content,
+                // ✅ FIX: Truncate Content to 500 chars before sending to Python.
+                //   Full article bodies can be thousands of words — sending all of them
+                //   makes the HTTP payload huge and the Python service slow.
+                //   The recommendation model only needs a summary, not the full text.
+                Content:     p.Content?.Length > 500 ? p.Content[..500] : (p.Content ?? ""),
                 Tags:        p.Tags,
                 CommunityId: p.CommunityId?.ToString(),
                 AuthorId:    p.AuthorId.ToString(),
-                CreatedAt:   p.CreatedAt.ToString("O"),   // ISO-8601
-                HasMedia:    p.Media.Any()
+                CreatedAt:   p.CreatedAt.ToString("O"),
+                HasMedia:    p.Media?.Any() ?? false
             )).ToList();
 
             var interactions = userInteractions.Select(i => new RecommendInteractionData(
                 PostId: i.PostId.ToString(),
-                Type:   i.Type.ToString()               // enum.ToString() = "Like", "Share", etc.
+                Type:   i.Type.ToString()
             )).ToList();
 
             var context = new RecommendUserContext(
@@ -121,7 +105,6 @@ namespace Services
 
             var rankedStringIds = await GetRankedFeedAsync(request);
 
-            // Parse back to Guids in ranked order
             return rankedStringIds
                 .Select(id => Guid.TryParse(id, out var g) ? g : Guid.Empty)
                 .Where(g => g != Guid.Empty)
@@ -154,7 +137,7 @@ namespace Services
             FolloweeIds  = c.FolloweeIds,
         };
 
-        // ── Private JSON shapes (match grad.py Pydantic models exactly) ──────
+        // ── Private JSON shapes ──────────────────────────────────────────────
 
         private class PythonPostData
         {
@@ -190,9 +173,9 @@ namespace Services
 
         private class PythonRecommendResponse
         {
-            [JsonPropertyName("ranked_post_ids")]   public List<string> RankedPostIds     { get; set; } = [];
-            [JsonPropertyName("total_candidates")]  public int          TotalCandidates   { get; set; }
-            [JsonPropertyName("total_interactions")]public int          TotalInteractions { get; set; }
+            [JsonPropertyName("ranked_post_ids")]    public List<string> RankedPostIds     { get; set; } = [];
+            [JsonPropertyName("total_candidates")]   public int          TotalCandidates   { get; set; }
+            [JsonPropertyName("total_interactions")] public int          TotalInteractions { get; set; }
         }
     }
 }

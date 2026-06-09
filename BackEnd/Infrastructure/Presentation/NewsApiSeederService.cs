@@ -83,8 +83,11 @@ namespace Presentation
                 return;
             }
 
-            var bot   = await EnsureNewsBotAsync(ct);
+            var bot = await EnsureNewsBotAsync(ct);
             int total = 0;
+
+            // ADD THIS — tracks titles seen in this run
+            var seenTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var topic in Topics)
             {
@@ -92,7 +95,7 @@ namespace Presentation
                 try
                 {
                     var articles = await FetchAsync(apiKey, topic, ct);
-                    total += await SaveAsync(articles, bot, topic, ct);
+                    total += await SaveAsync(articles, bot, topic, seenTitles, ct); // pass it here
                     await Task.Delay(500, ct);
                 }
                 catch (Exception ex) { _logger.LogWarning(ex, "Failed topic '{T}'", topic); }
@@ -100,7 +103,6 @@ namespace Presentation
 
             _logger.LogInformation("NewsApiSeeder: {N} new posts added.", total);
         }
-
         private async Task<List<NewsDataArticle>> FetchAsync(string key, string topic, CancellationToken ct)
         {
             var url = $"https://newsdata.io/api/1/latest" +
@@ -112,14 +114,20 @@ namespace Presentation
         }
 
         private async Task<int> SaveAsync(List<NewsDataArticle> articles,
-                                          User bot, string topic, CancellationToken ct)
+                                  User bot, string topic,
+                                  HashSet<string> seenTitles, 
+                                  CancellationToken ct)
         {
             int count = 0;
             foreach (var a in articles)
             {
                 if (ct.IsCancellationRequested) break;
                 var title = (a.Title ?? "").Trim();
+
+                // ADD THIS — skip if seen in this run OR already in DB
+                if (!seenTitles.Add(title)) continue;
                 if (await _db.Posts.AnyAsync(p => p.Title == title, ct)) continue;
+
 
                 var post = new Post
                 {

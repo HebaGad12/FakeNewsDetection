@@ -104,7 +104,6 @@ namespace FakeNewsDetection.web
             builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
             builder.Services.AddHttpClient<NewsApiSeeder>();
             builder.Services.AddScoped<NewsApiSeeder>();
-            builder.Services.AddHostedService<NewsApiSeederService>();
 
             // ── Python AI Services ───────────────────────────────────────────
             var pythonUrl = builder.Configuration["PythonApi:BaseUrl"] ?? "http://localhost:8000";

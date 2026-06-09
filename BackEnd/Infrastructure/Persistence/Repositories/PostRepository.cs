@@ -1,4 +1,5 @@
 ﻿using Domain.Contracts;
+using Domain.Enums;
 using Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -9,7 +10,6 @@ using System.Threading.Tasks;
 
 namespace Persistence.Repositories
 {
-
     public class PostRepository : IPostRepository
     {
         private readonly AppDbContext _context;
@@ -27,6 +27,21 @@ namespace Persistence.Repositories
                 .Include(p => p.Author)
                 .Include(p => p.OrganizationUser)
                 .Include(p => p.Interactions)
+                .ToListAsync();
+
+        // ✅ FIX: Purpose-built feed query.
+        //   - Filters Approved + non-draft IN SQL (not in C# after loading everything)
+        //   - Includes Media in the same query → eliminates the N+1 per-post media lookup
+        //   - Paginates with Take() in SQL → never loads 100s of posts you won't show
+        public async Task<List<Post>> GetFeedPostsAsync(int take = 100) =>
+            await _context.Posts
+                .Where(p => p.ModerationStatus == ModerationStatus.Approved && !p.IsDraft)
+                .Include(p => p.Author)
+                .Include(p => p.OrganizationUser)
+                .Include(p => p.Interactions)
+                .Include(p => p.Media)           // ← loaded here, no separate query per post
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(take)
                 .ToListAsync();
 
         public async Task<IEnumerable<Post>> GetByAuthorAsync(Guid authorId) =>
@@ -48,7 +63,7 @@ namespace Persistence.Repositories
         public async Task AddAsync(Post post)
         {
             if (post.Id == Guid.Empty)
-                post.Id = Guid.NewGuid(); 
+                post.Id = Guid.NewGuid();
 
             if (post.CreatedAt == default)
                 post.CreatedAt = DateTime.UtcNow;
@@ -88,7 +103,4 @@ namespace Persistence.Repositories
             }
         }
     }
-
-
-
 }

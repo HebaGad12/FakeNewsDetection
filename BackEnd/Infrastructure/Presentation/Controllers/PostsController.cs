@@ -1,11 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE: Infrastructure/Presentation/Controllers/PostsController.cs
-//
-// CHANGE: One new endpoint added at the bottom:
-//   GET /api/posts/by-task/{taskId}
-//   → returns the post linked to a given OrganizationTask ID (if any)
-//
-// Everything else is identical to your existing PostsController.
 // ─────────────────────────────────────────────────────────────────────────────
 
 using Domain.Contracts;
@@ -125,42 +119,80 @@ namespace Presentation.Controllers
         public async Task<ActionResult<IEnumerable<PostWithCommentsResponse>>> GetFeed([FromQuery] int topN = 20)
         {
             var userId = GetUserId();
-            var rankedIds = await _recommendation.GetRankedFeedForUserAsync(userId, topN);
+
+            // ✅ FIX: Load posts ONCE using the new GetFeedPostsAsync.
+            //   Media is already included — no extra DB call per post later.
+            //   The old code called GetAllAsync() up to 3 times (once inside
+            //   GetRankedFeedForUserAsync, once for ranked path, once for fallback).
+            var feedPosts = await _posts.GetFeedPostsAsync(take: 200);
+            var postById  = feedPosts.ToDictionary(p => p.Id);
 
             var allUsers = await _users.GetAllAsync();
             var userDict = allUsers.ToDictionary(u => u.Id);
 
+            // Ask Python for a ranked order
+            var rankedIds = await _recommendation.GetRankedFeedForUserAsync(userId, topN);
+
             if (rankedIds.Any())
             {
-                var allPosts = await _posts.GetAllAsync();
-                var postById = allPosts.ToDictionary(p => p.Id);
                 var rankedResult = new List<PostWithCommentsResponse>();
-
                 foreach (var id in rankedIds)
                 {
                     if (postById.TryGetValue(id, out var post))
-                    {
-                        rankedResult.Add(await MapPostAsync(post, userDict));
-                    }
+                        rankedResult.Add(MapPost(post, userDict));
                 }
-
                 return Ok(rankedResult);
             }
 
-            var fallbackPosts = await _posts.GetAllAsync();
-            var fallbackResult = new List<PostWithCommentsResponse>();
-
-            foreach (var p in fallbackPosts
-                .Where(p => p.ModerationStatus == ModerationStatus.Approved)
-                .OrderByDescending(p => p.CreatedAt)
-                .Take(topN))
-            {
-                fallbackResult.Add(await MapPostAsync(p, userDict));
-            }
+            // Fallback: posts are already sorted by CreatedAt desc from GetFeedPostsAsync
+            var fallbackResult = feedPosts
+                .Take(topN)
+                .Select(p => MapPost(p, userDict))
+                .ToList();
 
             return Ok(fallbackResult);
         }
 
+        // ✅ FIX: MapPost is now synchronous — media is already loaded via Include(),
+        //   so there is no per-post DB call. The old MapPostAsync did
+        //   await _media.GetByPostIdAsync(p.Id) inside the loop = N+1 queries.
+        private PostWithCommentsResponse MapPost(Post p, Dictionary<Guid, User> userDict)
+        {
+            var comments = p.Interactions?
+                .Where(i => i.Type == InteractionType.Comment)
+                .OrderBy(i => i.CreatedAt)
+                .Select(i =>
+                {
+                    userDict.TryGetValue(i.UserId, out var commenter);
+                    return new CommentDto(
+                        i.Id,
+                        commenter?.Name ?? "Unknown",
+                        commenter?.Role.ToString() ?? "Unknown",
+                        i.Content ?? "",
+                        i.CreatedAt
+                    );
+                }).ToList() ?? new();
+
+            userDict.TryGetValue(p.AuthorId, out var author);
+            string orgName = "Independent";
+            if (p.OrganizationId.HasValue && userDict.TryGetValue(p.OrganizationId.Value, out var org))
+                orgName = org.Name;
+
+            // Media was loaded by GetFeedPostsAsync via .Include(p => p.Media) — no extra query
+            var mediaDtos = p.Media?
+                .Select(m => new MediaDto(m.Id, m.Path, m.MediaType, m.IsCopyrighted, m.UploadedAt))
+                .ToList() ?? new();
+
+            return new PostWithCommentsResponse(
+                p.Id, p.Title, p.Content, p.Tags,
+                author?.Name ?? "Unknown", p.AuthorId, orgName,
+                p.CreatedAt, p.UpdatedAt,
+                p.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0,
+                comments, mediaDtos
+            );
+        }
+
+        // Keep the old async version only for GetAllPosts which still calls it
         private async Task<PostWithCommentsResponse> MapPostAsync(Post p, Dictionary<Guid, User> userDict)
         {
             var comments = p.Interactions?
@@ -197,7 +229,6 @@ namespace Presentation.Controllers
             );
         }
 
-
         [HttpPost("{postId}/like")]
         public async Task<ActionResult> Like(Guid postId)
         {
@@ -205,7 +236,6 @@ namespace Presentation.Controllers
             var post   = await _posts.GetByIdAsync(postId);
             if (post is null) return NotFound("Post not found.");
 
-            // ── use GetByPostAsync instead of the non-existent GetAsync ──
             var postInteractions = await _interactions.GetByPostAsync(postId);
             var existing = postInteractions
                 .FirstOrDefault(i => i.UserId == userId && i.Type == InteractionType.Like);
@@ -225,7 +255,6 @@ namespace Presentation.Controllers
                 CreatedAt = DateTime.UtcNow
             });
 
-            // ── Notify post author ────────────────────────────────────────
             if (post.AuthorId != userId)
             {
                 var actorName = GetUserName();
@@ -251,7 +280,6 @@ namespace Presentation.Controllers
                         ActorName = actorName
                     });
             }
-            // ─────────────────────────────────────────────────────────────
 
             post = await _posts.GetByIdAsync(postId);
             return Ok(new { Likes = post?.Interactions?.Count(i => i.Type == InteractionType.Like) ?? 0 });
@@ -297,7 +325,6 @@ namespace Presentation.Controllers
 
             await _interactions.AddAsync(interaction);
 
-            // ── Notify post author ────────────────────────────────────────
             if (post.AuthorId != userId)
             {
                 var actorName = GetUserName();
@@ -323,7 +350,6 @@ namespace Presentation.Controllers
                         ActorName = actorName
                     });
             }
-            // ─────────────────────────────────────────────────────────────
 
             post = await _posts.GetByIdAsync(postId);
             return Ok(new { CommentId = interaction.Id, Comments = post?.Interactions?.Count(i => i.Type == InteractionType.Comment) ?? 0 });
