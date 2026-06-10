@@ -11,7 +11,7 @@ from images import ImageDuplicateStore
 from searchimages import search_similar_images, check_web_similarity
 from chat import ChatAnalyzer          # ← NEW
 from fastapi import APIRouter
-
+from recommender import recommender
 
 # ── Request / Response schemas ──────────────────────────────────────────────
 
