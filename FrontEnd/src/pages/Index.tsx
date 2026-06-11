@@ -117,18 +117,18 @@ const Index = () => {
     <div className="editorial-shell">
       <Header />
       <main id="main-content">
-        <BreakingTicker items={latestPosts.slice(0, 5).map(toStoryPreview)} />
+        <BreakingTicker items={latestPosts.slice(0, 2).map(toStoryPreview)} />
 
         <div className="news-container py-8">
           {isLoading ? (
             <ArticleSkeletonGrid count={6} />
           ) : (
             <>
-              <section className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
+              <section className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-center">
                 {featuredStory && (
                   <Link
                     to={`/article/${featuredStory.id}`}
-                    className="group relative min-h-[520px] overflow-hidden rounded-lg bg-slate-950 focus-visible:ring-2 focus-visible:ring-red-600"
+                    className="group relative min-h-[450px] lg:h-full overflow-hidden rounded-lg bg-slate-950 focus-visible:ring-2 focus-visible:ring-red-600"
                   >
                     {featuredStory.image && (
                       <img

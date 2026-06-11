@@ -36,7 +36,7 @@ namespace FakeNewsDetection.web
 
             // ── Database ─────────────────────────────────────────────────────
                 builder.Services.AddDbContext<AppDbContext>(opts =>
-                    opts.UseSqlServer(builder.Configuration.GetConnectionString("docker")));
+                    opts.UseSqlServer(builder.Configuration.GetConnectionString("Ezzat")));
 
             // ── Authentication ───────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
@@ -176,7 +176,17 @@ namespace FakeNewsDetection.web
             using (var scope = app.Services.CreateScope())
             {
                 var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                await ctx.Database.MigrateAsync();
+                
+                try
+                {
+                    await ctx.Database.MigrateAsync();
+                }
+                catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)
+                {
+                    // Database already exists - this is fine, continue with seeding
+                    System.Console.WriteLine("Database already exists, skipping creation");
+                }
+                
                 await DbSeeder.SeedAsync(ctx);
             }
 

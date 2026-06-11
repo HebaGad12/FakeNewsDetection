@@ -780,8 +780,8 @@ const ReaderDashboard = () => {
               {/* ── Modal Header ── */}
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
-                    <Send className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-900/40 flex items-center justify-center flex-shrink-0">
+                    <Send className="h-4 w-4 text-stone-600 dark:text-stone-400" />
                   </div>
                   <div>
                     <h3 className="font-bold text-foreground text-sm leading-tight">Send Donation</h3>
@@ -831,8 +831,8 @@ const ReaderDashboard = () => {
                             className={cn(
                               "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-all text-left group",
                               selectedJournalist?.id === f.id
-                                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
-                                : "border-border hover:border-emerald-300 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10"
+                                ? "border-rose-500 bg-stone-50 dark:bg-stone-900/20"
+                                : "border-border hover:border-stone-300 hover:bg-stone-50/40 dark:hover:bg-stone-900/10"
                             )}
                           >
                             {/* avatar */}
@@ -905,8 +905,8 @@ const ReaderDashboard = () => {
                           className={cn(
                             "py-2 rounded-lg border text-xs font-bold transition-all",
                             donationAmount === q
-                              ? "border-emerald-500 bg-emerald-500 text-white"
-                              : "border-border hover:border-emerald-400 text-foreground"
+                              ? "border-stone-500 bg-rose-500 text-white"
+                              : "border-border hover:border-rose-400 text-foreground"
                           )}
                         >
                           ${q}
@@ -927,7 +927,7 @@ const ReaderDashboard = () => {
                         placeholder="0.00"
                         value={donationAmount}
                         onChange={(e) => { setDonationAmount(e.target.value); setDonationError(""); }}
-                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 transition"
                       />
                     </div>
                   </div>
@@ -940,7 +940,7 @@ const ReaderDashboard = () => {
                       placeholder="Add a note to your donation..."
                       value={donationMessage}
                       onChange={(e) => setDonationMessage(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 resize-none transition"
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 resize-none transition"
                     />
                   </div>
 
@@ -967,7 +967,7 @@ const ReaderDashboard = () => {
                         setDonationStep("confirm");
                       }}
                       disabled={!donationAmount}
-                      className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-all"
+                      className="flex-1 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-all"
                     >
                       Continue
                     </button>
@@ -986,7 +986,7 @@ const ReaderDashboard = () => {
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Amount</span>
-                      <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-lg">
+                      <span className="font-bold font-mono text-rose-600 dark:text-rose-400 text-lg">
                         {formatCurrency(parseFloat(donationAmount))}
                       </span>
                     </div>
@@ -1024,7 +1024,7 @@ const ReaderDashboard = () => {
                     <button
                       onClick={handleDonationSubmit}
                       disabled={donationLoading}
-                      className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
                     >
                       {donationLoading ? (
                         <>
@@ -1049,9 +1049,9 @@ const ReaderDashboard = () => {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
-                    className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center"
+                    className="w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center"
                   >
-                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                    <Check className="h-8 w-8 text-rose-600 dark:text-rose-400" />
                   </motion.div>
                   <div>
                     <h4 className="text-lg font-bold text-foreground">Donation Sent!</h4>

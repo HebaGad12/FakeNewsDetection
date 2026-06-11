@@ -522,18 +522,32 @@ const CommunitiesPage = () => {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="community-image">Cover image (optional)</Label>
-              <Input
-                id="community-image"
-                type="file"
-                accept="image/*"
-                disabled={createLoading}
-                onChange={(event) =>
-                  setCreateForm((prev) => ({
-                    ...prev,
-                    image: event.target.files?.[0] ?? null,
-                  }))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="community-image"
+                  type="file"
+                  accept="image/*"
+                  disabled={createLoading}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      image: event.target.files?.[0] ?? null,
+                    }))
+                  }
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={createLoading}
+                  onClick={() => document.getElementById('community-image')?.click()}
+                >
+                  Browse...
+                </Button>
+                {createForm.image && (
+                  <span className="text-sm text-slate-600">{createForm.image.name}</span>
+                )}
+              </div>
             </div>
             {createError && (
               <p className="text-sm text-destructive">{createError}</p>

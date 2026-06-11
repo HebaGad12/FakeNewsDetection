@@ -160,7 +160,7 @@ const FeedPage = () => {
       <Header />
 
       <main id="main-content">
-        <BreakingTicker items={latest} />
+        <BreakingTicker items={latest.slice(0, 2).map(toPreview)} />
 
         <section className="editorial-band news-grid-lines">
           <div className="news-container py-8 md:py-10">
@@ -242,7 +242,7 @@ const FeedPage = () => {
                     to={`/article/${featuredPost.id}`}
                     className="group block overflow-hidden rounded-lg bg-slate-950 outline-none ring-red-600 transition-shadow duration-200 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
                   >
-                    <div className="relative min-h-[440px]">
+                    <div className="relative min-h-[440px] h-full">
                       {featuredPost.image?.[0] && (
                         <img
                           src={featuredPost.image[0]}
