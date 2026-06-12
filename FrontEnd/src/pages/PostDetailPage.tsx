@@ -47,7 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { postsService, Post, PostComment } from "@/services/postsService";
+import { postsService, Post, PostComment, PostStatus } from "@/services/postsService";
 import { publicProfileService, PublicProfile } from "@/services/publicProfileService";
 import { userService } from "@/services/userService";
 import { adminService } from "@/services/adminService";
@@ -80,6 +80,7 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [postStatus, setPostStatus] = useState<PostStatus | null>(null);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -98,6 +99,9 @@ export default function PostDetailPage() {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // Cache of commenter userId → blob URL for their avatar
+  const [commentAvatars, setCommentAvatars] = useState<Record<string, string>>({});
+
   const {
     isLiked, likesCount, toggleLike, addComment, deleteComment,
     isLiking, isCommenting, setIsLiked, setLikesCount,
@@ -111,6 +115,13 @@ export default function PostDetailPage() {
         const fetchedPost = await postsService.getPostById(id);
         if (!fetchedPost) {
           setError("Post not found"); setPost(null);
+          // Try to fetch status so we can show a contextual message to the author
+          if (user) {
+            try {
+              const status = await postsService.getPostStatus(id);
+              setPostStatus(status);
+            } catch { /* non-author: ignore */ }
+          }
         } else {
           setPost(fetchedPost);
           setComments(Array.isArray(fetchedPost.comments) ? fetchedPost.comments : []);
@@ -163,18 +174,59 @@ export default function PostDetailPage() {
     if (id) loadPost();
   }, [id, setLikesCount, setIsLiked, user]);
 
+  // Fetch avatars for every unique commenter whenever the comments list changes
+  useEffect(() => {
+    const uniqueIds = [...new Set(
+      comments
+        .map((c) => c.authorId)
+        .filter((aid) => aid && !aid.startsWith("temp-") && !commentAvatars[aid])
+    )];
+    if (uniqueIds.length === 0) return;
+
+    uniqueIds.forEach((authorId) => {
+      userService.fetchPictureBlobUrl(authorId).then((url) => {
+        if (url) {
+          setCommentAvatars((prev) => ({ ...prev, [authorId]: url }));
+        }
+      }).catch(() => { /* no avatar — silently ignore */ });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments]);
+
   const handleAddComment = async () => {
     if (!commentInput.trim()) return;
+    const contentToPost = commentInput.trim();
     try {
       setCommentError(null);
-      await addComment(commentInput);
+      // Optimistically add the comment immediately so it appears for all users
+      const optimisticComment: PostComment = {
+        id: `temp-${Date.now()}`,
+        authorId: user?.id ?? "",
+        authorName: user?.name ?? "You",
+        authorRole: user?.role ?? "Reader",
+        content: contentToPost,
+        createdAt: new Date().toISOString(),
+      };
+      setComments((prev) => [...prev, optimisticComment]);
       setCommentInput("");
+
+      await addComment(contentToPost);
+
+      // Background refresh to get the server-authoritative comment (with real ID)
       if (post) {
-        const updatedPost = await postsService.getPostById(post.id);
-        if (updatedPost) setComments(Array.isArray(updatedPost.comments) ? updatedPost.comments : []);
+        try {
+          const updatedPost = await postsService.getPostById(post.id);
+          if (updatedPost && Array.isArray(updatedPost.comments) && updatedPost.comments.length > 0) {
+            setComments(updatedPost.comments);
+          }
+        } catch {
+          // Keep optimistic comment if refresh fails
+        }
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      // Remove optimistic comment on failure
+      setComments((prev) => prev.filter((c) => !c.id.startsWith("temp-")));
       setCommentError(err?.response?.data?.message || err?.message || "Failed to post comment.");
     }
   };
@@ -267,6 +319,18 @@ export default function PostDetailPage() {
   if (isLoading) return <div className="min-h-screen bg-white dark:bg-zinc-950"><Header /><LoadingSpinner fullScreen message="Loading article..." /></div>;
 
   if (error || !post) {
+    // ── Status-aware contextual message for the post author ──────────────
+    const isPending  = postStatus?.status === "Pending" || postStatus?.status === "UnderReview";
+    const isRemoved  = postStatus?.status === "Removed";
+    const isFlagged  = postStatus?.status === "Flagged";
+
+    // Who removed it?
+    const removerLabel = postStatus?.removedByRole?.toLowerCase() === "admin"
+      ? "an administrator"
+      : postStatus?.removedByName
+        ? postStatus.removedByName
+        : "your organization";
+
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-950">
         <Header />
@@ -274,16 +338,90 @@ export default function PostDetailPage() {
           <button onClick={() => navigate("/feed")} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white mb-6 font-medium transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Feed
           </button>
-          <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-8">
-            <div className="flex items-start gap-4">
-              <AlertCircle className="h-6 w-6 text-red-600 mt-0.5" />
-              <div>
-                <p className="font-bold text-lg text-zinc-900 dark:text-white mb-2">{error || "Post not found"}</p>
-                <p className="text-zinc-600 dark:text-zinc-400 mb-4">The article you're looking for doesn't exist or has been removed.</p>
-                <Button onClick={() => navigate("/feed")} className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-none">Return to Feed</Button>
+
+          {isPending ? (
+            // ── Pending / Under Review ────────────────────────────────────
+            <div className="border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-950/20 p-8">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="h-6 w-6 text-amber-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold text-lg text-zinc-900 dark:text-white mb-1">
+                    {postStatus?.status === "UnderReview" ? "Under Review" : "Pending Approval"}
+                  </p>
+                  {postStatus?.title && (
+                    <p className="text-sm text-zinc-500 mb-2 italic">&ldquo;{postStatus.title}&rdquo;</p>
+                  )}
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                    {postStatus?.status === "UnderReview"
+                      ? "Your post is currently under review by a moderator. It will become visible once the review is complete."
+                      : "Your post is currently pending for approval. It will appear in the public feed once a moderator approves it."}
+                  </p>
+                  {postStatus?.moderationNotes && (
+                    <p className="text-sm text-amber-700 dark:text-amber-400 mb-4 border-l-2 border-amber-400 pl-3">
+                      {postStatus.moderationNotes}
+                    </p>
+                  )}
+                  <Button onClick={() => navigate("/feed")} className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-none">Return to Feed</Button>
+                </div>
               </div>
             </div>
-          </div>
+          ) : isRemoved ? (
+            // ── Removed ──────────────────────────────────────────────────
+            <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-8">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="h-6 w-6 text-red-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold text-lg text-zinc-900 dark:text-white mb-1">Post Removed</p>
+                  {postStatus?.title && (
+                    <p className="text-sm text-zinc-500 mb-2 italic">&ldquo;{postStatus.title}&rdquo;</p>
+                  )}
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                    Your post has been removed by {removerLabel}.
+                  </p>
+                  {postStatus?.moderationNotes && (
+                    <p className="text-sm text-red-700 dark:text-red-400 mb-4 border-l-2 border-red-400 pl-3">
+                      <span className="font-semibold">Reason: </span>{postStatus.moderationNotes}
+                    </p>
+                  )}
+                  <Button onClick={() => navigate("/feed")} className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-none">Return to Feed</Button>
+                </div>
+              </div>
+            </div>
+          ) : isFlagged ? (
+            // ── Flagged ──────────────────────────────────────────────────
+            <div className="border-l-4 border-orange-400 bg-orange-50 dark:bg-orange-950/20 p-8">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="h-6 w-6 text-orange-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold text-lg text-zinc-900 dark:text-white mb-1">Post Flagged</p>
+                  {postStatus?.title && (
+                    <p className="text-sm text-zinc-500 mb-2 italic">&ldquo;{postStatus.title}&rdquo;</p>
+                  )}
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                    Your post has been flagged for review and is temporarily hidden from the public feed.
+                  </p>
+                  {postStatus?.moderationNotes && (
+                    <p className="text-sm text-orange-700 dark:text-orange-400 mb-4 border-l-2 border-orange-400 pl-3">
+                      {postStatus.moderationNotes}
+                    </p>
+                  )}
+                  <Button onClick={() => navigate("/feed")} className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-none">Return to Feed</Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // ── Generic not found (no status available) ──────────────────
+            <div className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20 p-8">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="h-6 w-6 text-red-600 mt-0.5" />
+                <div>
+                  <p className="font-bold text-lg text-zinc-900 dark:text-white mb-2">{error || "Post not found"}</p>
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-4">The article you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+                  <Button onClick={() => navigate("/feed")} className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-none">Return to Feed</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     );
@@ -635,8 +773,16 @@ export default function PostDetailPage() {
                         className="group"
                       >
                         <div className="flex gap-3 sm:gap-4">
-                          <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
-                            {comment.authorName.charAt(0).toUpperCase()}
+                          <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
+                            {comment.authorId && commentAvatars[comment.authorId] ? (
+                              <img
+                                src={commentAvatars[comment.authorId]}
+                                alt={comment.authorName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              comment.authorName.charAt(0).toUpperCase()
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 justify-between">

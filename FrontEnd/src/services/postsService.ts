@@ -29,6 +29,7 @@ export interface PostMedia {
  */
 export interface PostComment {
   id: string;
+  authorId: string;
   authorName: string;
   authorRole: string;
   content: string;
@@ -68,6 +69,15 @@ export interface AddCommentRequest {
 export interface AddCommentResponse {
   commentId: string;
   comments: number;
+}
+
+export interface PostStatus {
+  postId: string;
+  title: string;
+  status: "Pending" | "Approved" | "UnderReview" | "Flagged" | "Removed";
+  moderationNotes?: string;
+  removedByName?: string;
+  removedByRole?: string;
 }
 
 interface UserActivity {
@@ -159,6 +169,21 @@ class PostsService {
         return null;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Get the moderation status of a post (author/admin only).
+   * Use this when the post is not visible in the public feed to show
+   * a contextual message (pending, removed, etc.).
+   * GET /api/posts/{postId}/status
+   */
+  async getPostStatus(postId: string): Promise<PostStatus | null> {
+    try {
+      return await apiClient.get<PostStatus>(`${this.baseUrl}/${postId}/status`);
+    } catch (error) {
+      // 403 = not the author, 404 = truly gone → return null silently
+      return null;
     }
   }
 

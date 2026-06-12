@@ -64,6 +64,50 @@ namespace Presentation.Controllers
             ?? User.FindFirstValue("unique_name")
             ?? "Someone";
 
+        /// <summary>
+        /// Returns the moderation status of any post by ID.
+        /// The author (and admins) can call this to understand why their post
+        /// is not visible in the public feed (pending / removed / etc.).
+        /// </summary>
+        [HttpGet("{postId:guid}/status")]
+        public async Task<ActionResult> GetPostStatus(Guid postId)
+        {
+            var post = await _posts.GetByIdAsync(postId);
+            if (post is null) return NotFound("Post not found.");
+
+            // Only the author or an admin may query the status
+            var callerId = GetUserId();
+            var callerRole = User.FindFirstValue(ClaimTypes.Role) ?? "";
+            if (post.AuthorId != callerId && !callerRole.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+
+            // Resolve actor name for Removed posts
+            string? removedByName = null;
+            string? removedByRole = null;
+            if (post.ModerationStatus == ModerationStatus.Removed)
+            {
+                var removeAction = post.ModerationActions?
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault();
+                if (removeAction is not null)
+                {
+                    var actor = await _users.GetByIdAsync(removeAction.ActorId);
+                    removedByName = actor?.Name;
+                    removedByRole = actor?.Role.ToString();
+                }
+            }
+
+            return Ok(new
+            {
+                PostId = post.Id,
+                Title = post.Title,
+                Status = post.ModerationStatus.ToString(),
+                ModerationNotes = post.ModerationNotes,
+                RemovedByName = removedByName,
+                RemovedByRole = removedByRole,
+            });
+        }
+
         [HttpGet]
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<PostWithCommentsResponse>>> GetAllPosts()
@@ -86,6 +130,7 @@ namespace Presentation.Controllers
                         userDict.TryGetValue(i.UserId, out var commenter);
                         return new CommentDto(
                             i.Id,
+                            i.UserId,
                             commenter?.Name ?? "Unknown",
                             commenter?.Role.ToString() ?? "Unknown",
                             i.Content ?? "",
@@ -166,6 +211,7 @@ namespace Presentation.Controllers
                     userDict.TryGetValue(i.UserId, out var commenter);
                     return new CommentDto(
                         i.Id,
+                        i.UserId,
                         commenter?.Name ?? "Unknown",
                         commenter?.Role.ToString() ?? "Unknown",
                         i.Content ?? "",
@@ -203,6 +249,7 @@ namespace Presentation.Controllers
                     userDict.TryGetValue(i.UserId, out var commenter);
                     return new CommentDto(
                         i.Id,
+                        i.UserId,
                         commenter?.Name ?? "Unknown",
                         commenter?.Role.ToString() ?? "Unknown",
                         i.Content ?? "",
@@ -369,7 +416,7 @@ namespace Presentation.Controllers
         }
     }
 
-    public record CommentDto(Guid Id, string AuthorName, string AuthorRole, string Content, DateTime CreatedAt);
+    public record CommentDto(Guid Id, Guid AuthorId, string AuthorName, string AuthorRole, string Content, DateTime CreatedAt);
 
     public record PostWithCommentsResponse(
         Guid Id, string Title, string Content, string[] Tags,
