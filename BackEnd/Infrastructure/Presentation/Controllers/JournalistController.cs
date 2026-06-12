@@ -119,8 +119,9 @@ namespace Presentation.Controllers
             {
                 if (!Guid.TryParse(match.Source, out var matchedMediaId))
                 {
-                    // Unrecognised ID — treat as third-party, no post data available
-                    thirdPartyMatches.Add(new LocalCopyrightMatch(match.Similarity, null));
+                    // Source is not a GUID — could be a web result or a non-UUID local ID like "855".
+                    // Trust the IsWebMatch flag set by ImageCopyrightService.
+                    thirdPartyMatches.Add(new LocalCopyrightMatch(match.Similarity, null, IsWebMatch: match.IsWebMatch));
                     continue;
                 }
 
@@ -326,12 +327,17 @@ namespace Presentation.Controllers
                             imageBytes, file.FileName, journalist.Id);
 
                         if (check.IsDuplicate)
+                        {
+                            bool isWebViolation = check.Matches.Any(m => m.IsWebMatch);
                             return BadRequest(new
                             {
                                 Error   = "CopyrightViolation",
-                                Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
+                                Message = isWebViolation
+                                    ? $"Image '{file.FileName}' was found on the web and cannot be claimed as original content."
+                                    : $"Image '{file.FileName}' is already registered by another user on this platform and cannot be reused.",
                                 Matches = check.Matches
                             });
+                        }
                     }
 
                     // Determine IsCopyrighted flag for this image
@@ -363,7 +369,7 @@ namespace Presentation.Controllers
                             return BadRequest(new
                             {
                                 Error   = "CopyrightViolation",
-                                Message = $"Image '{file.FileName}' was found on the internet and cannot be claimed as yours.",
+                                Message = $"Image '{file.FileName}' was found on the web and cannot be claimed as original content.",
                                 Matches = storeResult.Matches
                             });
                     }
@@ -541,12 +547,17 @@ namespace Presentation.Controllers
                         imageBytes, file.FileName, requesterId);
 
                     if (check.IsDuplicate)
+                    {
+                        bool isWebViolation = check.Matches.Any(m => m.IsWebMatch);
                         return BadRequest(new
                         {
                             Error   = "CopyrightViolation",
-                            Message = $"Image '{file.FileName}' is copyrighted by another user and cannot be used.",
+                            Message = isWebViolation
+                                ? $"Image '{file.FileName}' was found on the web and cannot be claimed as original content."
+                                : $"Image '{file.FileName}' is already registered by another user on this platform and cannot be reused.",
                             Matches = check.Matches
                         });
+                    }
                 }
 
                 var isCopyrighted = isImage
@@ -574,7 +585,7 @@ namespace Presentation.Controllers
                         return BadRequest(new
                         {
                             Error   = "CopyrightViolation",
-                            Message = $"Image '{file.FileName}' was found on the internet and cannot be claimed as yours.",
+                            Message = $"Image '{file.FileName}' was found on the web and cannot be claimed as original content.",
                             Matches = storeResult.Matches
                         });
                 }
@@ -645,12 +656,17 @@ namespace Presentation.Controllers
                     imageBytes, fileName, GetUserId());
 
                 if (check.IsDuplicate)
+                {
+                    bool isWebViolation = check.Matches.Any(m => m.IsWebMatch);
                     return BadRequest(new
                     {
                         Error   = "CopyrightViolation",
-                        Message = "This image is already copyrighted by another user and cannot be marked as yours.",
+                        Message = isWebViolation
+                            ? "This image was found on the web and cannot be claimed as original content."
+                            : "This image is already registered by another user on this platform and cannot be marked as yours.",
                         Matches = check.Matches
                     });
+                }
 
                 // Store with web check (check_web=true)
                 var storeResult = await _copyright.StoreAsync(imageBytes, fileName, item.Id.ToString());
@@ -658,7 +674,7 @@ namespace Presentation.Controllers
                     return BadRequest(new
                     {
                         Error   = "CopyrightViolation",
-                        Message = "This image was found on the internet and cannot be claimed as yours.",
+                        Message = "This image was found on the web and cannot be claimed as original content.",
                         Matches = storeResult.Matches
                     });
             }
@@ -822,8 +838,8 @@ namespace Presentation.Controllers
 
     // ── Local copyright check result types ───────────────────────────────────
 
-    /// <summary>A single local DB match with the post that owns the registered image.</summary>
-    public record LocalCopyrightMatch(double Similarity, JournalistPostResponse? Post);
+    /// <summary>A single copyright match. IsWebMatch=true means it came from a web search, not the local DB.</summary>
+    public record LocalCopyrightMatch(double Similarity, JournalistPostResponse? Post, bool IsWebMatch = false);
 
     /// <summary>Result of the ownership-aware local copyright check.</summary>
     public record LocalCopyrightCheckResult(bool IsDuplicate, List<LocalCopyrightMatch> Matches);

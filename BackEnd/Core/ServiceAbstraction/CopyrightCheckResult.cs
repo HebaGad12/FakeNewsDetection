@@ -2,7 +2,12 @@ namespace ServicesAbstraction
 {
     public record CopyrightCheckResult(bool IsDuplicate, List<CopyrightMatch> Matches);
 
-    public record CopyrightMatch(string Source, double Similarity, string Path);
+    /// <summary>
+    /// A single copyright match returned by the Python API.
+    /// IsWebMatch=true  → match came from a web search (the image exists publicly on the internet).
+    /// IsWebMatch=false → match came from the local vector DB (another user on this platform registered it).
+    /// </summary>
+    public record CopyrightMatch(string Source, double Similarity, string Path, bool IsWebMatch = false);
 
     /// <summary>
     /// Calls the Python image copyright detection API.

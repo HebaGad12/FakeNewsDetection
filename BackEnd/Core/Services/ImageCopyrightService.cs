@@ -44,7 +44,8 @@ namespace Services
                 var matches = result.LocalMatches?.Select(m => new CopyrightMatch(
                     m.Id ?? "",
                     m.Similarity,
-                    m.Path ?? ""
+                    m.Path ?? "",
+                    IsWebMatch: false          // ← explicitly from local DB
                 )).ToList() ?? new List<CopyrightMatch>();
 
                 if (result.WebMatches != null)
@@ -52,7 +53,8 @@ namespace Services
                     matches.AddRange(result.WebMatches.Select(m => new CopyrightMatch(
                         m.Source ?? "",
                         m.Similarity,
-                        m.Url ?? ""
+                        m.Url ?? "",
+                        IsWebMatch: true       // ← explicitly from web search
                     )));
                 }
 
@@ -86,10 +88,10 @@ namespace Services
                     var matches = new List<CopyrightMatch>();
 
                     foreach (var m in rejection?.LocalMatches ?? new())
-                        matches.Add(new CopyrightMatch(m.Id ?? "", m.Similarity, m.Path ?? ""));
+                        matches.Add(new CopyrightMatch(m.Id ?? "", m.Similarity, m.Path ?? "", IsWebMatch: false));
 
                     foreach (var m in rejection?.WebMatches ?? new())
-                        matches.Add(new CopyrightMatch(m.Source ?? "", m.Similarity, m.Url ?? ""));
+                        matches.Add(new CopyrightMatch(m.Source ?? "", m.Similarity, m.Url ?? "", IsWebMatch: true));
 
                     return new CopyrightCheckResult(true, matches);
                 }
