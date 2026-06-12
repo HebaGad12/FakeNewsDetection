@@ -1,4 +1,4 @@
-﻿using Domain.Contracts;
+using Domain.Contracts;
 using Domain.Enums;
 using Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +20,7 @@ namespace Persistence.Repositories
                 .Include(p => p.Interactions)
                 .Include(p => p.Author)
                 .Include(p => p.OrganizationUser)
+                .Include(p => p.ModerationActions)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
         public async Task<IEnumerable<Post>> GetAllAsync() =>
