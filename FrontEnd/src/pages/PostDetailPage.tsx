@@ -98,6 +98,9 @@ export default function PostDetailPage() {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // Cache of commenter userId → blob URL for their avatar
+  const [commentAvatars, setCommentAvatars] = useState<Record<string, string>>({});
+
   const {
     isLiked, likesCount, toggleLike, addComment, deleteComment,
     isLiking, isCommenting, setIsLiked, setLikesCount,
@@ -163,18 +166,59 @@ export default function PostDetailPage() {
     if (id) loadPost();
   }, [id, setLikesCount, setIsLiked, user]);
 
+  // Fetch avatars for every unique commenter whenever the comments list changes
+  useEffect(() => {
+    const uniqueIds = [...new Set(
+      comments
+        .map((c) => c.authorId)
+        .filter((aid) => aid && !aid.startsWith("temp-") && !commentAvatars[aid])
+    )];
+    if (uniqueIds.length === 0) return;
+
+    uniqueIds.forEach((authorId) => {
+      userService.fetchPictureBlobUrl(authorId).then((url) => {
+        if (url) {
+          setCommentAvatars((prev) => ({ ...prev, [authorId]: url }));
+        }
+      }).catch(() => { /* no avatar — silently ignore */ });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments]);
+
   const handleAddComment = async () => {
     if (!commentInput.trim()) return;
+    const contentToPost = commentInput.trim();
     try {
       setCommentError(null);
-      await addComment(commentInput);
+      // Optimistically add the comment immediately so it appears for all users
+      const optimisticComment: PostComment = {
+        id: `temp-${Date.now()}`,
+        authorId: user?.id ?? "",
+        authorName: user?.name ?? "You",
+        authorRole: user?.role ?? "Reader",
+        content: contentToPost,
+        createdAt: new Date().toISOString(),
+      };
+      setComments((prev) => [...prev, optimisticComment]);
       setCommentInput("");
+
+      await addComment(contentToPost);
+
+      // Background refresh to get the server-authoritative comment (with real ID)
       if (post) {
-        const updatedPost = await postsService.getPostById(post.id);
-        if (updatedPost) setComments(Array.isArray(updatedPost.comments) ? updatedPost.comments : []);
+        try {
+          const updatedPost = await postsService.getPostById(post.id);
+          if (updatedPost && Array.isArray(updatedPost.comments) && updatedPost.comments.length > 0) {
+            setComments(updatedPost.comments);
+          }
+        } catch {
+          // Keep optimistic comment if refresh fails
+        }
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      // Remove optimistic comment on failure
+      setComments((prev) => prev.filter((c) => !c.id.startsWith("temp-")));
       setCommentError(err?.response?.data?.message || err?.message || "Failed to post comment.");
     }
   };
@@ -635,8 +679,16 @@ export default function PostDetailPage() {
                         className="group"
                       >
                         <div className="flex gap-3 sm:gap-4">
-                          <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
-                            {comment.authorName.charAt(0).toUpperCase()}
+                          <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold ring-1 ring-zinc-200 dark:ring-zinc-700">
+                            {comment.authorId && commentAvatars[comment.authorId] ? (
+                              <img
+                                src={commentAvatars[comment.authorId]}
+                                alt={comment.authorName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              comment.authorName.charAt(0).toUpperCase()
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 justify-between">

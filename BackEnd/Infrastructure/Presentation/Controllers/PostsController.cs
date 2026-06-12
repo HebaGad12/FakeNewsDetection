@@ -86,6 +86,7 @@ namespace Presentation.Controllers
                         userDict.TryGetValue(i.UserId, out var commenter);
                         return new CommentDto(
                             i.Id,
+                            i.UserId,
                             commenter?.Name ?? "Unknown",
                             commenter?.Role.ToString() ?? "Unknown",
                             i.Content ?? "",
@@ -166,6 +167,7 @@ namespace Presentation.Controllers
                     userDict.TryGetValue(i.UserId, out var commenter);
                     return new CommentDto(
                         i.Id,
+                        i.UserId,
                         commenter?.Name ?? "Unknown",
                         commenter?.Role.ToString() ?? "Unknown",
                         i.Content ?? "",
@@ -203,6 +205,7 @@ namespace Presentation.Controllers
                     userDict.TryGetValue(i.UserId, out var commenter);
                     return new CommentDto(
                         i.Id,
+                        i.UserId,
                         commenter?.Name ?? "Unknown",
                         commenter?.Role.ToString() ?? "Unknown",
                         i.Content ?? "",
@@ -369,7 +372,7 @@ namespace Presentation.Controllers
         }
     }
 
-    public record CommentDto(Guid Id, string AuthorName, string AuthorRole, string Content, DateTime CreatedAt);
+    public record CommentDto(Guid Id, Guid AuthorId, string AuthorName, string AuthorRole, string Content, DateTime CreatedAt);
 
     public record PostWithCommentsResponse(
         Guid Id, string Title, string Content, string[] Tags,
